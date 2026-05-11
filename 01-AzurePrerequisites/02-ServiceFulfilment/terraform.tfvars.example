@@ -1,0 +1,47 @@
+# Core Azure Configuration
+resource_group_name = "mft-rg"
+location            = "westeurope"
+prefix              = "mft-prod"
+
+# Tags
+tags = {
+  Purpose     = "MFT-ServiceFulfilment"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+}
+
+# Network Configuration
+vnet_address_space = ["10.1.0.0/16"]
+
+# Security Configuration - Replace with your actual IP addresses/ranges
+allowed_ip_ranges = [
+  "93.41.48.198/32",    # Example: Office IP
+  "203.0.113.0/24",     # Example: VPN range
+]
+
+# SSH Configuration - Replace with your actual public key
+ssh_admin_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-email@example.com"
+
+# ACR Configuration - Must match the ACR created in 01-ServiceDelivery
+acr_name = "mftprodacr"
+
+# SFTP VM Configuration
+sftp_vm_size = "Standard_B2s"
+
+# AKS Configuration
+aks_node_count = 2
+aks_node_size  = "Standard_B2s"
+
+# PostgreSQL Configuration
+postgres_version        = "14"
+postgres_sku_name       = "B_Standard_B1ms"
+postgres_storage_mb     = 32768
+postgres_admin_username = "psqladmin"
+postgres_admin_password = "YourSecurePassword123!"  # Change this!
+postgres_online_db_name = "mft_online"
+postgres_archive_db_name = "mft_archive"
+
+# Application Gateway Configuration
+app_gateway_sku_name  = "Standard_v2"
+app_gateway_sku_tier  = "Standard_v2"
+app_gateway_capacity  = 2
