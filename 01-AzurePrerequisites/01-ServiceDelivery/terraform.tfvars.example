@@ -80,3 +80,20 @@ azdo_service_principal_key = "your-service-principal-secret"
 
 # REQUIRED: Azure subscription name for the service connection
 azdo_subscription_name = "Your Subscription Name"
+
+
+# GitHub Configuration
+# REQUIRED: GitHub Personal Access Token for repository access
+# The PAT must have 'repo' scope to access private repositories
+github_pat = "your-github-personal-access-token"
+
+# REQUIRED: GitHub repository URL to import into Azure DevOps
+# Example: "https://github.com/your-org/your-repo.git"
+github_repo_url = "https://github.com/your-org/your-repo.git"
+
+# Optional: Name for the imported repository in Azure DevOps
+# github_repo_name = "imported-from-github"
+
+# Optional: Name of the GitHub service endpoint in Azure DevOps
+# azdo_github_service_endpoint_name = "GitHub-Connection"
+

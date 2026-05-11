@@ -148,3 +148,31 @@ output "azdo_service_endpoint_name" {
   description = "Name of the Azure RM service endpoint"
   value       = azuredevops_serviceendpoint_azurerm.main.service_endpoint_name
 }
+
+# GitHub Service Endpoint Outputs
+output "github_service_endpoint_id" {
+  description = "ID of the GitHub service endpoint"
+  value       = azuredevops_serviceendpoint_github.github.id
+}
+
+output "github_service_endpoint_name" {
+  description = "Name of the GitHub service endpoint"
+  value       = azuredevops_serviceendpoint_github.github.service_endpoint_name
+}
+
+# Git Repository Outputs
+output "imported_git_repository_id" {
+  description = "ID of the imported Git repository"
+  value       = azuredevops_git_repository.imported.id
+}
+
+output "imported_git_repository_name" {
+  description = "Name of the imported Git repository"
+  value       = azuredevops_git_repository.imported.name
+}
+
+output "imported_git_repository_url" {
+  description = "URL of the imported Git repository"
+  value       = azuredevops_git_repository.imported.remote_url
+}
+

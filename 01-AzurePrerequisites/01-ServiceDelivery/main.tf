@@ -247,6 +247,33 @@ resource "azuredevops_project" "main" {
   }
 }
 
+
+# Azure DevOps Service Endpoint for GitHub
+resource "azuredevops_serviceendpoint_github" "github" {
+  project_id            = azuredevops_project.main.id
+  service_endpoint_name = var.azdo_github_service_endpoint_name
+  description           = "GitHub service connection for ${var.azdo_project_name}"
+
+  auth_personal {
+    personal_access_token = var.github_pat
+  }
+}
+
+# Import Git Repository from GitHub
+resource "azuredevops_git_repository" "imported" {
+  project_id = azuredevops_project.main.id
+  name       = var.github_repo_name
+
+  initialization {
+    init_type   = "Import"
+    source_type = "Git"
+    source_url  = var.github_repo_url
+  }
+
+  depends_on = [azuredevops_serviceendpoint_github.github]
+}
+
+
 # Azure DevOps Agent Pool
 resource "azuredevops_agent_pool" "main" {
   name           = var.azdo_agent_pool_name

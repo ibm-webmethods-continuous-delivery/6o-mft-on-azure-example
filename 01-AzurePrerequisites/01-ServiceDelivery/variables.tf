@@ -202,3 +202,27 @@ variable "azdo_subscription_name" {
   description = "Name of the Azure subscription for the service connection"
   type        = string
 }
+# GitHub Configuration
+variable "github_pat" {
+  description = "GitHub Personal Access Token for repository access"
+  type        = string
+  sensitive   = true
+}
+
+variable "github_repo_url" {
+  description = "GitHub repository URL to import (e.g., https://github.com/org/repo.git)"
+  type        = string
+}
+
+variable "github_repo_name" {
+  description = "Name for the imported repository in Azure DevOps"
+  type        = string
+  default     = "imported-from-github"
+}
+
+variable "azdo_github_service_endpoint_name" {
+  description = "Name of the GitHub service endpoint in Azure DevOps"
+  type        = string
+  default     = "GitHub-Connection"
+}
+
