@@ -1,0 +1,82 @@
+# Core Azure Configuration
+# REQUIRED: Name of your existing resource group
+resource_group_name = "yourResourceGroupName"
+
+# REQUIRED: Azure region (e.g., "eastus", "westeurope")
+location = "yourLocation"
+
+# REQUIRED: Prefix for resource names (lowercase letters and numbers only)
+# Example: "smdazpj1"
+prefix = "yourprefix"
+
+# Optional: Override default resource names (if not set, will use prefix-based names)
+# nsg_name             = "customNSGName"
+# vnet_name            = "customVnetName"
+# subnet_name          = "customSubnetName"
+# vmss_name            = "customVmssName"
+# storage_account_name = "customsaname"  # 3-24 chars, lowercase letters and numbers only
+# storage_share_name   = "customsharename"
+# key_vault_name       = "customvaultname"
+# acr_name             = "customacrname"  # lowercase letters and numbers only
+
+# Optional: Network configuration
+# vnet_address_space = ["10.0.0.0/16"]
+
+# Optional: VMSS configuration
+# vmss_image          = "Canonical:0001-com-ubuntu-confidential-vm-focal:20_04-lts-cvm:latest"
+# vmss_sku            = "Standard_DS2_v2"
+# vmss_instance_count = 0
+
+# Optional: Storage configuration
+# storage_share_quota = 1024  # in GB
+
+# Optional: ACR configuration
+# acr_sku = "Basic"
+
+# Optional: Tags
+# tags = {
+#   Purpose     = "DevOps"
+#   Environment = "Development"
+# }
+
+# Must set  
+ssh_admin_pub_key = "Must Set"
+
+# Optional: Key Vault Network Access
+# List of IP addresses or CIDR ranges allowed to access the Key Vault
+# Add your public IP address to avoid "ForbiddenByFirewall" errors
+# Example: key_vault_allowed_ips = ["93.45.48.191", "10.0.0.0/24"]
+# key_vault_allowed_ips = []
+
+# Azure DevOps Configuration
+# REQUIRED: Azure DevOps organization service URL
+azdo_org_service_url = "https://dev.azure.com/yourorganization"
+
+# REQUIRED: Azure DevOps project name
+azdo_project_name = "YourProjectName"
+
+# Optional: Azure DevOps project description
+# azdo_project_description = "Service delivery project for MFT on Azure"
+
+# Optional: Azure DevOps project visibility (private or public)
+# azdo_project_visibility = "private"
+
+# REQUIRED: Azure DevOps agent pool name
+azdo_agent_pool_name = "YourAgentPoolName"
+
+# REQUIRED: Azure DevOps Personal Access Token (PAT) for agent registration
+# The PAT must have Agent Pools (Read & manage) permissions
+azdo_pat = "your-personal-access-token"
+
+# Optional: Azure RM service endpoint name
+# azdo_service_endpoint_name = "Azure-ServiceConnection"
+
+# REQUIRED: Service Principal (Application) ID for Azure DevOps service connection
+# This should be the same or a different service principal with appropriate permissions
+azdo_service_principal_id = "00000000-0000-0000-0000-000000000000"
+
+# REQUIRED: Service Principal (Application) secret/key
+azdo_service_principal_key = "your-service-principal-secret"
+
+# REQUIRED: Azure subscription name for the service connection
+azdo_subscription_name = "Your Subscription Name"

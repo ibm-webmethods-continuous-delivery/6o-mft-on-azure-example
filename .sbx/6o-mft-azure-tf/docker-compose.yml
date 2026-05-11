@@ -1,0 +1,22 @@
+services:
+  terraform:
+    # obtain this image using
+    #  https://github.com/ibm-webmethods-continuous-delivery/7u-container-images/tree/main/images/u/alpine/terraform
+    image: iwcd-terraform-u:alpine
+    container_name: iwcd-sbx-mft-azure-tf
+    hostname: iwcd-sbx-mft-azure-tf
+    read_only: true
+    environment:
+      - ARM_CLIENT_ID
+      - ARM_CLIENT_SECRET
+      - ARM_TENANT_ID
+      - ARM_SUBSCRIPTION_ID
+    volumes:
+      - ../..:/tf
+      - iwcd-mft-az-tf-home:/home/iwcd-tf/ # iwcd-tf fixed in the prerequisite image
+      - tmp:/tmp/
+    entrypoint: sleep infinity
+
+volumes:
+  iwcd-mft-az-tf-home:
+  tmp:
