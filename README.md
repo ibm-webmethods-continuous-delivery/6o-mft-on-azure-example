@@ -1,0 +1,1 @@
+# 6o-mft-on-azure-example
