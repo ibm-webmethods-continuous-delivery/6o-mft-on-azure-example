@@ -46,6 +46,14 @@ jobs:
   - job: BuildAndPush
     displayName: 'Build and Push ActiveTransfer Ingest Image'
     steps:
+      # Step 0: prepare environment
+      - script: |
+          set -e
+          sudo apt-get -qy update
+          sudo apt-get -qy upgrade
+          sudo apt-get -qy install curl docker git jq libicu70
+        displayName: 'Install necessary packages'
+
       # Step 1: Download IBM ACR credentials
       - task: DownloadSecureFile@1
         name: IBMACRCreds

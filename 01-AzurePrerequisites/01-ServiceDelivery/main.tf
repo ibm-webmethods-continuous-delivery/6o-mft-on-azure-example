@@ -133,23 +133,23 @@ resource "azurerm_linux_virtual_machine_scale_set" "main" {
     }
   }
 
-  # Custom script extension to install Azure DevOps agent
-  extension {
-    name                       = "InstallAzDoAgent"
-    publisher                  = "Microsoft.Azure.Extensions"
-    type                       = "CustomScript"
-    type_handler_version       = "2.1"
-    auto_upgrade_minor_version = true
+  # # Custom script extension to install Azure DevOps agent
+  # extension {
+  #   name                       = "InstallAzDoAgent"
+  #   publisher                  = "Microsoft.Azure.Extensions"
+  #   type                       = "CustomScript"
+  #   type_handler_version       = "2.1"
+  #   auto_upgrade_minor_version = true
 
-    protected_settings = jsonencode({
-      script = base64encode(templatefile("${path.module}/install-azdo-agent.sh", {
-        azdo_url          = var.azdo_org_service_url
-        azdo_pat          = var.azdo_pat
-        azdo_pool         = var.azdo_agent_pool_name
-        agent_name_prefix = local.vmss_name
-      }))
-    })
-  }
+  #   protected_settings = jsonencode({
+  #     script = base64encode(templatefile("${path.module}/install-azdo-agent.sh", {
+  #       azdo_url          = var.azdo_org_service_url
+  #       azdo_pat          = var.azdo_pat
+  #       azdo_pool         = var.azdo_agent_pool_name
+  #       agent_name_prefix = local.vmss_name
+  #     }))
+  #   })
+  # }
 
   depends_on = [
     azurerm_subnet_network_security_group_association.main,
