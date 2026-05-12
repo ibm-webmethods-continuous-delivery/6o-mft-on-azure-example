@@ -83,16 +83,13 @@ azdo_subscription_name = "Your Subscription Name"
 
 
 # GitHub Configuration
-# REQUIRED: GitHub Personal Access Token for repository access
-# The PAT must have 'repo' scope to access private repositories
+# REQUIRED: GitHub Personal Access Token for Azure Pipelines to access GitHub repositories
+# Required scopes:
+#   - repo: Full control of private repositories (read/write access to code, commit statuses, etc.)
+#   - admin:repo_hook: Full control of repository hooks (for webhook management)
+# Note: This creates a service connection only. GitHub remains the source of truth.
+# Azure Pipelines will reference the GitHub repository directly via this service connection.
 github_pat = "your-github-personal-access-token"
-
-# REQUIRED: GitHub repository URL to import into Azure DevOps
-# Example: "https://github.com/your-org/your-repo.git"
-github_repo_url = "https://github.com/your-org/your-repo.git"
-
-# Optional: Name for the imported repository in Azure DevOps
-# github_repo_name = "imported-from-github"
 
 # Optional: Name of the GitHub service endpoint in Azure DevOps
 # azdo_github_service_endpoint_name = "GitHub-Connection"

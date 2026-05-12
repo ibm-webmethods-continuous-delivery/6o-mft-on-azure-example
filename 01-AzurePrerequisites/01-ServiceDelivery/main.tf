@@ -259,20 +259,9 @@ resource "azuredevops_serviceendpoint_github" "github" {
   }
 }
 
-# Import Git Repository from GitHub
-resource "azuredevops_git_repository" "imported" {
-  project_id = azuredevops_project.main.id
-  name       = var.github_repo_name
-
-  initialization {
-    init_type   = "Import"
-    source_type = "Git"
-    source_url  = var.github_repo_url
-  }
-
-  depends_on = [azuredevops_serviceendpoint_github.github]
-}
-
+# GitHub Service Endpoint is configured above (azuredevops_serviceendpoint_github.github)
+# This allows Azure Pipelines to access the GitHub repository without importing/cloning it
+# Pipelines will reference the GitHub repo directly via the service connection
 
 # Azure DevOps Agent Pool
 resource "azuredevops_agent_pool" "main" {

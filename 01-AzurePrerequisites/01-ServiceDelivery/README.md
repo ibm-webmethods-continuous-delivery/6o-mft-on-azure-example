@@ -7,8 +7,15 @@
    - Agent Pools: Read & manage
    - Project and Team: Read, write, & manage
    - Service Connections: Read, query, & manage
-3. GitHub Personal Access Token (PAT) with scopes:
-   - `repo` - Full control of private repositories (required for importing)
+3. GitHub Personal Access Token (PAT) with **required** scopes:
+   - `repo` - Full control of private repositories (read/write access to code, commit statuses, deployments, etc.)
+   - `admin:repo_hook` - Full control of repository hooks (required for webhook management by Azure Pipelines)
+
+   **Note**: These scopes allow Azure Pipelines to:
+   - Clone and access repository content during pipeline runs
+   - Update commit statuses (e.g., build success/failure)
+   - Create and manage webhooks for CI/CD triggers
+   - Access repository metadata
 
 ## Quick Start
 
@@ -67,20 +74,7 @@ unset ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_SUBSCRIPTION_ID ARM_TENANT_ID
 unset AZDO_PERSONAL_ACCESS_TOKEN TF_VAR_azdo_pat
 unset TF_VAR_azdo_service_principal_id TF_VAR_azdo_service_principal_key
 unset TF_VAR_github_pat
-
-# Clear recent history (bash)
-history -d $(history 1)
 ```
-
-## Troubleshooting
-
-**Error: "You are not authorized to access Azure DevOps Organization"**
-- Ensure `AZDO_PERSONAL_ACCESS_TOKEN` is set (not just `TF_VAR_azdo_pat`)
-- Verify PAT has organization-level access and correct scopes
-
-**Agents not appearing in pool**
-- Wait 5-10 minutes after scaling VMSS
-- Check VMSS extension logs: `/var/log/azure/custom-script/handler.log`
 
 ## Resources Created
 
@@ -88,19 +82,41 @@ history -d $(history 1)
 - Azure DevOps agent pool (self-hosted)
 - Azure DevOps service connection (Azure RM)
 - Azure DevOps service connection (GitHub)
-- Git repository imported from GitHub
 - VMSS with auto-configured agents
 - Virtual network, subnet, NSG
 - Storage account with file share
 - Key Vault
 - Azure Container Registry
 
-## GitHub Integration
+## Architecture: GitHub Integration
 
-The Terraform configuration now includes automatic GitHub repository import:
+This configuration creates a **service connection** to GitHub, allowing Azure Pipelines to access your GitHub repositories directly:
 
 - **GitHub Service Endpoint**: Creates a service connection to GitHub using your PAT
-- **Repository Import**: Imports the specified GitHub repository into the Azure DevOps project
-- **Configuration**: Set `github_repo_url` in `terraform.tfvars` to your GitHub repository URL
+- **No Repository Cloning**: The GitHub repository is NOT imported or cloned into Azure DevOps
+- **Source of Truth**: GitHub remains the single source of truth for your code
+- **Pipeline Integration**: Azure Pipelines will reference the GitHub repository directly via the service connection
+- **Webhook Support**: The service connection enables Azure DevOps to create webhooks in GitHub for CI/CD triggers
 
-This ensures the Azure DevOps project Git repository is synchronized with your GitHub repository.
+### How It Works
+
+1. **Service Connection**: The `azuredevops_serviceendpoint_github` resource creates a connection to GitHub
+2. **Pipeline Configuration**: When you create Azure Pipelines (YAML or Classic), you'll reference your GitHub repository using this service connection
+3. **Triggers**: Pipelines can be triggered by GitHub events (push, pull request, etc.) via webhooks
+4. **No Duplication**: Your code stays in GitHub; Azure DevOps only accesses it when pipelines run
+
+### Azure DevOps Project Configuration
+
+- **Version Control**: The project is configured with `version_control = "Git"` but **no repositories are created**
+- **Purpose**: The project is used solely for:
+  - Running CI/CD pipelines that reference GitHub repositories
+  - Managing VMSS-based self-hosted agents
+  - Storing pipeline definitions (if not stored in GitHub)
+  - Managing work items, boards, and artifacts
+
+### Next Steps After Deployment
+
+1. Create Azure Pipelines (YAML or Classic) that reference your GitHub repository
+2. Configure pipeline triggers (push, PR, scheduled, manual)
+3. Use path filters to trigger specific pipelines based on changed folders (e.g., Dockerfiles, Helm charts)
+4. Keep Terraform operations manual as a prerequisite assurance convenience

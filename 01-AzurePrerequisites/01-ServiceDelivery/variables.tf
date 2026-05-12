@@ -204,20 +204,9 @@ variable "azdo_subscription_name" {
 }
 # GitHub Configuration
 variable "github_pat" {
-  description = "GitHub Personal Access Token for repository access"
+  description = "GitHub Personal Access Token for Azure Pipelines to access GitHub repositories. Required scopes: repo (full control of private repositories), admin:repo_hook (for webhook management)"
   type        = string
   sensitive   = true
-}
-
-variable "github_repo_url" {
-  description = "GitHub repository URL to import (e.g., https://github.com/org/repo.git)"
-  type        = string
-}
-
-variable "github_repo_name" {
-  description = "Name for the imported repository in Azure DevOps"
-  type        = string
-  default     = "imported-from-github"
 }
 
 variable "azdo_github_service_endpoint_name" {
