@@ -10,7 +10,7 @@ echo "Installing buildah prerequisites ..."
 sudo apt-get -qy install \
 	ca-certificates \
 	curl \
-	fuse-overlayfs
+	fuse-overlayfs \
 	gnupg2
 
 . /etc/os-release

@@ -78,8 +78,10 @@ jobs:
           set -e
           # shellcheck source=/dev/null
           . "$(IBMACRCreds.secureFilePath)"
-          echo "${IBM_WM_CR_PASSWORD}" | buildah login "$(IBM_WEBMETHODS_CONTAINERS_ACR)" \
-            -u "${IBM_WM_CR_USERNAME}" --password-stdin
+          echo "${IBM_WM_CR_PASSWORD}" | buildah login \
+            -u "${IBM_WM_CR_USERNAME}" \
+            --password-stdin \
+            "$(IBM_WEBMETHODS_CONTAINERS_ACR)"
         displayName: 'Login to IBM WebMethods ACR'
 
       # Step 5: Login to Destination ACR
@@ -87,8 +89,10 @@ jobs:
           set -e
           # shellcheck source=/dev/null
           . "$(DestACRCreds.secureFilePath)"
-          echo "${DEST_CR_PASSWORD}" | buildah login "$(DESTINATION_ACR)" \
-            -u "${DEST_CR_USERNAME}" --password-stdin
+          echo "${DEST_CR_PASSWORD}" | buildah login \
+            -u "${DEST_CR_USERNAME}" \
+            --password-stdin \
+            "$(DESTINATION_ACR)"
         displayName: 'Login to Destination ACR'
 
       # Step 6: Pull base image (optimization)
