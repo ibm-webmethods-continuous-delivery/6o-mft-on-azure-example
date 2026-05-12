@@ -123,7 +123,7 @@ jobs:
               --build-arg __active_transfer_ibm_image="$(IBM_ACTIVE_TRANSFER_IMAGE)" \
               --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
               -f "$(BUILD_CONTEXT)/Dockerfile" \
-              "$(BUILD_CONTEXT)"
+              "$(BUILD_CONTEXT)" \
                || exit 3
           
           # Export tag for later steps
