@@ -70,6 +70,7 @@ jobs:
           echo "Adding $USER to docker group ..."
           sudo usermod -aG docker $USER
           echo "restarting docker service ..."
+          sudo chmod 660 /var/run/docker.sock
           sudo systemctl restart docker
 
         displayName: 'Install necessary packages'
