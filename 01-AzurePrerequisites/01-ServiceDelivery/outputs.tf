@@ -175,59 +175,59 @@ output "acr_admin_password" {
   sensitive   = true
 }
 
-# Storage Account for Images
+# Storage Account for Images (using main storage account)
 output "images_storage_account_name" {
   description = "Name of the storage account for container images artifacts"
-  value       = azurerm_storage_account.images.name
+  value       = azurerm_storage_account.main.name
 }
 
 output "images_storage_share_name" {
   description = "Name of the file share for container images artifacts"
-  value       = azurerm_storage_share.images.name
+  value       = azurerm_storage_share.main.name
 }
 
 output "images_storage_account_key" {
   description = "Primary access key for the images storage account"
-  value       = azurerm_storage_account.images.primary_access_key
+  value       = azurerm_storage_account.main.primary_access_key
   sensitive   = true
 }
 
 # Secure Files Upload Instructions
 output "secure_files_instructions" {
   description = "Instructions for uploading secure files to Azure DevOps"
-  value = <<-EOT
-    
+  value       = <<-EOT
+
     ================================================================================
     IMPORTANT: Upload the following secure files via Azure DevOps UI
     ================================================================================
-    
+
     Navigate to: ${var.azdo_org_service_url}/${azuredevops_project.main.name}/_settings/adminservices
     Then go to: Pipelines → Secure files
-    
+
     1. ibm-webmethods-acr.env
        Format (plain text file):
        ---
        IBM_WM_CR_USERNAME=your_ibm_username
        IBM_WM_CR_PASSWORD=your_ibm_password
        ---
-    
+
     2. destination-acr.env
        Format (plain text file):
        ---
        DEST_CR_USERNAME=${azurerm_container_registry.main.admin_username}
        DEST_CR_PASSWORD=<get from: terraform output -raw acr_admin_password>
        ---
-    
+
     3. sa.share.secrets.sh
        Format (shell script):
        ---
-       STORAGE_ACCOUNT_NAME=${azurerm_storage_account.images.name}
-       SHARE_NAME=${azurerm_storage_share.images.name}
+       STORAGE_ACCOUNT_NAME=${azurerm_storage_account.main.name}
+       SHARE_NAME=${azurerm_storage_share.main.name}
        STORAGE_ACCOUNT_KEY=<get from: terraform output -raw images_storage_account_key>
        ---
-    
+
     After uploading, ensure each file has "Authorize for use in all pipelines" enabled.
-    
+
     ================================================================================
   EOT
 }

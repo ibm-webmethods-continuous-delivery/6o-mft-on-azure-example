@@ -1,20 +1,13 @@
 # Azure DevOps Secure Files
-# Defines secure file placeholders that must be uploaded via Azure DevOps UI
-
-resource "azuredevops_securefile" "ibm_acr_credentials" {
-  project_id  = azuredevops_project.main.id
-  name        = "ibm-webmethods-acr.env"
-  description = "IBM WebMethods ACR credentials - Upload via UI after terraform apply"
-}
-
-resource "azuredevops_securefile" "destination_acr_credentials" {
-  project_id  = azuredevops_project.main.id
-  name        = "destination-acr.env"
-  description = "Destination ACR credentials - Upload via UI after terraform apply"
-}
-
-resource "azuredevops_securefile" "storage_account_secrets" {
-  project_id  = azuredevops_project.main.id
-  name        = "sa.share.secrets.sh"
-  description = "Storage Account secrets for artifacts share - Upload via UI after terraform apply"
-}
+# NOTE: The azuredevops_securefile resource type is not supported by the Azure DevOps provider.
+# Secure files must be uploaded manually via the Azure DevOps UI.
+#
+# After running terraform apply, navigate to:
+# Azure DevOps Project → Pipelines → Library → Secure files
+#
+# Upload the following files manually:
+# 1. ibm-webmethods-acr.env - IBM WebMethods ACR credentials
+# 2. destination-acr.env - Destination ACR credentials
+# 3. sa.share.secrets.sh - Storage Account secrets for artifacts share
+#
+# See the 'secure_files_instructions' output for detailed content format.

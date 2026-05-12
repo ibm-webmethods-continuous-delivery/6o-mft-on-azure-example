@@ -4,7 +4,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 4.0"
     }
     azuredevops = {
       source  = "microsoft/azuredevops"
@@ -171,10 +171,10 @@ resource "azurerm_storage_account" "main" {
 
 # File Share in Storage Account
 resource "azurerm_storage_share" "main" {
-  name                 = local.storage_share_name
-  storage_account_name = azurerm_storage_account.main.name
-  access_tier          = "TransactionOptimized"
-  quota                = var.storage_share_quota
+  name               = local.storage_share_name
+  storage_account_id = azurerm_storage_account.main.id
+  access_tier        = "TransactionOptimized"
+  quota              = var.storage_share_quota
 }
 
 # Key Vault with network restrictions
@@ -247,6 +247,14 @@ resource "azuredevops_project" "main" {
   }
 }
 
+# # Azure DevOps Git Repository
+# resource "azuredevops_git_repository" "main" {
+#   project_id = azuredevops_project.main.id
+#   name       = var.azdo_project_name
+#   initialization {
+#     init_type = "Clean"
+#   }
+# }
 
 # Azure DevOps Service Endpoint for GitHub
 resource "azuredevops_serviceendpoint_github" "github" {

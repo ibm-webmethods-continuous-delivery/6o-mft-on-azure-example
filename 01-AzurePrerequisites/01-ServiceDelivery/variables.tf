@@ -177,15 +177,14 @@ variable "azdo_agent_pool_name" {
 variable "azdo_pat" {
   description = "Azure DevOps Personal Access Token (PAT) for agent registration"
   type        = string
+  sensitive   = true
+}
 
 # IBM WebMethods Container Registry Configuration
 variable "ibm_webmethods_acr_url" {
   description = "IBM WebMethods Container Registry URL"
   type        = string
   default     = "ibmwebmethods.azurecr.io"
-}
-
-  sensitive   = true
 }
 
 variable "azdo_service_endpoint_name" {
@@ -221,5 +220,17 @@ variable "azdo_github_service_endpoint_name" {
   description = "Name of the GitHub service endpoint in Azure DevOps"
   type        = string
   default     = "GitHub-Connection"
+}
+
+variable "github_repository" {
+  description = "GitHub repository identifier in format 'owner/repo-name'"
+  type        = string
+  default     = "ibm-webmethods-continuous-delivery/6o-mft-on-azure-example"
+}
+
+variable "github_branch" {
+  description = "Default branch name for the GitHub repository"
+  type        = string
+  default     = "main"
 }
 

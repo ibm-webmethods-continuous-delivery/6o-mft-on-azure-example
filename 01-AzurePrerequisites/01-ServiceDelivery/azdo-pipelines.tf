@@ -1,5 +1,5 @@
 # Azure DevOps Pipeline Definitions
-# Defines build pipelines for container images
+# Defines build pipelines for container images from external GitHub repository
 
 resource "azuredevops_build_definition" "ingest_at" {
   project_id = azuredevops_project.main.id
@@ -11,9 +11,10 @@ resource "azuredevops_build_definition" "ingest_at" {
   }
 
   repository {
-    repo_type   = "TfsGit"
-    repo_id     = azuredevops_git_repository.main.id
-    branch_name = azuredevops_git_repository.main.default_branch
-    yml_path    = "pipelines/azure/ingest-at.yaml"
+    repo_type             = "GitHub"
+    repo_id               = var.github_repository
+    branch_name           = "refs/heads/${var.github_branch}"
+    yml_path              = "pipelines/azure/ingest-at.yaml"
+    service_connection_id = azuredevops_serviceendpoint_github.github.id
   }
 }
