@@ -177,6 +177,14 @@ variable "azdo_agent_pool_name" {
 variable "azdo_pat" {
   description = "Azure DevOps Personal Access Token (PAT) for agent registration"
   type        = string
+
+# IBM WebMethods Container Registry Configuration
+variable "ibm_webmethods_acr_url" {
+  description = "IBM WebMethods Container Registry URL"
+  type        = string
+  default     = "ibmwebmethods.azurecr.io"
+}
+
   sensitive   = true
 }
 

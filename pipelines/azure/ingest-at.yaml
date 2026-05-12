@@ -1,0 +1,217 @@
+# Azure DevOps Pipeline for ActiveTransfer Ingest Image
+# Builds and pushes the ActiveTransfer ingest container image
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - 02-ContainerImages/01-active-transfer-ingest/**
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - 02-ContainerImages/01-active-transfer-ingest/**
+
+schedules:
+  - cron: "3 3 3 * *"
+    displayName: 'Monthly build - 3rd of every month at 03:03 UTC'
+    branches:
+      include:
+        - main
+    always: true
+
+variables:
+  - group: Pipeline-Configuration
+  - name: IBM_ACTIVE_TRANSFER_IMAGE
+    value: 'ibmwebmethods.azurecr.io/webmethods-activetransfer'
+  - name: IBM_ACTIVE_TRANSFER_IMAGE_TAG
+    value: '11.1.0.4'
+  - name: DEST_IMAGE_NAME
+    value: 'active-transfer-ingest'
+  - name: BUILD_CONTEXT
+    value: '02-ContainerImages/01-active-transfer-ingest'
+
+pool:
+  name: $(AGENT_POOL_NAME)
+
+jobs:
+  - job: BuildAndPush
+    displayName: 'Build and Push ActiveTransfer Ingest Image'
+    steps:
+      # Step 1: Download IBM ACR credentials
+      - task: DownloadSecureFile@1
+        name: IBMACRCreds
+        displayName: 'Download IBM ACR Credentials'
+        inputs:
+          secureFile: 'ibm-webmethods-acr.env'
+
+      # Step 2: Download Destination ACR credentials
+      - task: DownloadSecureFile@1
+        name: DestACRCreds
+        displayName: 'Download Destination ACR Credentials'
+        inputs:
+          secureFile: 'destination-acr.env'
+
+      # Step 3: Download Storage Account secrets
+      - task: DownloadSecureFile@1
+        name: SASecrets
+        displayName: 'Download Storage Account Secrets'
+        inputs:
+          secureFile: 'sa.share.secrets.sh'
+
+      # Step 4: Login to IBM WebMethods ACR
+      - script: |
+          set -e
+          # shellcheck source=/dev/null
+          . "$(IBMACRCreds.secureFilePath)"
+          echo "${IBM_WM_CR_PASSWORD}" | docker login "$(IBM_WEBMETHODS_CONTAINERS_ACR)" \
+            -u "${IBM_WM_CR_USERNAME}" --password-stdin
+        displayName: 'Login to IBM WebMethods ACR'
+
+      # Step 5: Login to Destination ACR
+      - script: |
+          set -e
+          # shellcheck source=/dev/null
+          . "$(DestACRCreds.secureFilePath)"
+          echo "${DEST_CR_PASSWORD}" | docker login "$(DESTINATION_ACR)" \
+            -u "${DEST_CR_USERNAME}" --password-stdin
+        displayName: 'Login to Destination ACR'
+
+      # Step 6: Pull base image (optimization)
+      - script: |
+          set -e
+          echo "Pulling base image: $(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
+          docker pull "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
+        displayName: 'Pull Base Image'
+
+      # Step 7: Build and tag image
+      - script: |
+          set -e
+          
+          # Construct tag
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date +%Y%m%d)
+          IMAGE_TAG="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)-${BUILD_DATE}-${COMMIT_SHA}"
+          
+          echo "Building image with tag: ${IMAGE_TAG}"
+          
+          # Build image
+          docker buildx build \
+            -t "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}" \
+            --build-arg __active_transfer_ibm_image="$(IBM_ACTIVE_TRANSFER_IMAGE)" \
+            --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
+            -f "$(BUILD_CONTEXT)/Dockerfile" \
+            "$(BUILD_CONTEXT)"
+          
+          # Export tag for later steps
+          echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
+          echo "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
+        displayName: 'Build Image'
+        workingDirectory: $(Build.SourcesDirectory)
+
+      # Step 8: Push versioned tag
+      - script: |
+          set -e
+          echo "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+          docker push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+        displayName: 'Push Versioned Image'
+
+      # Step 9: Tag and push latest (main branch only)
+      - script: |
+          set -e
+          echo "Tagging as latest"
+          docker tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
+            "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+          
+          echo "Pushing latest tag"
+          docker push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+        displayName: 'Push Latest Tag'
+        condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+
+      # Step 10: Mount artifacts storage account
+      - script: |
+          set -e
+          # shellcheck source=/dev/null
+          . "$(SASecrets.secureFilePath)"
+          
+          echo "Mounting storage account: ${STORAGE_ACCOUNT_NAME}"
+          sudo mkdir -p /mnt/artifacts
+          sudo mount -t cifs "//${STORAGE_ACCOUNT_NAME}.file.core.windows.net/${SHARE_NAME}" /mnt/artifacts \
+            -o vers=3.0,username="${STORAGE_ACCOUNT_NAME}",password="${STORAGE_ACCOUNT_KEY}",dir_mode=0777,file_mode=0777
+          
+          echo "Storage account mounted successfully"
+        displayName: 'Mount Artifacts Share'
+
+      # Step 11: Save build artifacts
+      - script: |
+          set -e
+          
+          # Create artifact directory with date and build info
+          YEAR=$(date +%Y)
+          MONTH=$(date +%m)
+          DAY=$(date +%d)
+          ARTIFACT_DIR="/mnt/artifacts/artifacts/${YEAR}/${MONTH}/${DAY}/ingest-at/$(Build.BuildId)-$(Build.BuildNumber)"
+          
+          echo "Creating artifact directory: ${ARTIFACT_DIR}"
+          mkdir -p "${ARTIFACT_DIR}"
+          
+          # Save build metadata
+          cat > "${ARTIFACT_DIR}/build-info.json" <<EOF
+          {
+            "buildId": "$(Build.BuildId)",
+            "buildNumber": "$(Build.BuildNumber)",
+            "sourceVersion": "$(Build.SourceVersion)",
+            "sourceBranch": "$(Build.SourceBranchName)",
+            "imageTag": "$(FINAL_IMAGE_TAG)",
+            "baseImage": "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)",
+            "destinationImage": "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)",
+            "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "$(Build.Repository.Name)",
+            "commitMessage": "$(Build.SourceVersionMessage)"
+          }
+          EOF
+          
+          # Copy Dockerfile used for the build
+          cp "$(BUILD_CONTEXT)/Dockerfile" "${ARTIFACT_DIR}/dockerfile-used.txt"
+          
+          # Create a build summary
+          cat > "${ARTIFACT_DIR}/build-summary.txt" <<EOF
+          ActiveTransfer Ingest Image Build Summary
+          ==========================================
+          
+          Build ID: $(Build.BuildId)
+          Build Number: $(Build.BuildNumber)
+          Build Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          Source Information:
+          - Branch: $(Build.SourceBranchName)
+          - Commit: $(Build.SourceVersion)
+          - Message: $(Build.SourceVersionMessage)
+          
+          Image Information:
+          - Base Image: $(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)
+          - Destination: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)
+          - Latest Tag: $(if [ "$(Build.SourceBranchName)" = "main" ]; then echo "Yes"; else echo "No"; fi)
+          
+          Artifacts Location: ${ARTIFACT_DIR}
+          EOF
+          
+          echo "Artifacts saved to: ${ARTIFACT_DIR}"
+          ls -la "${ARTIFACT_DIR}"
+        displayName: 'Save Build Artifacts'
+        condition: succeededOrFailed()
+
+      # Step 12: Unmount storage account (always runs)
+      - script: |
+          echo "Unmounting storage account"
+          sudo umount /mnt/artifacts || true
+          echo "Storage account unmounted"
+        displayName: 'Unmount Artifacts Share'
+        condition: always()

@@ -159,3 +159,91 @@ output "github_service_endpoint_name" {
   description = "Name of the GitHub service endpoint"
   value       = azuredevops_serviceendpoint_github.github.service_endpoint_name
 }
+
+
+
+# Container Registry Admin Credentials
+output "acr_admin_username" {
+  description = "Admin username for the Azure Container Registry"
+  value       = azurerm_container_registry.main.admin_username
+  sensitive   = true
+}
+
+output "acr_admin_password" {
+  description = "Admin password for the Azure Container Registry"
+  value       = azurerm_container_registry.main.admin_password
+  sensitive   = true
+}
+
+# Storage Account for Images
+output "images_storage_account_name" {
+  description = "Name of the storage account for container images artifacts"
+  value       = azurerm_storage_account.images.name
+}
+
+output "images_storage_share_name" {
+  description = "Name of the file share for container images artifacts"
+  value       = azurerm_storage_share.images.name
+}
+
+output "images_storage_account_key" {
+  description = "Primary access key for the images storage account"
+  value       = azurerm_storage_account.images.primary_access_key
+  sensitive   = true
+}
+
+# Secure Files Upload Instructions
+output "secure_files_instructions" {
+  description = "Instructions for uploading secure files to Azure DevOps"
+  value = <<-EOT
+    
+    ================================================================================
+    IMPORTANT: Upload the following secure files via Azure DevOps UI
+    ================================================================================
+    
+    Navigate to: ${var.azdo_org_service_url}/${azuredevops_project.main.name}/_settings/adminservices
+    Then go to: Pipelines → Secure files
+    
+    1. ibm-webmethods-acr.env
+       Format (plain text file):
+       ---
+       IBM_WM_CR_USERNAME=your_ibm_username
+       IBM_WM_CR_PASSWORD=your_ibm_password
+       ---
+    
+    2. destination-acr.env
+       Format (plain text file):
+       ---
+       DEST_CR_USERNAME=${azurerm_container_registry.main.admin_username}
+       DEST_CR_PASSWORD=<get from: terraform output -raw acr_admin_password>
+       ---
+    
+    3. sa.share.secrets.sh
+       Format (shell script):
+       ---
+       STORAGE_ACCOUNT_NAME=${azurerm_storage_account.images.name}
+       SHARE_NAME=${azurerm_storage_share.images.name}
+       STORAGE_ACCOUNT_KEY=<get from: terraform output -raw images_storage_account_key>
+       ---
+    
+    After uploading, ensure each file has "Authorize for use in all pipelines" enabled.
+    
+    ================================================================================
+  EOT
+}
+
+# Pipeline Configuration
+output "pipeline_variable_group_id" {
+  description = "ID of the Pipeline-Configuration variable group"
+  value       = azuredevops_variable_group.pipeline_configuration.id
+}
+
+output "pipeline_definition_id" {
+  description = "ID of the ActiveTransfer-Ingest pipeline definition"
+  value       = azuredevops_build_definition.ingest_at.id
+}
+
+output "pipeline_url" {
+  description = "URL to the ActiveTransfer-Ingest pipeline"
+  value       = "${var.azdo_org_service_url}/${azuredevops_project.main.name}/_build?definitionId=${azuredevops_build_definition.ingest_at.id}"
+}
