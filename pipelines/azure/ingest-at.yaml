@@ -48,32 +48,9 @@ jobs:
     steps:
       # Step 0: prepare environment
       - script: |
-          set -e
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get -qy update
-          sudo apt-get -qy upgrade
-          sudo apt-get -qy install ca-certificates curl git jq
-          sudo apt-get -qy remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-          sudo install -m 0755 -d /etc/apt/keyrings
-          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-          sudo chmod a+r /etc/apt/keyrings/docker.asc
-          sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
-          Types: deb
-          URIs: https://download.docker.com/linux/ubuntu
-          Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-          Components: stable
-          Architectures: $(dpkg --print-architecture)
-          Signed-By: /etc/apt/keyrings/docker.asc
-          EOF
-          sudo apt-get -qy update
-          sudo apt-get -qy install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-          echo "Adding $USER to docker group ..."
-          sudo usermod -aG docker $USER
-          echo "restarting docker service ..."
-          sudo chmod 660 /var/run/docker.sock
-          sudo systemctl restart docker
-
-        displayName: 'Install necessary packages'
+          chmod +x pipelines/azure/scripts/install-buildah-ubuntu.sh
+          pipelines/azure/scripts/install-buildah-ubuntu.sh
+        displayName: 'Install buildah'
 
       # Step 1: Download IBM ACR credentials
       - task: DownloadSecureFile@1
@@ -101,7 +78,7 @@ jobs:
           set -e
           # shellcheck source=/dev/null
           . "$(IBMACRCreds.secureFilePath)"
-          echo "${IBM_WM_CR_PASSWORD}" | docker login "$(IBM_WEBMETHODS_CONTAINERS_ACR)" \
+          echo "${IBM_WM_CR_PASSWORD}" | buildah login "$(IBM_WEBMETHODS_CONTAINERS_ACR)" \
             -u "${IBM_WM_CR_USERNAME}" --password-stdin
         displayName: 'Login to IBM WebMethods ACR'
 
@@ -110,7 +87,7 @@ jobs:
           set -e
           # shellcheck source=/dev/null
           . "$(DestACRCreds.secureFilePath)"
-          echo "${DEST_CR_PASSWORD}" | docker login "$(DESTINATION_ACR)" \
+          echo "${DEST_CR_PASSWORD}" | buildah login "$(DESTINATION_ACR)" \
             -u "${DEST_CR_USERNAME}" --password-stdin
         displayName: 'Login to Destination ACR'
 
@@ -118,7 +95,7 @@ jobs:
       - script: |
           set -e
           echo "Pulling base image: $(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
-          docker pull "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
+          buildah pull "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
         displayName: 'Pull Base Image'
 
       # Step 7: Build and tag image
@@ -133,13 +110,18 @@ jobs:
           echo "Building image with tag: ${IMAGE_TAG}"
 
           # Build image
-          docker buildx build \
-            -t "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}" \
-            --build-arg __active_transfer_ibm_image="$(IBM_ACTIVE_TRANSFER_IMAGE)" \
-            --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
-            -f "$(BUILD_CONTEXT)/Dockerfile" \
-            "$(BUILD_CONTEXT)"
 
+          buildah \
+            --storage-opt mount_program=/usr/bin/fuse-overlayfs \
+            --storage-opt ignore_chown_errors=true \
+            bud \
+              -t "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}" \
+              --build-arg __active_transfer_ibm_image="$(IBM_ACTIVE_TRANSFER_IMAGE)" \
+              --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
+              -f "$(BUILD_CONTEXT)/Dockerfile" \
+              "$(BUILD_CONTEXT)"
+               || exit 3
+          
           # Export tag for later steps
           echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
           echo "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
@@ -150,18 +132,18 @@ jobs:
       - script: |
           set -e
           echo "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
-          docker push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+          buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
         displayName: 'Push Versioned Image'
 
       # Step 9: Tag and push latest (main branch only)
       - script: |
           set -e
           echo "Tagging as latest"
-          docker tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
+          buildah tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
             "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
 
           echo "Pushing latest tag"
-          docker push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+          buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
         displayName: 'Push Latest Tag'
         condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
 
