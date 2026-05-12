@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 apt-get -qy update
 apt-get -qy upgrade

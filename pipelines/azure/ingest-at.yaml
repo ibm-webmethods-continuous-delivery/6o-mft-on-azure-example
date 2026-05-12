@@ -51,7 +51,7 @@ jobs:
           set -e
           sudo apt-get -qy update
           sudo apt-get -qy upgrade
-          sudo apt-get -qy install curl docker git jq libicu70
+          sudo apt-get -qy install curl docker git jq
         displayName: 'Install necessary packages'
 
       # Step 1: Download IBM ACR credentials
