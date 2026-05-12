@@ -112,6 +112,10 @@ output "acr_login_server" {
 }
 
 # Azure DevOps Project
+output "azdo_org_service_url" {
+  value = var.azdo_org_service_url
+}
+
 output "azdo_project_id" {
   description = "ID of the Azure DevOps project"
   value       = azuredevops_project.main.id

@@ -94,14 +94,14 @@ jobs:
       # Step 7: Build and tag image
       - script: |
           set -e
-          
+
           # Construct tag
           COMMIT_SHA=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date +%Y%m%d)
           IMAGE_TAG="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)-${BUILD_DATE}-${COMMIT_SHA}"
-          
+
           echo "Building image with tag: ${IMAGE_TAG}"
-          
+
           # Build image
           docker buildx build \
             -t "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}" \
@@ -109,7 +109,7 @@ jobs:
             --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
             -f "$(BUILD_CONTEXT)/Dockerfile" \
             "$(BUILD_CONTEXT)"
-          
+
           # Export tag for later steps
           echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
           echo "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
@@ -129,39 +129,40 @@ jobs:
           echo "Tagging as latest"
           docker tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
             "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
-          
+
           echo "Pushing latest tag"
           docker push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
         displayName: 'Push Latest Tag'
         condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
 
-      # Step 10: Mount artifacts storage account
-      - script: |
-          set -e
-          # shellcheck source=/dev/null
-          . "$(SASecrets.secureFilePath)"
-          
-          echo "Mounting storage account: ${STORAGE_ACCOUNT_NAME}"
-          sudo mkdir -p /mnt/artifacts
-          sudo mount -t cifs "//${STORAGE_ACCOUNT_NAME}.file.core.windows.net/${SHARE_NAME}" /mnt/artifacts \
-            -o vers=3.0,username="${STORAGE_ACCOUNT_NAME}",password="${STORAGE_ACCOUNT_KEY}",dir_mode=0777,file_mode=0777
-          
-          echo "Storage account mounted successfully"
-        displayName: 'Mount Artifacts Share'
+      # # Step 10: Mount artifacts storage account
+      # - script: |
+      #     set -e
+      #   displayName: 'Mount Artifacts Share'
 
       # Step 11: Save build artifacts
       - script: |
           set -e
-          
+
+          # shellcheck source=/dev/null
+          . "$(SASecrets.secureFilePath)"
+
+          echo "Mounting storage account: ${STORAGE_ACCOUNT_NAME}"
+          sudo mkdir -p /mnt/artifacts
+          sudo mount -t cifs "//${STORAGE_ACCOUNT_NAME}.file.core.windows.net/${SHARE_NAME}" /mnt/artifacts \
+            -o vers=3.0,username="${STORAGE_ACCOUNT_NAME}",password="${STORAGE_ACCOUNT_KEY}",dir_mode=0777,file_mode=0777
+
+          echo "Storage account mounted successfully"
+
           # Create artifact directory with date and build info
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
           ARTIFACT_DIR="/mnt/artifacts/artifacts/${YEAR}/${MONTH}/${DAY}/ingest-at/$(Build.BuildId)-$(Build.BuildNumber)"
-          
+
           echo "Creating artifact directory: ${ARTIFACT_DIR}"
           mkdir -p "${ARTIFACT_DIR}"
-          
+
           # Save build metadata
           cat > "${ARTIFACT_DIR}/build-info.json" <<EOF
           {
@@ -177,32 +178,32 @@ jobs:
             "commitMessage": "$(Build.SourceVersionMessage)"
           }
           EOF
-          
+
           # Copy Dockerfile used for the build
           cp "$(BUILD_CONTEXT)/Dockerfile" "${ARTIFACT_DIR}/dockerfile-used.txt"
-          
+
           # Create a build summary
           cat > "${ARTIFACT_DIR}/build-summary.txt" <<EOF
           ActiveTransfer Ingest Image Build Summary
           ==========================================
-          
+
           Build ID: $(Build.BuildId)
           Build Number: $(Build.BuildNumber)
           Build Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
-          
+
           Source Information:
           - Branch: $(Build.SourceBranchName)
           - Commit: $(Build.SourceVersion)
           - Message: $(Build.SourceVersionMessage)
-          
+
           Image Information:
           - Base Image: $(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)
           - Destination: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)
           - Latest Tag: $(if [ "$(Build.SourceBranchName)" = "main" ]; then echo "Yes"; else echo "No"; fi)
-          
+
           Artifacts Location: ${ARTIFACT_DIR}
           EOF
-          
+
           echo "Artifacts saved to: ${ARTIFACT_DIR}"
           ls -la "${ARTIFACT_DIR}"
         displayName: 'Save Build Artifacts'
