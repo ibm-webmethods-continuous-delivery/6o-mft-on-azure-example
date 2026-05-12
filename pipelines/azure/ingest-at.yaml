@@ -9,6 +9,7 @@ trigger:
   paths:
     include:
       - 02-ContainerImages/01-active-transfer-ingest/**
+      - pipelines/azure/ingest-at.yaml
 
 pr:
   branches:
