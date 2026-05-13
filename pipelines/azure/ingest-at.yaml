@@ -289,7 +289,7 @@ jobs:
           Artifacts Location: ${ARTIFACT_DIR}
           EOF
 
-          tar czf ${ARTIFACT_DIR}"/audit.tgz "${PU_AUDIT_BASE_DIR}"
+          tar czf "${ARTIFACT_DIR}/audit.tgz" "${PU_AUDIT_BASE_DIR}"
 
           echo "Artifacts saved to: ${ARTIFACT_DIR}"
           ls -la "${ARTIFACT_DIR}"
