@@ -371,15 +371,17 @@ resource "azurerm_linux_virtual_machine" "sftp_vm_2" {
   }))
 }
 
-# Grant ACR Pull access to SFTP VM 1
+# Grant ACR Pull access to SFTP VM 1 (optional, controlled by variable)
 resource "azurerm_role_assignment" "sftp_vm_1_acr" {
+  count                = var.enable_sftp_vm_acr_role ? 1 : 0
   scope                = data.azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_linux_virtual_machine.sftp_vm_1.identity[0].principal_id
 }
 
-# Grant ACR Pull access to SFTP VM 2
+# Grant ACR Pull access to SFTP VM 2 (optional, controlled by variable)
 resource "azurerm_role_assignment" "sftp_vm_2_acr" {
+  count                = var.enable_sftp_vm_acr_role ? 1 : 0
   scope                = data.azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_linux_virtual_machine.sftp_vm_2.identity[0].principal_id
@@ -391,6 +393,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   location            = var.location
   resource_group_name = data.azurerm_resource_group.main.name
   dns_prefix          = "${var.prefix}-aks"
+  oidc_issuer_enabled = true
   tags                = var.tags
 
   default_node_pool {
@@ -410,8 +413,9 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 }
 
-# Grant ACR Pull access to AKS
+# Grant ACR Pull access to AKS (optional, controlled by variable)
 resource "azurerm_role_assignment" "aks_acr" {
+  count                = var.enable_aks_acr_role ? 1 : 0
   scope                = data.azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
@@ -443,10 +447,16 @@ resource "azurerm_postgresql_flexible_server" "main" {
   private_dns_zone_id    = azurerm_private_dns_zone.postgres.id
   administrator_login    = var.postgres_admin_username
   administrator_password = var.postgres_admin_password
-  zone                   = "1"
-  storage_mb             = var.postgres_storage_mb
-  sku_name               = var.postgres_sku_name
-  tags                   = var.tags
+  # zone                          = "2"
+  lifecycle {
+    ignore_changes = [
+      zone
+    ]
+  }
+  storage_mb                    = var.postgres_storage_mb
+  sku_name                      = var.postgres_sku_name
+  public_network_access_enabled = false
+  tags                          = var.tags
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres]
 }
@@ -488,6 +498,11 @@ resource "azurerm_application_gateway" "main" {
     name     = var.app_gateway_sku_name
     tier     = var.app_gateway_sku_tier
     capacity = var.app_gateway_capacity
+  }
+
+  ssl_policy {
+    policy_type = "Predefined"
+    policy_name = "AppGwSslPolicy20220101"
   }
 
   gateway_ip_configuration {

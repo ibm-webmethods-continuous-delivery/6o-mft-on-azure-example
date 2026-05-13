@@ -98,6 +98,19 @@ variable "acr_name" {
   type        = string
 }
 
+# ACR Role Assignment Configuration
+variable "enable_sftp_vm_acr_role" {
+  description = "Enable ACR Pull role assignment for SFTP VMs"
+  type        = bool
+  default     = false
+}
+
+variable "enable_aks_acr_role" {
+  description = "Enable ACR Pull role assignment for AKS cluster"
+  type        = bool
+  default     = false
+}
+
 # SFTP VM Configuration
 variable "sftp_lb_name" {
   description = "Name of the Load Balancer for SFTP VMs"
