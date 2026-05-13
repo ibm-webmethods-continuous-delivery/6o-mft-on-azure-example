@@ -38,6 +38,10 @@ variables:
     value: 'active-transfer-ingest'
   - name: BUILD_CONTEXT
     value: '02-ContainerImages/01-active-transfer-ingest'
+  - name: PU_HOME
+    value: '/tmp/PU_HOME'
+  - name: PU_AUDIT_BASE_DIR
+    value: '/tmp/PU_AUDIT'
 
 pool:
   name: $(AGENT_POOL_NAME)
@@ -48,9 +52,25 @@ jobs:
     steps:
       # Step 0: prepare environment
       - script: |
-          chmod +x pipelines/azure/scripts/install-buildah-ubuntu.sh
+          chmod +x pipelines/azure/scripts/*.sh
           pipelines/azure/scripts/install-buildah-ubuntu.sh
-        displayName: 'Install buildah'
+
+          # assure PU_HOME
+          mkdir $(PU_HOME)
+          export PU_HOME=$(PU_HOME)
+          echo "##vso[task.setvariable variable=PU_HOME]$(PU_HOME)"
+
+          # ensure all steps of job log on the same audit folder
+          export PU_AUDIT_BASE_DIR=$(PU_AUDIT_BASE_DIR)
+          echo "##vso[task.setvariable variable=PU_AUDIT_BASE_DIR]$(PU_AUDIT_BASE_DIR)"
+
+          # ensure all steps of job log on the same session
+          PU_SESSION_TIMESTAMP=$(date +%y-%m-%dT%H.%M.%S)
+          export PU_SESSION_TIMESTAMP
+          echo "##vso[task.setvariable variable=PU_SESSION_TIMESTAMP]$(PU_SESSION_TIMESTAMP)"
+
+          pipelines/azure/scripts/install-iwcd-pu.sh
+        displayName: 'Install buildah and IWCD PU'
 
       # Step 1: Download IBM ACR credentials
       - task: DownloadSecureFile@1
@@ -75,9 +95,11 @@ jobs:
 
       # Step 4: Login to IBM WebMethods ACR
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
           # shellcheck source=/dev/null
           . "$(IBMACRCreds.secureFilePath)"
+          pu_log_i "Logging in to $(IBM_WEBMETHODS_CONTAINERS_ACR)"
           echo "${IBM_WM_CR_PASSWORD}" | buildah login \
             -u "${IBM_WM_CR_USERNAME}" \
             --password-stdin \
@@ -86,9 +108,11 @@ jobs:
 
       # Step 5: Login to Destination ACR
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
           # shellcheck source=/dev/null
           . "$(DestACRCreds.secureFilePath)"
+          pu_log_i "Logging in to $(DESTINATION_ACR)"
           echo "${DEST_CR_PASSWORD}" | buildah login \
             -u "${DEST_CR_USERNAME}" \
             --password-stdin \
@@ -97,9 +121,9 @@ jobs:
 
       # Step 6: Pull base image (optimization)
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
-          echo "Pulling base image: $(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
-          buildah pull "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
+          pipelines/azure/scripts/buildah-async-pull.sh "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
         displayName: 'Pull Base Image'
 
       # Step 7: Build and tag image
@@ -124,8 +148,8 @@ jobs:
               --build-arg __active_transfer_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)" \
               -f "$(BUILD_CONTEXT)/Dockerfile" \
               "$(BUILD_CONTEXT)" \
-               || exit 3
-          
+              || exit 3
+
           # Export tag for later steps
           echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
           echo "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
@@ -134,19 +158,21 @@ jobs:
 
       # Step 8: Push versioned tag
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
-          echo "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+          pu_log_i "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
           buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
         displayName: 'Push Versioned Image'
 
       # Step 9: Tag and push latest (main branch only)
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
-          echo "Tagging as latest"
+          pu_log_i "Tagging as latest"
           buildah tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
             "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
 
-          echo "Pushing latest tag"
+          pu_log_i "Pushing latest tag"
           buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
         displayName: 'Push Latest Tag'
         condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
@@ -158,10 +184,12 @@ jobs:
 
       # Step 11: Save build artifacts
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
 
           # shellcheck source=/dev/null
           . "$(SASecrets.secureFilePath)"
+          pu_log_i "Saving build artifacts and audit"
 
           echo "Mounting storage account: ${STORAGE_ACCOUNT_NAME}"
           sudo mkdir -p /mnt/artifacts
@@ -219,6 +247,8 @@ jobs:
 
           Artifacts Location: ${ARTIFACT_DIR}
           EOF
+
+          tar czf ${ARTIFACT_DIR}"/audit.tgz "${PU_AUDIT_BASE_DIR}"
 
           echo "Artifacts saved to: ${ARTIFACT_DIR}"
           ls -la "${ARTIFACT_DIR}"
