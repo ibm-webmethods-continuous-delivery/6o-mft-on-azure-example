@@ -55,7 +55,7 @@ variables:
     value: '/tmp/PU_AUDIT'
 
 pool:
-  name: $(AGENT_POOL_NAME)
+  name: $(INGEST_PIPELINE_AGENT_POOL)
 
 jobs:
   - job: BuildAndPush

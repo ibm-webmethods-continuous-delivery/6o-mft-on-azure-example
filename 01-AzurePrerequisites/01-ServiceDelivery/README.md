@@ -88,6 +88,53 @@ unset TF_VAR_github_pat
 - Key Vault
 - Azure Container Registry
 
+
+## Secure File Permissions
+
+### Manual Process Required
+
+**Important**: Secure file permissions **CANNOT** be automated with Terraform due to Azure DevOps provider limitations.
+
+### Upload Secure Files (One-Time)
+
+1. Navigate to: **Azure DevOps → Project → Pipelines → Library → Secure files**
+2. Upload the required files (see `secure_files_instructions` output for content format):
+   - `ibm-webmethods-acr.env` - IBM WebMethods ACR credentials
+   - `destination-acr.env` - Destination ACR credentials
+   - `sa.share.secrets.sh` - Storage Account secrets for artifacts share
+
+### Grant Pipeline Permissions (Per Pipeline)
+
+For each pipeline that needs secure file access:
+
+1. Navigate to: **Azure DevOps → Project → Pipelines → Library → Secure files**
+2. Click on each secure file (e.g., `ibm-webmethods-acr.env`)
+3. Go to **"Pipeline permissions"** tab
+4. Click **"+"** button
+5. Select the pipeline (e.g., `ActiveTransfer-Ingest`, `ActiveTransfer-Enhance`)
+6. Click **"Save"**
+7. Repeat for all secure files (3 files per pipeline)
+
+### Checklist for New Pipelines
+
+When adding a new pipeline:
+- [ ] Add pipeline definition in `azdo-pipelines.tf`
+- [ ] Run `terraform apply -var-file=terraform.tfvars`
+- [ ] Grant secure file permissions manually via Azure DevOps UI:
+  - [ ] `ibm-webmethods-acr.env`
+  - [ ] `destination-acr.env`
+  - [ ] `sa.share.secrets.sh`
+- [ ] Test pipeline run
+
+### Why Manual?
+
+The Azure DevOps Terraform provider does not support:
+- `azuredevops_securefile` data source (cannot look up secure files)
+- `azuredevops_resource_authorization` for secure files (requires data source)
+
+This is a known provider limitation. Permissions must be granted via the Azure DevOps UI or REST API.
+
+
 ## Architecture: GitHub Integration
 
 This configuration creates a **service connection** to GitHub, allowing Azure Pipelines to access your GitHub repositories directly:
