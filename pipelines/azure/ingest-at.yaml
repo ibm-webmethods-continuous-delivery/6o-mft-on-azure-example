@@ -9,6 +9,7 @@ trigger:
   paths:
     include:
       - 02-ContainerImages/01-active-transfer-ingest/**
+      - 02-ContainerImages/02-active-transfer-dcc-ingest/**
       - pipelines/azure/ingest-at.yaml
 
 pr:
@@ -19,6 +20,8 @@ pr:
   paths:
     include:
       - 02-ContainerImages/01-active-transfer-ingest/**
+      - 02-ContainerImages/02-active-transfer-dcc-ingest/**
+      - pipelines/azure/ingest-at.yaml
 
 schedules:
   - cron: "3 3 3 * *"
@@ -34,10 +37,18 @@ variables:
     value: 'ibmwebmethods.azurecr.io/webmethods-activetransfer'
   - name: IBM_ACTIVE_TRANSFER_IMAGE_TAG
     value: '11.1.0.4'
+  - name: IBM_ACTIVE_TRANSFER_DCC_IMAGE
+    value: 'ibmwebmethods.azurecr.io/webmethods-activetransfer-dcc'
+  - name: IBM_ACTIVE_TRANSFER_DCC_IMAGE_TAG
+    value: '11.1.0.4'
   - name: DEST_IMAGE_NAME
     value: 'active-transfer-ingest'
+  - name: DEST_DCC_IMAGE_NAME
+    value: 'active-transfer-dcc-ingest'
   - name: BUILD_CONTEXT
     value: '02-ContainerImages/01-active-transfer-ingest'
+  - name: DCC_BUILD_CONTEXT
+    value: '02-ContainerImages/02-active-transfer-dcc-ingest'
   - name: PU_HOME
     value: '/tmp/PU_HOME'
   - name: PU_AUDIT_BASE_DIR
@@ -65,8 +76,7 @@ jobs:
           echo "##vso[task.setvariable variable=PU_AUDIT_BASE_DIR]$(PU_AUDIT_BASE_DIR)"
 
           # ensure all steps of job log on the same session
-          PU_SESSION_TIMESTAMP=$(date +%y-%m-%dT%H.%M.%S)
-          export PU_SESSION_TIMESTAMP
+          export PU_SESSION_TIMESTAMP=$(date +%y-%m-%dT%H.%M.%S)
           echo "##vso[task.setvariable variable=PU_SESSION_TIMESTAMP]$(PU_SESSION_TIMESTAMP)"
 
           pipelines/azure/scripts/install-iwcd-pu.sh
@@ -119,15 +129,17 @@ jobs:
             "$(DESTINATION_ACR)"
         displayName: 'Login to Destination ACR'
 
-      # Step 6: Pull base image (optimization)
+      # Step 6: Pull base images (optimization)
       - script: |
           . "${PU_HOME}/code/1.init.sh"
           set -e
           pipelines/azure/scripts/buildah-async-pull.sh "$(IBM_ACTIVE_TRANSFER_IMAGE):$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)"
+          pipelines/azure/scripts/buildah-async-pull.sh "$(IBM_ACTIVE_TRANSFER_DCC_IMAGE):$(IBM_ACTIVE_TRANSFER_DCC_IMAGE_TAG)"
         displayName: 'Pull Base Image'
 
-      # Step 7: Build and tag image
+      # Step 7: Build and tag at images
       - script: |
+          . "${PU_HOME}/code/1.init.sh"
           set -e
 
           # Construct tag
@@ -135,10 +147,9 @@ jobs:
           BUILD_DATE=$(date +%Y%m%d)
           IMAGE_TAG="$(IBM_ACTIVE_TRANSFER_IMAGE_TAG)-${BUILD_DATE}-${COMMIT_SHA}"
 
-          echo "Building image with tag: ${IMAGE_TAG}"
+          pu_log_i "Building active transfer image with tag: ${IMAGE_TAG}"
 
-          # Build image
-
+          # Build at image
           buildah \
             --storage-opt mount_program=/usr/bin/fuse-overlayfs \
             --storage-opt ignore_chown_errors=true \
@@ -152,7 +163,27 @@ jobs:
 
           # Export tag for later steps
           echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
-          echo "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
+          pu_log_i "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
+
+          DCC_IMAGE_TAG="$(IBM_ACTIVE_TRANSFER_DCC_IMAGE_TAG)-${BUILD_DATE}-${COMMIT_SHA}"
+          pu_log_i "Building active transfer dcc image with tag: ${DCC_IMAGE_TAG}"
+
+          # Build at-dcc image
+          buildah \
+            --storage-opt mount_program=/usr/bin/fuse-overlayfs \
+            --storage-opt ignore_chown_errors=true \
+            bud \
+              -t "$(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):${DCC_IMAGE_TAG}" \
+              --build-arg __active_transfer_dcc_ibm_image="$(IBM_ACTIVE_TRANSFER_DCC_IMAGE)" \
+              --build-arg __active_transfer_dcc_ibm_image_tag="$(IBM_ACTIVE_TRANSFER_DCC_IMAGE_TAG)" \
+              -f "$(DCC_BUILD_CONTEXT)/Dockerfile" \
+              "$(DCC_BUILD_CONTEXT)" \
+              || exit 4
+
+          # Export tag for later steps
+          echo "##vso[task.setvariable variable=FINAL_DCC_IMAGE_TAG]${DCC_IMAGE_TAG}"
+          pu_log_i "Built image: $(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):${DCC_IMAGE_TAG}"
+
         displayName: 'Build Image'
         workingDirectory: $(Build.SourcesDirectory)
 
@@ -162,18 +193,28 @@ jobs:
           set -e
           pu_log_i "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
           buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
-        displayName: 'Push Versioned Image'
+          pu_log_i "Pushing image: $(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):$(FINAL_DCC_IMAGE_TAG)"
+          buildah push "$(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):$(FINAL_DCC_IMAGE_TAG)"
+        displayName: 'Push Versioned Images'
 
       # Step 9: Tag and push latest (main branch only)
       - script: |
           . "${PU_HOME}/code/1.init.sh"
           set -e
-          pu_log_i "Tagging as latest"
+          pu_log_i "Tagging at as latest"
           buildah tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
             "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
 
-          pu_log_i "Pushing latest tag"
+          pu_log_i "Pushing at latest tag"
           buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+
+          pu_log_i "Tagging at-dcc as latest"
+          buildah tag "$(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
+            "$(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):latest"
+
+          pu_log_i "Pushing at-dcc latest tag"
+          buildah push "$(DESTINATION_ACR)/$(DEST_DCC_IMAGE_NAME):latest"
+
         displayName: 'Push Latest Tag'
         condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
 

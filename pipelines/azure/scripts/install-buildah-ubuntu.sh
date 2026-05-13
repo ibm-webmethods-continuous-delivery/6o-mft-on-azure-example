@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# May optimize - move this in an image building prerequisite pipeline
+
 echo "Updating existing OS packages..."
 sudo apt-get -qy update
 
