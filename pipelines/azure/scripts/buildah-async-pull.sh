@@ -5,9 +5,12 @@
   exit 2
 }
 
-if [ -n "${PU_HOME:-}" ] && [ -f "${PU_HOME}/code/1.init.sh" ]; then
-  # shellcheck disable=SC1091
-  . "${PU_HOME}/code/1.init.sh"
+# Only source PU if not already initialized (check for a PU function)
+if ! command -v pu_log_i >/dev/null 2>&1; then
+  if [ -n "${PU_HOME:-}" ] && [ -f "${PU_HOME}/code/1.init.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${PU_HOME}/code/1.init.sh"
+  fi
 fi
 
 __crt_folder=$(pwd)
