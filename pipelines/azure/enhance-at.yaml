@@ -1,0 +1,255 @@
+# Azure DevOps Pipeline for ActiveTransfer Enhance Image
+# Builds and pushes the ActiveTransfer enhance container image
+# This pipeline depends on the ingest-at pipeline and uses its output as base image
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - 02-ContainerImages/03-active-transfer-enhance/**
+      - pipelines/azure/enhance-at.yaml
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - 02-ContainerImages/03-active-transfer-enhance/**
+      - pipelines/azure/enhance-at.yaml
+
+# Trigger after ingest-at pipeline completes successfully
+resources:
+  pipelines:
+    - pipeline: ingest-at
+      source: ingest-at
+      trigger:
+        branches:
+          include:
+            - main
+            - develop
+
+schedules:
+  - cron: "3 4 3 * *"
+    displayName: 'Monthly build - 3rd of every month at 04:03 UTC (after ingest pipeline)'
+    branches:
+      include:
+        - main
+    always: true
+
+variables:
+  - group: Pipeline-Configuration
+  - name: INGEST_IMAGE_NAME
+    value: 'active-transfer-ingest'
+  - name: INGEST_IMAGE_TAG
+    value: 'latest'
+  - name: DEST_IMAGE_NAME
+    value: 'active-transfer-enhance'
+  - name: BUILD_CONTEXT
+    value: '02-ContainerImages/03-active-transfer-enhance'
+  - name: PU_HOME
+    value: '/tmp/PU_HOME'
+  - name: PU_AUDIT_BASE_DIR
+    value: '/tmp/PU_AUDIT'
+
+pool:
+  name: $(AGENT_POOL_NAME)
+
+jobs:
+  - job: BuildAndPush
+    displayName: 'Build and Push ActiveTransfer Enhance Image'
+    steps:
+      # Step 0: prepare environment
+      - script: |
+          chmod +x pipelines/azure/scripts/*.sh
+          pipelines/azure/scripts/install-buildah-ubuntu.sh
+
+          # assure PU_HOME
+          mkdir -p $(PU_HOME)
+          export PU_HOME=$(PU_HOME)
+          echo "##vso[task.setvariable variable=PU_HOME]${PU_HOME}"
+
+          # ensure all steps of job log on the same audit folder
+          export PU_AUDIT_BASE_DIR=$(PU_AUDIT_BASE_DIR)
+          echo "##vso[task.setvariable variable=PU_AUDIT_BASE_DIR]${PU_AUDIT_BASE_DIR}"
+
+          # ensure all steps of job log on the same session
+          export PU_SESSION_TIMESTAMP=$(date +%y-%m-%dT%H.%M.%S)
+          echo "##vso[task.setvariable variable=PU_SESSION_TIMESTAMP]${PU_SESSION_TIMESTAMP}"
+
+          pipelines/azure/scripts/install-iwcd-pu.sh
+        displayName: 'Install buildah and IWCD PU'
+
+      # Step 1: Download Destination ACR credentials
+      - task: DownloadSecureFile@1
+        name: DestACRCreds
+        displayName: 'Download Destination ACR Credentials'
+        inputs:
+          secureFile: 'destination-acr.env'
+
+      # Step 2: Download Storage Account secrets
+      - task: DownloadSecureFile@1
+        name: SASecrets
+        displayName: 'Download Storage Account Secrets'
+        inputs:
+          secureFile: 'sa.share.secrets.sh'
+
+      # Step 3: Login to Destination ACR
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+          # shellcheck source=/dev/null
+          . "$(DestACRCreds.secureFilePath)"
+          pu_log_i "Logging in to $(DESTINATION_ACR)"
+          echo "${DEST_CR_PASSWORD}" | buildah login \
+            -u "${DEST_CR_USERNAME}" \
+            --password-stdin \
+            "$(DESTINATION_ACR)"
+        displayName: 'Login to Destination ACR'
+
+      # Step 4: Pull base image (from ingest pipeline)
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+          BASE_IMAGE="$(DESTINATION_ACR)/$(INGEST_IMAGE_NAME):$(INGEST_IMAGE_TAG)"
+          pu_log_i "Pulling base image: ${BASE_IMAGE}"
+          pipelines/azure/scripts/buildah-async-pull.sh "${BASE_IMAGE}"
+        displayName: 'Pull Base Image from Ingest Pipeline'
+
+      # Step 5: Build and tag enhance image
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+
+          # Construct tag
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date +%Y%m%d)
+          IMAGE_TAG="$(INGEST_IMAGE_TAG)-${BUILD_DATE}-${COMMIT_SHA}"
+
+          pu_log_i "Building active transfer enhance image with tag: ${IMAGE_TAG}"
+
+          # Build enhance image
+          buildah \
+            --storage-opt mount_program=/usr/bin/fuse-overlayfs \
+            --storage-opt ignore_chown_errors=true \
+            bud \
+              -t "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}" \
+              --build-arg __active_transfer_internal_image="$(DESTINATION_ACR)/$(INGEST_IMAGE_NAME)" \
+              --build-arg __active_transfer_internal_image_tag="$(INGEST_IMAGE_TAG)" \
+              -f "$(BUILD_CONTEXT)/Dockerfile" \
+              "$(BUILD_CONTEXT)" \
+              || exit 3
+
+          # Export tag for later steps
+          echo "##vso[task.setvariable variable=FINAL_IMAGE_TAG]${IMAGE_TAG}"
+          pu_log_i "Built image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):${IMAGE_TAG}"
+
+        displayName: 'Build Enhance Image'
+        workingDirectory: $(Build.SourcesDirectory)
+
+      # Step 6: Push versioned tag
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+          pu_log_i "Pushing image: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+          buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)"
+        displayName: 'Push Versioned Image'
+
+      # Step 7: Tag and push latest (main branch only)
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+          pu_log_i "Tagging enhance as latest"
+          buildah tag "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)" \
+            "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+
+          pu_log_i "Pushing enhance latest tag"
+          buildah push "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):latest"
+
+        displayName: 'Push Latest Tag'
+        condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+
+      # Step 8: Save build artifacts
+      - script: |
+          . "${PU_HOME}/code/1.init.sh"
+          set -e
+
+          # shellcheck source=/dev/null
+          . "$(SASecrets.secureFilePath)"
+          pu_log_i "Saving build artifacts and audit"
+
+          echo "Mounting storage account: ${STORAGE_ACCOUNT_NAME}"
+          sudo mkdir -p /mnt/artifacts
+          sudo mount -t cifs "//${STORAGE_ACCOUNT_NAME}.file.core.windows.net/${SHARE_NAME}" /mnt/artifacts \
+            -o vers=3.0,username="${STORAGE_ACCOUNT_NAME}",password="${STORAGE_ACCOUNT_KEY}",dir_mode=0777,file_mode=0777
+
+          echo "Storage account mounted successfully"
+
+          # Create artifact directory with date and build info
+          YEAR=$(date +%Y)
+          MONTH=$(date +%m)
+          DAY=$(date +%d)
+          ARTIFACT_DIR="/mnt/artifacts/artifacts/${YEAR}/${MONTH}/${DAY}/enhance-at/$(Build.BuildId)-$(Build.BuildNumber)"
+
+          echo "Creating artifact directory: ${ARTIFACT_DIR}"
+          mkdir -p "${ARTIFACT_DIR}"
+
+          # Save build metadata
+          cat > "${ARTIFACT_DIR}/build-info.json" <<EOF
+          {
+            "buildId": "$(Build.BuildId)",
+            "buildNumber": "$(Build.BuildNumber)",
+            "sourceVersion": "$(Build.SourceVersion)",
+            "sourceBranch": "$(Build.SourceBranchName)",
+            "imageTag": "$(FINAL_IMAGE_TAG)",
+            "baseImage": "$(DESTINATION_ACR)/$(INGEST_IMAGE_NAME):$(INGEST_IMAGE_TAG)",
+            "destinationImage": "$(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)",
+            "buildDate": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "$(Build.Repository.Name)",
+            "commitMessage": "$(Build.SourceVersionMessage)"
+          }
+          EOF
+
+          # Copy Dockerfile used for the build
+          cp "$(BUILD_CONTEXT)/Dockerfile" "${ARTIFACT_DIR}/dockerfile-used.txt"
+
+          # Create a build summary
+          cat > "${ARTIFACT_DIR}/build-summary.txt" <<EOF
+          ActiveTransfer Enhance Image Build Summary
+          ===========================================
+
+          Build ID: $(Build.BuildId)
+          Build Number: $(Build.BuildNumber)
+          Build Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          Source Information:
+          - Branch: $(Build.SourceBranchName)
+          - Commit: $(Build.SourceVersion)
+          - Message: $(Build.SourceVersionMessage)
+
+          Image Information:
+          - Base Image: $(DESTINATION_ACR)/$(INGEST_IMAGE_NAME):$(INGEST_IMAGE_TAG)
+          - Destination: $(DESTINATION_ACR)/$(DEST_IMAGE_NAME):$(FINAL_IMAGE_TAG)
+          - Latest Tag: $(if [ "$(Build.SourceBranchName)" = "main" ]; then echo "Yes"; else echo "No"; fi)
+
+          Artifacts Location: ${ARTIFACT_DIR}
+          EOF
+
+          tar czf "${ARTIFACT_DIR}/audit.tgz" "${PU_AUDIT_BASE_DIR}"
+
+          echo "Artifacts saved to: ${ARTIFACT_DIR}"
+          ls -la "${ARTIFACT_DIR}"
+        displayName: 'Save Build Artifacts'
+        condition: succeededOrFailed()
+
+      # Step 9: Unmount storage account (always runs)
+      - script: |
+          echo "Unmounting storage account"
+          sudo umount /mnt/artifacts || true
+          echo "Storage account unmounted"
+        displayName: 'Unmount Artifacts Share'
+        condition: always()

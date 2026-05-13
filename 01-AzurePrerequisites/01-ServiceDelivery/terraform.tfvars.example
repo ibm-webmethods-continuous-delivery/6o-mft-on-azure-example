@@ -39,7 +39,7 @@ prefix = "yourprefix"
 #   Environment = "Development"
 # }
 
-# Must set  
+# Must set
 ssh_admin_pub_key = "Must Set"
 
 # Optional: Key Vault Network Access
@@ -66,7 +66,21 @@ azdo_agent_pool_name = "YourAgentPoolName"
 
 # REQUIRED: Azure DevOps Personal Access Token (PAT) for agent registration
 # The PAT must have Agent Pools (Read & manage) permissions
+
+# Optional: Agent pool name for ingest pipeline execution
+# If not specified, defaults to azdo_agent_pool_name
+# Use this when pipelines need to run on a different pool (e.g., VMSS-backed pool)
+# Example: If Terraform creates "EniPMftDemoVmssAgents" but you manually created
+#          a VMSS-backed pool "EniPDemoAgentsPool", set this to the latter
+# ingest_pipeline_agent_pool_name = "YourIngestPipelineAgentPoolName"
+
+# Optional: Agent pool name for enhance pipeline execution
+# If not specified, defaults to ingest_pipeline_agent_pool_name, then azdo_agent_pool_name
+# Use this when the enhance pipeline needs a different pool than the ingest pipeline
+# enhance_pipeline_agent_pool_name = "YourEnhancePipelineAgentPoolName"
+
 azdo_pat = "your-personal-access-token"
+
 
 # Optional: Azure RM service endpoint name
 # azdo_service_endpoint_name = "Azure-ServiceConnection"

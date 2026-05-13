@@ -92,6 +92,144 @@ unset TF_VAR_github_pat
 
 This configuration creates a **service connection** to GitHub, allowing Azure Pipelines to access your GitHub repositories directly:
 
+
+
+## Agent Pool Configuration Strategy
+
+### Overview
+
+This Terraform configuration supports a flexible agent pool architecture that separates **pool creation** from **pipeline execution**:
+
+1. **Terraform-Created Pool**: Standard agent pool created by Terraform
+2. **VMSS-Backed Pool**: Manually created pool with VMSS integration (Terraform limitation)
+3. **Pipeline-Specific Pools**: Each pipeline can use a different pool
+
+### Why Two Agent Pool Concepts?
+
+**The Challenge**: Azure DevOps Terraform provider cannot create agent pools that are backed by Virtual Machine Scale Sets (VMSS). This requires manual configuration or Azure CLI.
+
+**The Solution**: Separate pool creation from pool usage:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Terraform Creates (Standard Pool)                           │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Agent Pool: EniPMftDemoVmssAgents                       │ │
+│ │ - Created by: azuredevops_agent_pool.main               │ │
+│ │ - Variable: azdo_agent_pool_name                        │ │
+│ │ - Purpose: Pool object for VMSS association             │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Manual Exception Creates (VMSS-Backed Pool)                 │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ Agent Pool: EniPDemoAgentsPool                          │ │
+│ │ - Created: Manually or via Azure CLI                    │ │
+│ │ - Variables: ingest_pipeline_agent_pool_name            │ │
+│ │              enhance_pipeline_agent_pool_name           │ │
+│ │ - Purpose: Actual pool used by pipelines                │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Configuration Variables
+
+#### Pool Creation
+```hcl
+# Creates the agent pool object (for VMSS association)
+azdo_agent_pool_name = "EniPMftDemoVmssAgents"
+```
+
+#### Pipeline Execution
+```hcl
+# Pool used by ingest pipeline (defaults to azdo_agent_pool_name if not set)
+ingest_pipeline_agent_pool_name = "EniPDemoAgentsPool"
+
+# Pool used by enhance pipeline (defaults to ingest pool, then azdo_agent_pool_name)
+enhance_pipeline_agent_pool_name = "EniPDemoAgentsPool"  # or different pool
+```
+
+### Variable Resolution Flow
+
+The configuration uses a fallback chain for pipeline agent pools:
+
+```
+enhance_pipeline_agent_pool_name (if set)
+  ↓ (if null)
+ingest_pipeline_agent_pool_name (if set)
+  ↓ (if null)
+azdo_agent_pool_name (always set)
+```
+
+This allows:
+- **Simple Setup**: Omit pipeline-specific variables to use the Terraform-created pool
+- **VMSS Integration**: Set pipeline variables to use manually-created VMSS-backed pools
+- **Per-Pipeline Pools**: Use different pools for different pipelines if needed
+
+### Variable Group Mapping
+
+The Terraform configuration creates these variables in the `Pipeline-Configuration` variable group:
+
+| Variable Group Variable | Source | Purpose |
+|------------------------|--------|---------|
+| `AGENT_POOL_NAME` | `azdo_agent_pool_name` | Terraform-created pool (for reference) |
+| `INGEST_PIPELINE_AGENT_POOL` | `ingest_pipeline_agent_pool_name` | Pool for ingest pipeline |
+| `ENHANCE_PIPELINE_AGENT_POOL` | `enhance_pipeline_agent_pool_name` | Pool for enhance pipeline |
+
+### Pipeline YAML Usage
+
+Pipelines reference the appropriate variable:
+
+```yaml
+# ingest-at.yaml
+pool:
+  name: $(INGEST_PIPELINE_AGENT_POOL)
+
+# enhance-at.yaml
+pool:
+  name: $(ENHANCE_PIPELINE_AGENT_POOL)
+```
+
+### Manual VMSS-Backed Pool Creation
+
+After Terraform deployment, create the VMSS-backed pool manually:
+
+```bash
+# Using Azure CLI (requires Azure DevOps extension)
+az devops configure --defaults organization=https://dev.azure.com/yourorg project=YourProject
+
+# Create VMSS-backed agent pool
+az pipelines pool create \
+  --name "EniPDemoAgentsPool" \
+  --pool-type vmss \
+  --vmss-resource-id "/subscriptions/.../resourceGroups/.../providers/Microsoft.Compute/virtualMachineScaleSets/..." \
+  --service-endpoint-id "..."
+```
+
+Or use the Azure DevOps web UI:
+1. Navigate to Project Settings → Agent pools
+2. Click "Add pool"
+3. Select "Azure virtual machine scale set"
+4. Configure VMSS integration
+
+### Example Configuration
+
+**Scenario**: Use VMSS-backed pool for all pipelines
+
+```hcl
+# terraform.tfvars
+azdo_agent_pool_name            = "EniPMftDemoVmssAgents"  # Terraform creates this
+ingest_pipeline_agent_pool_name = "EniPDemoAgentsPool"     # Manually created VMSS pool
+# enhance_pipeline_agent_pool_name not set, will use ingest pool
+```
+
+**Result**:
+- Terraform creates standard pool: `EniPMftDemoVmssAgents`
+- You manually create VMSS pool: `EniPDemoAgentsPool`
+- Both pipelines use: `EniPDemoAgentsPool`
+
+
 - **GitHub Service Endpoint**: Creates a service connection to GitHub using your PAT
 - **No Repository Cloning**: The GitHub repository is NOT imported or cloned into Azure DevOps
 - **Source of Truth**: GitHub remains the single source of truth for your code

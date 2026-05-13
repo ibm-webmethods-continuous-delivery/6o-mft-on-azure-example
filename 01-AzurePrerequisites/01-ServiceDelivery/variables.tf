@@ -180,6 +180,19 @@ variable "azdo_pat" {
   sensitive   = true
 }
 
+variable "ingest_pipeline_agent_pool_name" {
+  description = "Name of the agent pool for ingest pipeline execution. If not specified, defaults to azdo_agent_pool_name. This allows using a different pool (e.g., VMSS-backed) than the one created by Terraform."
+  type        = string
+  default     = null
+}
+
+variable "enhance_pipeline_agent_pool_name" {
+  description = "Name of the agent pool for enhance pipeline execution. If not specified, defaults to ingest_pipeline_agent_pool_name, then azdo_agent_pool_name. This allows using a different pool (e.g., VMSS-backed) than the one created by Terraform."
+  type        = string
+  default     = null
+}
+
+
 # IBM WebMethods Container Registry Configuration
 variable "ibm_webmethods_acr_url" {
   description = "IBM WebMethods Container Registry URL"

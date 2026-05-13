@@ -13,6 +13,16 @@ resource "azuredevops_variable_group" "pipeline_configuration" {
   }
 
   variable {
+    name  = "INGEST_PIPELINE_AGENT_POOL"
+    value = local.ingest_pipeline_agent_pool_name
+  }
+
+  variable {
+    name  = "ENHANCE_PIPELINE_AGENT_POOL"
+    value = local.enhance_pipeline_agent_pool_name
+  }
+
+  variable {
     name  = "IBM_WEBMETHODS_CONTAINERS_ACR"
     value = var.ibm_webmethods_acr_url
   }

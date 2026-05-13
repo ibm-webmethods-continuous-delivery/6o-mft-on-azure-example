@@ -45,7 +45,12 @@ locals {
   storage_share_name   = coalesce(var.storage_share_name, "${var.prefix}imagessashare")
   key_vault_name       = coalesce(var.key_vault_name, "${var.prefix}vault")
   acr_name             = coalesce(var.acr_name, "${var.prefix}acr")
+
+  # Agent pool name resolution with fallback logic
+  ingest_pipeline_agent_pool_name  = coalesce(var.ingest_pipeline_agent_pool_name, var.azdo_agent_pool_name)
+  enhance_pipeline_agent_pool_name = coalesce(var.enhance_pipeline_agent_pool_name, var.ingest_pipeline_agent_pool_name, var.azdo_agent_pool_name)
 }
+
 
 # Network Security Group
 resource "azurerm_network_security_group" "main" {
