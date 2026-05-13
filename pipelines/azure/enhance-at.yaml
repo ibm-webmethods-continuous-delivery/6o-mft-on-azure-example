@@ -26,7 +26,7 @@ pr:
 resources:
   pipelines:
     - pipeline: ingest-at
-      source: ingest-at
+      source: \Container Images\ActiveTransfer-Ingest
       trigger:
         branches:
           include:
