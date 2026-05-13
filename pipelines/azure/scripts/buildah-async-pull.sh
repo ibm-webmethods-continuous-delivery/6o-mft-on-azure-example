@@ -1,5 +1,15 @@
 #!/bin/sh
 
+[ "$#" -eq 1 ] || {
+  echo "Usage: $0 <image-ref>" >&2
+  exit 2
+}
+
+if [ -n "${PU_HOME:-}" ] && [ -f "${PU_HOME}/code/1.init.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${PU_HOME}/code/1.init.sh"
+fi
+
 __crt_folder=$(pwd)
 __timestamp=$(date +%s)
 __base_dir=${PU_AUDIT_BASE_DIR:-"/tmp/pu-audit"}
@@ -10,7 +20,11 @@ cd "$__work_folder" || exit 1
 
 pu_log_i "Async launch: buildah pull $1"
 
-nohup buildah pull "$1" $
+nohup buildah pull "$1" >pull.log 2>&1 &
+__pid=$!
+
+pu_log_i "Async buildah pull started for $1 with PID ${__pid}"
+
 
 cd "$__crt_folder" || exit 1
 
