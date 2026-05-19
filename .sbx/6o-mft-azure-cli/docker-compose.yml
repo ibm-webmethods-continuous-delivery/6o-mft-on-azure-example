@@ -1,0 +1,24 @@
+services:
+  terraform:
+    # obtain this image using
+    #  https://github.com/ibm-webmethods-continuous-delivery/7u-container-images/tree/main/images/u/alpine/terraform
+    image: iwcd-az-cli-dev-u:azure-linux
+    container_name: iwcd-sbx-mft-azure-cli
+    hostname: iwcd-sbx-mft-azure-cli
+    read_only: true
+    environment:
+      #- ARM_CLIENT_ID
+      #- ARM_CLIENT_SECRET
+      - ARM_TENANT_ID
+      - ARM_SUBSCRIPTION_ID
+      # Default position for the kubeconfig
+      - KUBECONFIG=/azcli/config/.kube/config-mft
+    volumes:
+      - ../..:/azcli
+      - iwcd-mft-az-cli-home:/home/iwcd-az-cli-dev/ # iwcd-tf fixed in the prerequisite image
+      - tmp:/tmp/
+    entrypoint: sleep infinity
+
+volumes:
+  iwcd-mft-az-cli-home:
+  tmp:

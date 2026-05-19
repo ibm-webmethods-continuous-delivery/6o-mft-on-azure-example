@@ -1,0 +1,6 @@
+apiVersion: v2
+name: simple-web
+description: A simple web server Helm chart for verifying Application Gateway connectivity via AGIC
+type: application
+version: 0.2.0
+appVersion: "1.0"

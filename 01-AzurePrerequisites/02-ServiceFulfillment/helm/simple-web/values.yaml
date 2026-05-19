@@ -1,0 +1,48 @@
+# Default values for simple-web
+replicaCount: 2
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "alpine"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: true
+  className: "azure-application-gateway"
+  annotations:
+    # AGIC-specific annotations
+    appgw.ingress.kubernetes.io/backend-path-prefix: "/"
+    appgw.ingress.kubernetes.io/ssl-redirect: "false"
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+    appgw.ingress.kubernetes.io/request-timeout: "30"
+  hosts:
+    - host: simple-web.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # Example TLS configuration (uncomment to enable):
+  # tls:
+  #   - secretName: simple-web-tls
+  #     hosts:
+  #       - simple-web.example.com
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

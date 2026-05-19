@@ -329,6 +329,13 @@ resource "azurerm_linux_virtual_machine" "sftp_vm_1" {
     type = "SystemAssigned"
   }
 
+  # ignore patch_assessment_mode changed a-postriori
+  lifecycle {
+    ignore_changes = [
+      patch_assessment_mode
+    ]
+  }
+
   custom_data = base64encode(templatefile("${path.module}/scripts/install-docker.sh", {
     acr_name = data.azurerm_container_registry.main.name
   }))
@@ -364,6 +371,13 @@ resource "azurerm_linux_virtual_machine" "sftp_vm_2" {
 
   identity {
     type = "SystemAssigned"
+  }
+
+  # ignore patch_assessment_mode changed a-postriori
+  lifecycle {
+    ignore_changes = [
+      patch_assessment_mode
+    ]
   }
 
   custom_data = base64encode(templatefile("${path.module}/scripts/install-docker.sh", {
@@ -403,9 +417,18 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id = azurerm_subnet.private_1.id
   }
 
+  lifecycle {
+    ignore_changes = [
+      default_node_pool
+    ]
+  }
+
   identity {
     type = "SystemAssigned"
   }
+
+  # seems mandatory in our case
+  azure_policy_enabled = true
 
   network_profile {
     network_plugin = "azure"
@@ -418,6 +441,42 @@ resource "azurerm_role_assignment" "aks_acr" {
   count                = var.enable_aks_acr_role ? 1 : 0
   scope                = data.azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
+  principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+}
+
+# ============================================================================
+# AGIC (Application Gateway Ingress Controller) Prerequisites
+# ============================================================================
+
+# User-assigned managed identity for AGIC
+resource "azurerm_user_assigned_identity" "agic" {
+  name                = "${var.prefix}-agic-identity"
+  location            = var.location
+  resource_group_name = data.azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+# Grant AGIC identity Contributor access to Application Gateway
+resource "azurerm_role_assignment" "agic_appgw_contributor" {
+  count                = var.enable_agic_role_assignments ? 1 : 0
+  scope                = azurerm_application_gateway.main.id
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.agic.principal_id
+}
+
+# Grant AGIC identity Reader access to Application Gateway resource group
+resource "azurerm_role_assignment" "agic_rg_reader" {
+  count                = var.enable_agic_role_assignments ? 1 : 0
+  scope                = data.azurerm_resource_group.main.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.agic.principal_id
+}
+
+# Grant AGIC identity Managed Identity Operator on itself (required for pod identity)
+resource "azurerm_role_assignment" "agic_mi_operator" {
+  count                = var.enable_agic_role_assignments ? 1 : 0
+  scope                = azurerm_user_assigned_identity.agic.id
+  role_definition_name = "Managed Identity Operator"
   principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
 }
 

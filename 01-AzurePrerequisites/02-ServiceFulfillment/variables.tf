@@ -105,6 +105,14 @@ variable "enable_sftp_vm_acr_role" {
   default     = false
 }
 
+
+# AGIC Role Assignment Configuration
+variable "enable_agic_role_assignments" {
+  description = "Enable automatic role assignments for AGIC (requires elevated permissions). If false, role assignments must be done manually."
+  type        = bool
+  default     = false
+}
+
 variable "enable_aks_acr_role" {
   description = "Enable ACR Pull role assignment for AKS cluster"
   type        = bool

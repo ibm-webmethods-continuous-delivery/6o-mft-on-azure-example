@@ -186,10 +186,73 @@ output "acr_login_server" {
   value       = data.azurerm_container_registry.main.login_server
 }
 
+# AGIC Identity
+output "agic_identity_id" {
+  description = "Resource ID of the AGIC managed identity"
+  value       = azurerm_user_assigned_identity.agic.id
+}
+
+output "agic_identity_client_id" {
+  description = "Client ID of the AGIC managed identity"
+  value       = azurerm_user_assigned_identity.agic.client_id
+}
+
+output "agic_identity_principal_id" {
+  description = "Principal ID of the AGIC managed identity"
+  value       = azurerm_user_assigned_identity.agic.principal_id
+}
+
 # Summary Information
 output "sftp_endpoint" {
   description = "SFTP endpoint for connecting (use port 55022)"
   value       = "sftp://${azurerm_public_ip.sftp_lb.ip_address}:55022"
+}
+
+
+# Manual Permission Grant Instructions (when enable_agic_role_assignments = false)
+output "manual_permission_grants_required" {
+  description = "Instructions for manually granting AGIC permissions when automatic role assignments are disabled"
+  value       = var.enable_agic_role_assignments ? "No manual grants required - role assignments were created automatically" : <<-EOT
+    MANUAL PERMISSION GRANTS REQUIRED:
+
+    The following role assignments must be created manually in Azure Portal or via Azure CLI:
+
+    1. Grant 'Contributor' role to AGIC identity on Application Gateway:
+       Scope: ${azurerm_application_gateway.main.id}
+       Principal ID: ${azurerm_user_assigned_identity.agic.principal_id}
+       Role: Contributor
+
+       Azure CLI command:
+       az role assignment create \
+         --assignee ${azurerm_user_assigned_identity.agic.principal_id} \
+         --role Contributor \
+         --scope ${azurerm_application_gateway.main.id}
+
+    2. Grant 'Reader' role to AGIC identity on Resource Group:
+       Scope: ${data.azurerm_resource_group.main.id}
+       Principal ID: ${azurerm_user_assigned_identity.agic.principal_id}
+       Role: Reader
+
+       Azure CLI command:
+       az role assignment create \
+         --assignee ${azurerm_user_assigned_identity.agic.principal_id} \
+         --role Reader \
+         --scope ${data.azurerm_resource_group.main.id}
+
+    3. Grant 'Managed Identity Operator' role to AKS kubelet identity on AGIC identity:
+       Scope: ${azurerm_user_assigned_identity.agic.id}
+       Principal ID: ${azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id}
+       Role: Managed Identity Operator
+
+       Azure CLI command:
+       az role assignment create \
+         --assignee ${azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id} \
+         --role "Managed Identity Operator" \
+         --scope ${azurerm_user_assigned_identity.agic.id}
+
+    After granting these permissions, you can proceed with AGIC installation.
+    See AGIC-INSTALLATION.md for detailed instructions.
+  EOT
 }
 
 output "web_endpoint" {
