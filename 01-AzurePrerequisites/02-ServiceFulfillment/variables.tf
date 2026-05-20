@@ -1,8 +1,14 @@
 # Core Azure Configuration
 variable "resource_group_name" {
+  description = "Name of the new resource group"
+  type        = string
+}
+
+variable "resource_group_name_existing" {
   description = "Name of the existing resource group"
   type        = string
 }
+
 
 variable "location" {
   description = "Azure region for resources"
@@ -268,3 +274,4 @@ variable "app_gateway_capacity" {
     error_message = "Application Gateway capacity must be between 1 and 125"
   }
 }
+

@@ -4,6 +4,10 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
       version = "~> 3.0"
     }
   }
@@ -19,13 +23,20 @@ provider "azurerm" {
 
 # Use existing resource group
 data "azurerm_resource_group" "main" {
-  name = var.resource_group_name
+  name = var.resource_group_name_existing
 }
+
+# New resource group
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+}
+
 
 # Reference existing ACR from ServiceDelivery
 data "azurerm_container_registry" "main" {
   name                = var.acr_name
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.resource_group_name_existing
 }
 
 # Local variables for computed names
@@ -51,7 +62,7 @@ locals {
 resource "azurerm_virtual_network" "main" {
   name                = local.vnet_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   address_space       = var.vnet_address_space
   tags                = var.tags
 }
@@ -59,7 +70,7 @@ resource "azurerm_virtual_network" "main" {
 # Public Subnet 1 (for SFTP VM 1)
 resource "azurerm_subnet" "public_1" {
   name                 = local.public_subnet_1_name
-  resource_group_name  = data.azurerm_resource_group.main.name
+  resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 0)]
 }
@@ -67,7 +78,7 @@ resource "azurerm_subnet" "public_1" {
 # Public Subnet 2 (for SFTP VM 2)
 resource "azurerm_subnet" "public_2" {
   name                 = local.public_subnet_2_name
-  resource_group_name  = data.azurerm_resource_group.main.name
+  resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 1)]
 }
@@ -75,7 +86,7 @@ resource "azurerm_subnet" "public_2" {
 # Private Subnet 1 (for AKS)
 resource "azurerm_subnet" "private_1" {
   name                 = local.private_subnet_1_name
-  resource_group_name  = data.azurerm_resource_group.main.name
+  resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 10)]
 }
@@ -83,7 +94,7 @@ resource "azurerm_subnet" "private_1" {
 # Private Subnet 2 (for PostgreSQL and other private services)
 resource "azurerm_subnet" "private_2" {
   name                 = local.private_subnet_2_name
-  resource_group_name  = data.azurerm_resource_group.main.name
+  resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 11)]
 
@@ -101,7 +112,7 @@ resource "azurerm_subnet" "private_2" {
 # Application Gateway Subnet
 resource "azurerm_subnet" "app_gateway" {
   name                 = "${var.prefix}-appgw-subnet"
-  resource_group_name  = data.azurerm_resource_group.main.name
+  resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 2)]
 }
@@ -110,7 +121,7 @@ resource "azurerm_subnet" "app_gateway" {
 resource "azurerm_network_security_group" "sftp" {
   name                = local.sftp_nsg_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 
   # Allow SFTP from whitelisted IPs
@@ -157,7 +168,7 @@ resource "azurerm_network_security_group" "sftp" {
 resource "azurerm_network_security_group" "aks" {
   name                = local.aks_nsg_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 
   # Allow traffic from Application Gateway
@@ -209,7 +220,7 @@ resource "azurerm_subnet_network_security_group_association" "private_1" {
 resource "azurerm_public_ip" "sftp_lb" {
   name                = local.sftp_lb_pip_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
   tags                = var.tags
@@ -219,7 +230,7 @@ resource "azurerm_public_ip" "sftp_lb" {
 resource "azurerm_lb" "sftp" {
   name                = local.sftp_lb_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   sku                 = "Standard"
   tags                = var.tags
 
@@ -259,7 +270,7 @@ resource "azurerm_lb_rule" "sftp" {
 resource "azurerm_network_interface" "sftp_vm_1" {
   name                = "${local.sftp_vm_1_name}-nic"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 
   ip_configuration {
@@ -273,7 +284,7 @@ resource "azurerm_network_interface" "sftp_vm_1" {
 resource "azurerm_network_interface" "sftp_vm_2" {
   name                = "${local.sftp_vm_2_name}-nic"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 
   ip_configuration {
@@ -301,7 +312,7 @@ resource "azurerm_network_interface_backend_address_pool_association" "sftp_vm_2
 resource "azurerm_linux_virtual_machine" "sftp_vm_1" {
   name                            = local.sftp_vm_1_name
   location                        = var.location
-  resource_group_name             = data.azurerm_resource_group.main.name
+  resource_group_name             = azurerm_resource_group.main.name
   size                            = var.sftp_vm_size
   admin_username                  = "azureuser"
   disable_password_authentication = true
@@ -345,7 +356,7 @@ resource "azurerm_linux_virtual_machine" "sftp_vm_1" {
 resource "azurerm_linux_virtual_machine" "sftp_vm_2" {
   name                            = local.sftp_vm_2_name
   location                        = var.location
-  resource_group_name             = data.azurerm_resource_group.main.name
+  resource_group_name             = azurerm_resource_group.main.name
   size                            = var.sftp_vm_size
   admin_username                  = "azureuser"
   disable_password_authentication = true
@@ -403,12 +414,13 @@ resource "azurerm_role_assignment" "sftp_vm_2_acr" {
 
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "main" {
-  name                = local.aks_cluster_name
-  location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
-  dns_prefix          = "${var.prefix}-aks"
-  oidc_issuer_enabled = true
-  tags                = var.tags
+  name                      = local.aks_cluster_name
+  location                  = var.location
+  resource_group_name       = azurerm_resource_group.main.name
+  dns_prefix                = "${var.prefix}-aks"
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
+  tags                      = var.tags
 
   default_node_pool {
     name           = "default"
@@ -445,14 +457,14 @@ resource "azurerm_role_assignment" "aks_acr" {
 }
 
 # ============================================================================
-# AGIC (Application Gateway Ingress Controller) Prerequisites
+# AGIC (Application Gateway for Containers / Ingress integration) Prerequisites
 # ============================================================================
 
 # User-assigned managed identity for AGIC
 resource "azurerm_user_assigned_identity" "agic" {
   name                = "${var.prefix}-agic-identity"
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }
 
@@ -467,30 +479,31 @@ resource "azurerm_role_assignment" "agic_appgw_contributor" {
 # Grant AGIC identity Reader access to Application Gateway resource group
 resource "azurerm_role_assignment" "agic_rg_reader" {
   count                = var.enable_agic_role_assignments ? 1 : 0
-  scope                = data.azurerm_resource_group.main.id
+  scope                = azurerm_resource_group.main.id
   role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.agic.principal_id
 }
 
-# Grant AGIC identity Managed Identity Operator on itself (required for pod identity)
-resource "azurerm_role_assignment" "agic_mi_operator" {
+# Grant AKS kubelet identity permission to use the AGIC managed identity
+resource "azurerm_role_assignment" "agic_identity_operator" {
   count                = var.enable_agic_role_assignments ? 1 : 0
   scope                = azurerm_user_assigned_identity.agic.id
   role_definition_name = "Managed Identity Operator"
   principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
 }
 
+
 # Private DNS Zone for PostgreSQL
 resource "azurerm_private_dns_zone" "postgres" {
   name                = "${var.prefix}-postgres.private.postgres.database.azure.com"
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }
 
 # Link Private DNS Zone to VNet
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   name                  = "${var.prefix}-postgres-vnet-link"
-  resource_group_name   = data.azurerm_resource_group.main.name
+  resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
@@ -500,7 +513,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 resource "azurerm_postgresql_flexible_server" "main" {
   name                   = local.postgres_server_name
   location               = var.location
-  resource_group_name    = data.azurerm_resource_group.main.name
+  resource_group_name    = azurerm_resource_group.main.name
   version                = var.postgres_version
   delegated_subnet_id    = azurerm_subnet.private_2.id
   private_dns_zone_id    = azurerm_private_dns_zone.postgres.id
@@ -540,7 +553,7 @@ resource "azurerm_postgresql_flexible_server_database" "archive" {
 resource "azurerm_public_ip" "app_gateway" {
   name                = local.app_gateway_pip_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
   tags                = var.tags
@@ -550,7 +563,7 @@ resource "azurerm_public_ip" "app_gateway" {
 resource "azurerm_application_gateway" "main" {
   name                = local.app_gateway_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 
   sku {

@@ -1,0 +1,35 @@
+# Verbosity level of the App Gateway Ingress Controller
+verbosityLevel: 3
+
+################################################################################
+# Specify which application gateway the ingress controller will manage
+#
+appgw:
+    subscriptionId: ${AGIC_SUBSCRIPTION_ID}
+    resourceGroup: ${AGIC_RESOURCE_GROUP}
+    name: ${AGIC_APP_GATEWAY_NAME}
+    usePrivateIP: false
+    shared: false
+
+################################################################################
+# Specify which kubernetes namespace the ingress controller will watch
+# Default value is "default"
+# Leave blank to watch all namespaces
+#
+kubernetes:
+    watchNamespace: ""
+
+################################################################################
+# Specify the authentication with Azure Resource Manager
+# Using Service Principal
+#
+armAuth:
+    type: servicePrincipal
+    secretJSON: ${AGIC_SERVICE_PRINCIPAL_SECRET_JSON}
+
+################################################################################
+# Specify if the cluster is RBAC enabled or not
+rbac:
+    enabled: true
+
+# Made with Bob

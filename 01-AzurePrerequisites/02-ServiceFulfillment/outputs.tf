@@ -1,12 +1,12 @@
 # Resource Group
 output "resource_group_name" {
   description = "Name of the resource group"
-  value       = data.azurerm_resource_group.main.name
+  value       = azurerm_resource_group.main.name
 }
 
 output "resource_group_location" {
   description = "Location of the resource group"
-  value       = data.azurerm_resource_group.main.location
+  value       = azurerm_resource_group.main.location
 }
 
 # Virtual Network
@@ -111,6 +111,13 @@ output "aks_kube_config" {
   sensitive   = true
 }
 
+output "aks_kube_oidc_issuer_url" {
+  description = "Kubernetes configuration for the AKS cluster"
+  value       = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  sensitive   = true
+}
+
+
 output "aks_kubelet_identity" {
   description = "Kubelet identity object ID for ACR access"
   value       = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
@@ -186,20 +193,26 @@ output "acr_login_server" {
   value       = data.azurerm_container_registry.main.login_server
 }
 
-# AGIC Identity
-output "agic_identity_id" {
-  description = "Resource ID of the AGIC managed identity"
-  value       = azurerm_user_assigned_identity.agic.id
+# AGIC Service Principal
+output "agic_service_principal_client_id" {
+  description = "Client ID (Application ID) of the AGIC Service Principal"
+  value       = azuread_application.agic.client_id
 }
 
-output "agic_identity_client_id" {
-  description = "Client ID of the AGIC managed identity"
-  value       = azurerm_user_assigned_identity.agic.client_id
+output "agic_service_principal_client_secret" {
+  description = "Client Secret of the AGIC Service Principal"
+  value       = azuread_service_principal_password.agic.value
+  sensitive   = true
 }
 
-output "agic_identity_principal_id" {
-  description = "Principal ID of the AGIC managed identity"
-  value       = azurerm_user_assigned_identity.agic.principal_id
+output "agic_service_principal_tenant_id" {
+  description = "Tenant ID for the AGIC Service Principal"
+  value       = data.azuread_client_config.current.tenant_id
+}
+
+output "agic_service_principal_object_id" {
+  description = "Object ID of the AGIC Service Principal"
+  value       = azuread_service_principal.agic.object_id
 }
 
 # Summary Information
@@ -217,38 +230,38 @@ output "manual_permission_grants_required" {
 
     The following role assignments must be created manually in Azure Portal or via Azure CLI:
 
-    1. Grant 'Contributor' role to AGIC identity on Application Gateway:
+    1. Grant 'Contributor' role to AGIC Service Principal on Application Gateway:
        Scope: ${azurerm_application_gateway.main.id}
-       Principal ID: ${azurerm_user_assigned_identity.agic.principal_id}
+       Principal ID: ${azuread_service_principal.agic.object_id}
        Role: Contributor
 
        Azure CLI command:
        az role assignment create \
-         --assignee ${azurerm_user_assigned_identity.agic.principal_id} \
+         --assignee ${azuread_service_principal.agic.object_id} \
          --role Contributor \
          --scope ${azurerm_application_gateway.main.id}
 
-    2. Grant 'Reader' role to AGIC identity on Resource Group:
-       Scope: ${data.azurerm_resource_group.main.id}
-       Principal ID: ${azurerm_user_assigned_identity.agic.principal_id}
+    2. Grant 'Reader' role to AGIC Service Principal on Resource Group:
+       Scope: ${azurerm_resource_group.main.id}
+       Principal ID: ${azuread_service_principal.agic.object_id}
        Role: Reader
 
        Azure CLI command:
        az role assignment create \
-         --assignee ${azurerm_user_assigned_identity.agic.principal_id} \
+         --assignee ${azuread_service_principal.agic.object_id} \
          --role Reader \
-         --scope ${data.azurerm_resource_group.main.id}
+         --scope ${azurerm_resource_group.main.id}
 
-    3. Grant 'Managed Identity Operator' role to AKS kubelet identity on AGIC identity:
-       Scope: ${azurerm_user_assigned_identity.agic.id}
-       Principal ID: ${azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id}
-       Role: Managed Identity Operator
+    3. Grant 'Network Contributor' role to AGIC Service Principal on App Gateway subnet:
+       Scope: ${azurerm_subnet.app_gateway.id}
+       Principal ID: ${azuread_service_principal.agic.object_id}
+       Role: Network Contributor
 
        Azure CLI command:
        az role assignment create \
-         --assignee ${azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id} \
-         --role "Managed Identity Operator" \
-         --scope ${azurerm_user_assigned_identity.agic.id}
+         --assignee ${azuread_service_principal.agic.object_id} \
+         --role "Network Contributor" \
+         --scope ${azurerm_subnet.app_gateway.id}
 
     After granting these permissions, you can proceed with AGIC installation.
     See AGIC-INSTALLATION.md for detailed instructions.
@@ -259,3 +272,4 @@ output "web_endpoint" {
   description = "Web endpoint for accessing the application"
   value       = "http://${azurerm_public_ip.app_gateway.ip_address}"
 }
+
