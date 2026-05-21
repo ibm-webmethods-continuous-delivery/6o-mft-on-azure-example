@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-user-init
+  namespace: default
+  labels:
+    app: database-user-init
+    component: initialization
+  annotations:
+    description: "Creates PostgreSQL application users for webMethods Active Transfer"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: database-user-init
+        component: initialization
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: postgres-client
+        image: postgres:15
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+        command:
+        - /bin/sh
+        - /scripts/create-users.sh
+        envFrom:
+        - secretRef:
+            name: db-user-init-admin-credentials
+        volumeMounts:
+        - name: init-script
+          mountPath: /scripts
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+      volumes:
+      - name: init-script
+        configMap:
+          name: db-user-init-script
+          defaultMode: 0755
+          items:
+          - key: create-users.sh
+            path: create-users.sh

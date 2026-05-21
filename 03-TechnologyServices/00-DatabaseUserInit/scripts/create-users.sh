@@ -1,0 +1,90 @@
+#!/bin/sh
+#
+# Database User Initialization Script for Azure PostgreSQL
+#
+
+set -eu
+
+require_env() {
+    __name="$1"
+    eval "__value=\${$__name:-}"
+    if [ -z "${__value}" ]; then
+        echo "ERROR: ${__name} is not set" >&2
+        exit 1
+    fi
+}
+
+sql_escape_literal() {
+    printf "%s" "$1" | sed "s/'/''/g"
+}
+
+require_env POSTGRES_SERVER_FQDN
+require_env POSTGRES_ADMIN_USER
+require_env POSTGRES_ADMIN_PASSWORD
+require_env POSTGRES_ONLINE_DB
+require_env POSTGRES_ARCHIVE_DB
+require_env POSTGRES_USER
+require_env POSTGRES_PASSWORD
+require_env POSTGRES_ARCHIVE_USER
+require_env POSTGRES_ARCHIVE_PASSWORD
+
+export PGPASSWORD="${POSTGRES_ADMIN_PASSWORD}"
+
+ONLINE_DB_ESCAPED="$(sql_escape_literal "${POSTGRES_ONLINE_DB}")"
+ARCHIVE_DB_ESCAPED="$(sql_escape_literal "${POSTGRES_ARCHIVE_DB}")"
+ONLINE_USER_ESCAPED="$(sql_escape_literal "${POSTGRES_USER}")"
+ONLINE_PASSWORD_ESCAPED="$(sql_escape_literal "${POSTGRES_PASSWORD}")"
+ARCHIVE_USER_ESCAPED="$(sql_escape_literal "${POSTGRES_ARCHIVE_USER}")"
+ARCHIVE_PASSWORD_ESCAPED="$(sql_escape_literal "${POSTGRES_ARCHIVE_PASSWORD}")"
+
+echo "=========================================="
+echo "Database User Initialization - Starting"
+echo "=========================================="
+echo "PostgreSQL Server: ${POSTGRES_SERVER_FQDN}"
+echo "Online Database: ${POSTGRES_ONLINE_DB}"
+echo "Archive Database: ${POSTGRES_ARCHIVE_DB}"
+echo "Online Application User: ${POSTGRES_USER}"
+echo "Archive Application User: ${POSTGRES_ARCHIVE_USER}"
+echo "=========================================="
+
+psql \
+  --host="${POSTGRES_SERVER_FQDN}" \
+  --port=5432 \
+  --username="${POSTGRES_ADMIN_USER}" \
+  --dbname=postgres \
+  --set=ON_ERROR_STOP=1 <<SQL
+DO \$block\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '${ONLINE_USER_ESCAPED}') THEN
+    EXECUTE format('CREATE USER %I WITH PASSWORD %L', '${ONLINE_USER_ESCAPED}', '${ONLINE_PASSWORD_ESCAPED}');
+  ELSE
+    EXECUTE format('ALTER USER %I WITH PASSWORD %L', '${ONLINE_USER_ESCAPED}', '${ONLINE_PASSWORD_ESCAPED}');
+  END IF;
+END
+\$block\$;
+
+DO \$block\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '${ARCHIVE_USER_ESCAPED}') THEN
+    EXECUTE format('CREATE USER %I WITH PASSWORD %L', '${ARCHIVE_USER_ESCAPED}', '${ARCHIVE_PASSWORD_ESCAPED}');
+  ELSE
+    EXECUTE format('ALTER USER %I WITH PASSWORD %L', '${ARCHIVE_USER_ESCAPED}', '${ARCHIVE_PASSWORD_ESCAPED}');
+  END IF;
+END
+\$block\$;
+
+DO \$block\$
+BEGIN
+  EXECUTE format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', '${ONLINE_DB_ESCAPED}', '${ONLINE_USER_ESCAPED}');
+  EXECUTE format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', '${ARCHIVE_DB_ESCAPED}', '${ARCHIVE_USER_ESCAPED}');
+END
+\$block\$;
+SQL
+
+unset PGPASSWORD
+unset ONLINE_DB_ESCAPED ARCHIVE_DB_ESCAPED ONLINE_USER_ESCAPED ONLINE_PASSWORD_ESCAPED
+unset ARCHIVE_USER_ESCAPED ARCHIVE_PASSWORD_ESCAPED
+
+echo "=========================================="
+echo "Database User Initialization - Completed"
+echo "=========================================="

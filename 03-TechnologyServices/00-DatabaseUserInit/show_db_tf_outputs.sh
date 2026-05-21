@@ -9,4 +9,4 @@ cd ../../01-AzurePrerequisites/02-ServiceFulfillment/ || exit 1
 
 env | grep POSTGRES | sort
 
-cd "${__crt_dir} "|| exit 2
+cd "${__crt_dir}" || exit 2
