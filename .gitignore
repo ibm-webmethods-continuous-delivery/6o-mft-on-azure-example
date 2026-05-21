@@ -3,3 +3,9 @@
 .terraform
 .terraform.lock.hcl
 *.tfstate*
+
+# Generated Kubernetes manifests (auto-generated from templates)
+03-TechnologyServices/01-DatabaseConfigurator/kubernetes/job-dbc.yaml
+
+# convention for secrets yamls coming from templates
+**/secret*.yaml

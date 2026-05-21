@@ -1,0 +1,134 @@
+#!/bin/sh
+#
+# Database Configurator Entrypoint Script for Azure PostgreSQL
+#
+# This script initializes the webMethods database schemas for:
+# 1. Main/Online database - for active transactions
+# 2. Archive database - for historical data
+#
+# Environment Variables Required:
+#   POSTGRES_SERVER_FQDN     - Azure PostgreSQL Flexible Server FQDN
+#   POSTGRES_ONLINE_DB       - Name of the online database
+#   POSTGRES_ARCHIVE_DB      - Name of the archive database
+#   POSTGRES_USER            - Database user for online database
+#   POSTGRES_PASSWORD        - Database password for online database
+#   POSTGRES_ARCHIVE_USER    - Database user for archive database
+#   POSTGRES_ARCHIVE_PASSWORD - Database password for archive database
+#   WM_HOME                  - webMethods installation home (default: /opt/softwareag)
+#   WM_DB_COMPONENTS         - Components to initialize (default: all)
+#   WM_ARCHIVE_DB_COMPONENTS - Archive components (default: ActiveTransferArchive,ComponentTracker,TaskArchive)
+#
+
+set -e
+
+# Set defaults
+WM_HOME="${WM_HOME:-/opt/softwareag}"
+WM_DB_COMPONENTS="${WM_DB_COMPONENTS:-all}"
+WM_ARCHIVE_DB_COMPONENTS="${WM_ARCHIVE_DB_COMPONENTS:-ActiveTransferArchive,ComponentTracker,TaskArchive}"
+
+# Validate required environment variables
+if [ -z "${POSTGRES_SERVER_FQDN}" ]; then
+    echo "ERROR: POSTGRES_SERVER_FQDN is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_ONLINE_DB}" ]; then
+    echo "ERROR: POSTGRES_ONLINE_DB is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_ARCHIVE_DB}" ]; then
+    echo "ERROR: POSTGRES_ARCHIVE_DB is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_USER}" ]; then
+    echo "ERROR: POSTGRES_USER is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_PASSWORD}" ]; then
+    echo "ERROR: POSTGRES_PASSWORD is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_ARCHIVE_USER}" ]; then
+    echo "ERROR: POSTGRES_ARCHIVE_USER is not set"
+    exit 1
+fi
+
+if [ -z "${POSTGRES_ARCHIVE_PASSWORD}" ]; then
+    echo "ERROR: POSTGRES_ARCHIVE_PASSWORD is not set"
+    exit 1
+fi
+
+echo "=========================================="
+echo "Database Configurator - Starting"
+echo "=========================================="
+echo "PostgreSQL Server: ${POSTGRES_SERVER_FQDN}"
+echo "Online Database: ${POSTGRES_ONLINE_DB}"
+echo "Archive Database: ${POSTGRES_ARCHIVE_DB}"
+echo "Components: ${WM_DB_COMPONENTS}"
+echo "Archive Components: ${WM_ARCHIVE_DB_COMPONENTS}"
+echo "=========================================="
+
+# Initialize main/online database
+echo ""
+echo "Initializing online database: ${POSTGRES_ONLINE_DB}"
+echo "------------------------------------------"
+
+online_db_url="jdbc:wm:postgresql://${POSTGRES_SERVER_FQDN}:5432;databaseName=${POSTGRES_ONLINE_DB}"
+# removed ;sslmode=require
+
+"${WM_HOME}"/common/db/bin/dbConfigurator.sh \
+    --action create \
+    --dbms pgsql \
+    --component "${WM_DB_COMPONENTS}" \
+    --version latest \
+    --url "${online_db_url}" \
+    --printActions \
+    --user "${POSTGRES_USER}" \
+    --password "${POSTGRES_PASSWORD}"
+
+online_exit_code=$?
+
+if [ ${online_exit_code} -ne 0 ]; then
+    echo "ERROR: Failed to initialize online database (exit code: ${online_exit_code})"
+    exit ${online_exit_code}
+fi
+
+echo "✓ Online database initialized successfully"
+
+# Initialize archive database
+echo ""
+echo "Initializing archive database: ${POSTGRES_ARCHIVE_DB}"
+echo "------------------------------------------"
+
+archive_db_url="jdbc:wm:postgresql://${POSTGRES_SERVER_FQDN}:5432;databaseName=${POSTGRES_ARCHIVE_DB}"
+
+"${WM_HOME}"/common/db/bin/dbConfigurator.sh \
+    --action create \
+    --dbms pgsql \
+    --component "${WM_ARCHIVE_DB_COMPONENTS}" \
+    --version latest \
+    --url "${archive_db_url}" \
+    --printActions \
+    --user "${POSTGRES_ARCHIVE_USER}" \
+    --password "${POSTGRES_ARCHIVE_PASSWORD}"
+
+archive_exit_code=$?
+
+if [ ${archive_exit_code} -ne 0 ]; then
+    echo "ERROR: Failed to initialize archive database (exit code: ${archive_exit_code})"
+    exit ${archive_exit_code}
+fi
+
+echo "✓ Archive database initialized successfully"
+
+# Cleanup
+unset online_db_url archive_db_url online_exit_code archive_exit_code
+
+echo ""
+echo "=========================================="
+echo "Database Configurator - Completed"
+echo "=========================================="

@@ -1,0 +1,156 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-configurator
+  namespace: default
+  labels:
+    app: database-configurator
+    component: initialization
+  annotations:
+    description: "Initializes webMethods database schemas in Azure PostgreSQL"
+spec:
+  # Job will be retried up to 3 times on failure
+  backoffLimit: 3
+
+  # Job will timeout after 30 minutes
+  activeDeadlineSeconds: 1800
+
+  # Completed jobs will be kept for 24 hours for troubleshooting
+  ttlSecondsAfterFinished: 86400
+
+  template:
+    metadata:
+      labels:
+        app: database-configurator
+        component: initialization
+    spec:
+      # Use service account with appropriate RBAC permissions if needed
+      # serviceAccountName: database-configurator
+
+      restartPolicy: Never
+
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1724
+        fsGroup: 1724
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+      - name: dbc
+        # Image will be automatically populated from Terraform output
+        # Note: The actual image name is 'active-transfer-dcc-ingest' as built by the CI pipeline
+        image: ${ACR_LOGIN_SERVER}/active-transfer-dcc-ingest:latest
+        imagePullPolicy: IfNotPresent
+
+        # Security context for the container
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+
+        # Command to execute the entrypoint script
+        command:
+        - /bin/sh
+        - /scripts/entrypoint.sh
+
+        # Environment variables from Secret
+        envFrom:
+        - secretRef:
+            name: dbc-postgres-credentials
+
+        # Additional environment variables
+        env:
+        - name: WM_HOME
+          value: "/opt/softwareag"
+        - name: WM_DB_COMPONENTS
+          value: "all"
+        - name: WM_ARCHIVE_DB_COMPONENTS
+          value: "ActiveTransferArchive,ComponentTracker,TaskArchive"
+
+        # Mount the entrypoint script from ConfigMap
+        volumeMounts:
+        - name: entrypoint-script
+          mountPath: /scripts
+          readOnly: true
+
+        # Resource limits and requests
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+      # Volumes
+      volumes:
+      - name: entrypoint-script
+        configMap:
+          name: dbc-entrypoint-script
+          defaultMode: 0755
+          items:
+          - key: entrypoint.sh
+            path: entrypoint.sh
+
+---
+# USAGE INSTRUCTIONS:
+# ===================
+#
+# This is a TEMPLATE file. The actual job-dbc.yaml will be generated automatically
+# by the deploy.sh script using Terraform outputs.
+#
+# The ${ACR_LOGIN_SERVER} placeholder will be replaced with the actual ACR login server
+# from Terraform output: terraform output -raw acr_login_server
+#
+# 1. Prerequisites:
+#    - Azure PostgreSQL Flexible Server must be provisioned and accessible from AKS
+#    - Database users must be created with appropriate permissions
+#    - AKS cluster must have network connectivity to PostgreSQL (private endpoint or service endpoint)
+#    - ACR must contain the active-transfer-dcc:latest image
+#
+# 2. Before deploying:
+#    a. Create the Secret from template:
+#       - Copy secret-dbc-creds.yaml.template to secret-dbc-creds.yaml
+#       - Fill in actual values from Terraform outputs
+#       - Apply: kubectl apply -f kubernetes/secret-dbc-creds.yaml
+#
+# 3. Deploy using the automated script:
+#    ./deploy.sh
+#
+# 4. Monitor the job:
+#    kubectl get jobs
+#    kubectl describe job database-configurator
+#    kubectl logs job/database-configurator -f
+#
+# 5. Check job status:
+#    kubectl get job database-configurator -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}'
+#
+# 6. Troubleshooting:
+#    - View logs: kubectl logs job/database-configurator
+#    - Check events: kubectl describe job database-configurator
+#    - Check pod status: kubectl get pods -l app=database-configurator
+#    - Access pod for debugging: kubectl exec -it <pod-name> -- /bin/sh
+#
+# 7. Cleanup (optional):
+#    kubectl delete job database-configurator
+#    # Note: Job will auto-delete after 24 hours (ttlSecondsAfterFinished)
+#
+# 8. Re-running the job:
+#    - DBC is idempotent with --action create
+#    - Safe to run multiple times
+#    - Delete existing job first: kubectl delete job database-configurator
+#    - Then reapply: ./deploy.sh
+#
+# PRODUCTION NOTES:
+# =================
+# - Consider using a dedicated namespace instead of 'default'
+# - Implement RBAC with a dedicated ServiceAccount
+# - Use Azure Key Vault with CSI driver for secrets management
+# - Enable Pod Security Standards (restricted profile)
+# - Configure network policies to restrict database access
+# - Implement monitoring and alerting for job failures
+# - Consider using Argo Workflows or Tekton for complex initialization pipelines

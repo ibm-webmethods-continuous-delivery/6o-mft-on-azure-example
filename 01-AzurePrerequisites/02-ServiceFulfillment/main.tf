@@ -88,7 +88,9 @@ resource "azurerm_subnet" "private_1" {
   name                 = local.private_subnet_1_name
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 8, 10)]
+  # Service endpoints for PostgreSQL access
+  service_endpoints = ["Microsoft.Storage", "Microsoft.Sql"]
+  address_prefixes  = [cidrsubnet(var.vnet_address_space[0], 8, 10)]
 }
 
 # Private Subnet 2 (for PostgreSQL and other private services)
@@ -543,6 +545,12 @@ resource "azurerm_postgresql_flexible_server" "main" {
   public_network_access_enabled = false
   tags                          = var.tags
 
+
+  # Authentication configuration
+  authentication {
+    active_directory_auth_enabled = false
+    password_auth_enabled         = true
+  }
   depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres]
 }
 
@@ -560,6 +568,13 @@ resource "azurerm_postgresql_flexible_server_database" "archive" {
   server_id = azurerm_postgresql_flexible_server.main.id
   charset   = "UTF8"
   collation = "en_US.utf8"
+}
+
+# PostgreSQL Configuration - Disable require_secure_transport
+resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
+  name      = "require_secure_transport"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "off"
 }
 
 # Public IP for Application Gateway
