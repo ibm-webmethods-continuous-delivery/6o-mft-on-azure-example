@@ -139,6 +139,18 @@ output "postgres_server_fqdn" {
   value       = azurerm_postgresql_flexible_server.main.fqdn
 }
 
+output "postgres_admin_username" {
+  description = "Administrator username for PostgreSQL Flexible Server"
+  value       = var.postgres_admin_username
+  sensitive   = true
+}
+
+output "postgres_admin_password" {
+  description = "Administrator password for PostgreSQL Flexible Server"
+  value       = var.postgres_admin_password
+  sensitive   = true
+}
+
 output "postgres_online_db_name" {
   description = "Name of the online transactions database"
   value       = azurerm_postgresql_flexible_server_database.online.name

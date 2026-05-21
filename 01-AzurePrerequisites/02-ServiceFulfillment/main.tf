@@ -431,7 +431,8 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   lifecycle {
     ignore_changes = [
-      default_node_pool
+      default_node_pool,
+      microsoft_defender
     ]
   }
 
@@ -457,39 +458,51 @@ resource "azurerm_role_assignment" "aks_acr" {
 }
 
 # ============================================================================
-# AGIC (Application Gateway for Containers / Ingress integration) Prerequisites
+# AGIC (Application Gateway Ingress Controller) Service Principal
 # ============================================================================
 
-# User-assigned managed identity for AGIC
-resource "azurerm_user_assigned_identity" "agic" {
-  name                = "${var.prefix}-agic-identity"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  tags                = var.tags
+# Get current Azure AD client configuration
+data "azuread_client_config" "current" {}
+
+# Create Azure AD Application for AGIC
+resource "azuread_application" "agic" {
+  display_name = "${var.prefix}-agic-sp"
+  owners       = [data.azuread_client_config.current.object_id]
 }
 
-# Grant AGIC identity Contributor access to Application Gateway
+# Create Service Principal for the AGIC Application
+resource "azuread_service_principal" "agic" {
+  client_id = azuread_application.agic.client_id
+  owners    = [data.azuread_client_config.current.object_id]
+}
+
+# Create a password/secret for the Service Principal
+resource "azuread_service_principal_password" "agic" {
+  service_principal_id = azuread_service_principal.agic.id
+}
+
+# Grant AGIC Service Principal Contributor access to Application Gateway
 resource "azurerm_role_assignment" "agic_appgw_contributor" {
   count                = var.enable_agic_role_assignments ? 1 : 0
   scope                = azurerm_application_gateway.main.id
   role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.agic.principal_id
+  principal_id         = azuread_service_principal.agic.object_id
 }
 
-# Grant AGIC identity Reader access to Application Gateway resource group
+# Grant AGIC Service Principal Reader access to Application Gateway resource group
 resource "azurerm_role_assignment" "agic_rg_reader" {
   count                = var.enable_agic_role_assignments ? 1 : 0
   scope                = azurerm_resource_group.main.id
   role_definition_name = "Reader"
-  principal_id         = azurerm_user_assigned_identity.agic.principal_id
+  principal_id         = azuread_service_principal.agic.object_id
 }
 
-# Grant AKS kubelet identity permission to use the AGIC managed identity
-resource "azurerm_role_assignment" "agic_identity_operator" {
+# Grant AGIC Service Principal Network Contributor access to App Gateway subnet
+resource "azurerm_role_assignment" "agic_subnet_network_contributor" {
   count                = var.enable_agic_role_assignments ? 1 : 0
-  scope                = azurerm_user_assigned_identity.agic.id
-  role_definition_name = "Managed Identity Operator"
-  principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+  scope                = azurerm_subnet.app_gateway.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azuread_service_principal.agic.object_id
 }
 
 
@@ -618,5 +631,20 @@ resource "azurerm_application_gateway" "main" {
     backend_address_pool_name  = "aks-backend-pool"
     backend_http_settings_name = "http-settings"
     priority                   = 100
+  }
+
+  # Lifecycle block to ignore changes made by AGIC
+  lifecycle {
+    ignore_changes = [
+      backend_address_pool,
+      backend_http_settings,
+      frontend_port,
+      http_listener,
+      probe,
+      request_routing_rule,
+      url_path_map,
+      ssl_certificate,
+      redirect_configuration
+    ]
   }
 }
