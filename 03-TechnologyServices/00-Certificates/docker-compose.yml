@@ -1,0 +1,25 @@
+services:
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Certificate Manager
+  # Generates server TLS certificates and client SSH key pairs
+  # ═══════════════════════════════════════════════════════════════════════════
+  cert-manager:
+    image: iwcd-cert-manager-u:alpine
+    container_name: 6o-mft-az-example-cert-mgr
+    volumes:
+      - ./data/subjects:/mnt/data/certmgr
+      - ./scripts/cert-manager-entrypoint.sh:/entrypoint.sh:ro
+      - cert-manager-home:/home/certmgr
+      - cert-manager-tmp:/tmp
+    read_only: true
+    environment:
+      # TEST_PK_SECRET is the harness-level passphrase used by all subjects.
+      # Each subject's set-env.sh resolves CRTMGR_PK_PASS from this variable,
+      # keeping per-subject scope while enabling fully unattended operation.
+      - TEST_PK_SECRET=ChangeMe123
+    command: ["/bin/sh", "/entrypoint.sh"]
+
+volumes:
+  cert-manager-home: {}
+  cert-manager-tmp: {}
