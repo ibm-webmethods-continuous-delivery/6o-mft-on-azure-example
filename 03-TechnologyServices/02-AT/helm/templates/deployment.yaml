@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: {{ if .Values.statefulSet }}StatefulSet{{ else }}Deployment{{ end }}
+metadata:
+  name: {{ include "active-transfer.fullname" . }}
+  labels:
+    {{- include "active-transfer.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if .Values.statefulSet }}
+  serviceName: {{ include "active-transfer.fullname" . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "active-transfer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config-app-props: {{ include (print $.Template.BasePath "/configmap-application-properties.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "active-transfer.selectorLabels" . | nindent 8 }}
+        {{- with .Values.extraLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "active-transfer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.extraInitContainers }}
+      initContainers:
+        {{- toYaml .Values.extraInitContainers | nindent 8 }}
+      {{- end }}
+      {{- if .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- end }}
+      {{- if .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml .Values.dnsConfig | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ include "active-transfer.containerName" . }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            # Memory settings
+            - name: JAVA_MIN_MEM
+              value: {{ .Values.activeTransfer.memoryHeap.min }}
+            - name: JAVA_MAX_MEM
+              value: {{ .Values.activeTransfer.memoryHeap.max }}
+            # Configuration files
+            - name: SAG_IS_CONFIG_PROPERTIES
+              value: "{{ .Values.activeTransfer.installDir }}/application.properties"
+            {{- if .Values.activeTransfer.javaCustomOpts }}
+            # Java custom options
+            - name: JAVA_CUSTOM_OPTS
+              value: "{{ join " " .Values.activeTransfer.javaCustomOpts }}"
+            {{- end }}
+            {{- if .Values.extraEnvs }}
+            # Extra environment variables (includes secrets)
+            {{- toYaml .Values.extraEnvs | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.activeTransfer.httpPort }}
+              protocol: TCP
+            - name: https
+              containerPort: {{ .Values.activeTransfer.httpsPort }}
+              protocol: TCP
+            - name: diag
+              containerPort: {{ .Values.activeTransfer.diagnosticPort }}
+              protocol: TCP
+            {{- if .Values.extraPorts }}
+            {{- toYaml .Values.extraPorts | nindent 12 }}
+            {{- end }}
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.resources.msrContainer }}
+          resources:
+            {{- toYaml .Values.resources.msrContainer | nindent 12 }}
+          {{- end }}
+          {{- if .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml .Values.lifecycle | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # Application properties
+            - name: application-properties
+              mountPath: {{ .Values.activeTransfer.installDir }}/application.properties
+              subPath: application.properties
+              readOnly: true
+            # MFT configuration JSON (from Secret)
+            - name: mft-config-json
+              mountPath: /mnt/injected/config/mft-config.json
+              subPath: mft-config.json
+              readOnly: true
+            {{- if .Values.extraVolumeMounts }}
+            # Extra volume mounts (certificates, VFS)
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
+        {{- if .Values.extraContainers }}
+        # Extra sidecar containers
+        {{- toYaml .Values.extraContainers | nindent 8 }}
+        {{- end }}
+      volumes:
+        # Application properties ConfigMap
+        - name: application-properties
+          configMap:
+            name: {{ include "active-transfer.fullname" . }}-application-properties
+            items:
+              - key: application.properties
+                path: application.properties
+        # MFT configuration Secret (contains passwords)
+        - name: mft-config-json
+          secret:
+            secretName: mft-config-json
+            items:
+              - key: mft-config.json
+                path: mft-config.json
+        {{- if .Values.extraVolumes }}
+        # Extra volumes (certificates, VFS)
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}

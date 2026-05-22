@@ -17,6 +17,23 @@ services:
       - ../..:/azcli
       - iwcd-mft-az-cli-home:/home/iwcd-az-cli-dev/ # iwcd-tf fixed in the prerequisite image
       - tmp:/tmp/
+    # Ports - in case proxying with kubectl
+    # Default IS ports
+    ports:
+      - 5555:5555
+      - 5556:5556
+      # LB SFTP
+      - 50022:50022
+      # Node 1 SFTP
+      - 51022:51022
+      # Node 2 SFTP
+      - 52022:52022
+      # Node 1 IS HTTP + HTTPS
+      - 51055:51055
+      - 51056:51056
+      # Node 2 IS HTTP + HTTPS
+      - 52055:52055
+      - 52056:52056
     entrypoint: sleep infinity
 
 volumes:

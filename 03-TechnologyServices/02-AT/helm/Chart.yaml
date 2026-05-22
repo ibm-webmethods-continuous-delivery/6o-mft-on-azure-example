@@ -1,0 +1,18 @@
+apiVersion: v2
+name: active-transfer
+description: IBM webMethods Active Transfer (MFT) Helm Chart for Azure AKS
+type: application
+version: 1.0.0
+appVersion: "11.1.0"
+keywords:
+  - webmethods
+  - active-transfer
+  - mft
+  - file-transfer
+  - ibm
+home: https://github.com/ibm-webmethods-continuous-delivery/6o-mft-on-azure-example
+sources:
+  - https://github.com/ibm-webmethods-continuous-delivery/6o-mft-on-azure-example
+maintainers:
+  - name: IWCD Team
+    email: iwcd@example.com

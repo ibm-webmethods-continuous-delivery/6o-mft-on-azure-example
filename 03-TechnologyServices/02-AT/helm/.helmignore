@@ -1,0 +1,35 @@
+# Patterns to ignore when building packages.
+# This supports shell glob matching, relative path matching, and
+# negation (prefixed with !). Only one pattern per line.
+
+# Ignore template files used by generate-secrets.sh
+templates/*.template
+
+# Ignore generated secret files (managed outside Helm by generate-secrets.sh)
+templates/secret-certificates.yaml
+templates/secret-db-credentials.yaml
+templates/secret-mft-config.yaml
+
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+
+# Common backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+
+# Various IDEs
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# Made with Bob

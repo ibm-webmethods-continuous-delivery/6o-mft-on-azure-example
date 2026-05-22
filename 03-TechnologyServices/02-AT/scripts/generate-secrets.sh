@@ -1,0 +1,329 @@
+#!/usr/bin/env bash
+# ============================================================================
+# Generate Kubernetes Secrets for Active Transfer
+# ============================================================================
+# This script generates Kubernetes secret manifests from certificate files
+# and database credentials.
+#
+# Prerequisites:
+#   - Certificate files in ../00-Certificates/data/subjects/az-certs/
+#   - Database credentials from 00-DatabaseUserInit
+#   - kubectl configured with access to target cluster
+#
+# Usage:
+#   ./generate-secrets.sh [--apply]
+#
+# Options:
+#   --apply    Automatically apply secrets to cluster (default: just generate)
+#   --help     Show this help message
+# ============================================================================
+
+set -euo pipefail
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+HELM_DIR="${SCRIPT_DIR}/../helm"
+CERTS_BASE_DIR="${PROJECT_ROOT}/03-TechnologyServices/00-Certificates/data/subjects/az-certs"
+
+# Output files
+SECRET_CERTS_FILE="${HELM_DIR}/templates/secret-certificates.yaml"
+SECRET_DB_FILE="${HELM_DIR}/templates/secret-db-credentials.yaml"
+SECRET_MFT_CONFIG_FILE="${HELM_DIR}/templates/secret-mft-config.yaml"
+SECRET_MFT_CONFIG_TEMPLATE="${HELM_DIR}/templates/secret-mft-config.yaml.template"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Parse arguments
+APPLY_SECRETS=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --apply)
+            APPLY_SECRETS=true
+            shift
+            ;;
+        --help)
+            grep '^#' "$0" | grep -v '#!/usr/bin/env' | sed 's/^# //' | sed 's/^#//'
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+# Helper function to base64 encode file
+base64_encode_file() {
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        echo -e "${RED}Error: File not found: $file${NC}" >&2
+        return 1
+    fi
+    base64 -w 0 < "$file"
+}
+
+# Helper function to base64 encode string
+base64_encode_string() {
+    echo -n "$1" | base64 -w 0
+}
+
+echo "============================================================================"
+echo "Active Transfer - Secret Generation"
+echo "============================================================================"
+echo ""
+
+# Check if certificate directory exists
+if [[ ! -d "$CERTS_BASE_DIR" ]]; then
+    echo -e "${RED}Error: Certificate directory not found: $CERTS_BASE_DIR${NC}"
+    echo "Please run certificate generation first in 00-Certificates/"
+    exit 1
+fi
+
+# ============================================================================
+# Generate Certificate Secrets
+# ============================================================================
+echo "Generating certificate secrets..."
+
+# Certificate paths
+ADMIN_UI_CERTS="${CERTS_BASE_DIR}/02-admin-ui/out/rsa"
+WEB_CLIENT_CERTS="${CERTS_BASE_DIR}/03-web-client/out/rsa"
+SFTP_KEYS="${CERTS_BASE_DIR}/04-sftp-server/out"
+
+# Check if certificate files exist
+REQUIRED_CERT_FILES=(
+    "${ADMIN_UI_CERTS}/full.chain.key.store.jks"
+    "${ADMIN_UI_CERTS}/simple.trust.store.jks"
+    "${WEB_CLIENT_CERTS}/full.chain.key.store.jks"
+    "${WEB_CLIENT_CERTS}/simple.trust.store.jks"
+    "${SFTP_KEYS}/id_rsa"
+    "${SFTP_KEYS}/id_rsa.pub"
+)
+
+for file in "${REQUIRED_CERT_FILES[@]}"; do
+    if [[ ! -f "$file" ]]; then
+        echo -e "${RED}Error: Required certificate file not found: $file${NC}"
+        exit 1
+    fi
+done
+
+# Get individual keystore and truststore passwords from environment or prompt
+if [[ -z "${ADMIN_UI_KEYSTORE_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter Admin UI keystore password (or set ADMIN_UI_KEYSTORE_PASSWORD env var):${NC}"
+    read -rs ADMIN_UI_KEYSTORE_PASSWORD
+    echo ""
+fi
+
+if [[ -z "${ADMIN_UI_TRUSTSTORE_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter Admin UI truststore password (or set ADMIN_UI_TRUSTSTORE_PASSWORD env var):${NC}"
+    read -rs ADMIN_UI_TRUSTSTORE_PASSWORD
+    echo ""
+fi
+
+if [[ -z "${WEB_CLIENT_KEYSTORE_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter Web Client keystore password (or set WEB_CLIENT_KEYSTORE_PASSWORD env var):${NC}"
+    read -rs WEB_CLIENT_KEYSTORE_PASSWORD
+    echo ""
+fi
+
+if [[ -z "${WEB_CLIENT_TRUSTSTORE_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter Web Client truststore password (or set WEB_CLIENT_TRUSTSTORE_PASSWORD env var):${NC}"
+    read -rs WEB_CLIENT_TRUSTSTORE_PASSWORD
+    echo ""
+fi
+
+# Get admin password from environment or prompt
+if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter Integration Server admin password (or set ADMIN_PASSWORD env var):${NC}"
+    read -rs ADMIN_PASSWORD
+    echo ""
+fi
+
+# Generate certificate secrets
+cat > "$SECRET_CERTS_FILE" <<EOF
+# Generated by generate-secrets.sh on $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+# DO NOT COMMIT THIS FILE TO VERSION CONTROL
+
+---
+# Admin UI Certificates
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mft-admin-ui-certs
+  labels:
+    app.kubernetes.io/name: active-transfer
+    app.kubernetes.io/component: certificates
+type: Opaque
+data:
+  keystore.jks: $(base64_encode_file "${ADMIN_UI_CERTS}/full.chain.key.store.jks")
+  keystore.p12: $(base64_encode_file "${ADMIN_UI_CERTS}/full.chain.key.store.p12")
+  truststore.jks: $(base64_encode_file "${ADMIN_UI_CERTS}/simple.trust.store.jks")
+  truststore.p12: $(base64_encode_file "${ADMIN_UI_CERTS}/public.trust.store.p12")
+  keystore-password: $(base64_encode_string "$ADMIN_UI_KEYSTORE_PASSWORD")
+  truststore-password: $(base64_encode_string "$ADMIN_UI_TRUSTSTORE_PASSWORD")
+
+---
+# Web Client Certificates
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mft-web-client-certs
+  labels:
+    app.kubernetes.io/name: active-transfer
+    app.kubernetes.io/component: certificates
+type: Opaque
+data:
+  keystore.jks: $(base64_encode_file "${WEB_CLIENT_CERTS}/full.chain.key.store.jks")
+  keystore.p12: $(base64_encode_file "${WEB_CLIENT_CERTS}/full.chain.key.store.p12")
+  truststore.jks: $(base64_encode_file "${WEB_CLIENT_CERTS}/simple.trust.store.jks")
+  truststore.p12: $(base64_encode_file "${WEB_CLIENT_CERTS}/public.trust.store.p12")
+  keystore-password: $(base64_encode_string "$WEB_CLIENT_KEYSTORE_PASSWORD")
+  truststore-password: $(base64_encode_string "$WEB_CLIENT_TRUSTSTORE_PASSWORD")
+
+---
+# SFTP SSH Keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mft-sftp-ssh-keys
+  labels:
+    app.kubernetes.io/name: active-transfer
+    app.kubernetes.io/component: certificates
+type: Opaque
+data:
+  id_rsa: $(base64_encode_file "${SFTP_KEYS}/id_rsa")
+  id_rsa.pub: $(base64_encode_file "${SFTP_KEYS}/id_rsa.pub")
+
+---
+# Admin Credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mft-admin-credentials
+  labels:
+    app.kubernetes.io/name: active-transfer
+    app.kubernetes.io/component: credentials
+type: Opaque
+data:
+  admin-password: $(base64_encode_string "$ADMIN_PASSWORD")
+EOF
+
+echo -e "${GREEN}✓ Certificate secrets generated: $SECRET_CERTS_FILE${NC}"
+
+# ============================================================================
+# Generate MFT Configuration Secret
+# ============================================================================
+echo "Generating MFT configuration secret..."
+
+# Check if template exists
+if [[ ! -f "$SECRET_MFT_CONFIG_TEMPLATE" ]]; then
+    echo -e "${RED}Error: MFT config template not found: $SECRET_MFT_CONFIG_TEMPLATE${NC}"
+    exit 1
+fi
+
+# Export password variables for envsubst
+export ADMIN_UI_KEYSTORE_PASSWORD
+export ADMIN_UI_TRUSTSTORE_PASSWORD
+export WEB_CLIENT_KEYSTORE_PASSWORD
+export WEB_CLIENT_TRUSTSTORE_PASSWORD
+
+# Process template with envsubst
+envsubst < "$SECRET_MFT_CONFIG_TEMPLATE" > "$SECRET_MFT_CONFIG_FILE"
+
+echo -e "${GREEN}✓ MFT configuration secret generated: $SECRET_MFT_CONFIG_FILE${NC}"
+
+# ============================================================================
+# Generate Database Credentials Secret
+# ============================================================================
+echo "Generating database credentials secret..."
+
+# Get database passwords from environment or prompt
+if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter online database password (or set POSTGRES_PASSWORD env var):${NC}"
+    read -rs POSTGRES_PASSWORD
+    echo ""
+fi
+
+if [[ -z "${POSTGRES_ARCHIVE_PASSWORD:-}" ]]; then
+    echo -e "${YELLOW}Enter archive database password (or set POSTGRES_ARCHIVE_PASSWORD env var):${NC}"
+    read -rs POSTGRES_ARCHIVE_PASSWORD
+    echo ""
+fi
+
+# Generate database credentials secret
+cat > "$SECRET_DB_FILE" <<EOF
+# Generated by generate-secrets.sh on $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+# DO NOT COMMIT THIS FILE TO VERSION CONTROL
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mft-db-credentials
+  labels:
+    app.kubernetes.io/name: active-transfer
+    app.kubernetes.io/component: database
+type: Opaque
+data:
+  online-db-password: $(base64_encode_string "$POSTGRES_PASSWORD")
+  archive-db-password: $(base64_encode_string "$POSTGRES_ARCHIVE_PASSWORD")
+EOF
+
+echo -e "${GREEN}✓ Database credentials secret generated: $SECRET_DB_FILE${NC}"
+
+# ============================================================================
+# Apply Secrets (if requested)
+# ============================================================================
+if [[ "$APPLY_SECRETS" == "true" ]]; then
+    echo ""
+    echo "Applying secrets to Kubernetes cluster..."
+
+    if ! command -v kubectl &> /dev/null; then
+        echo -e "${RED}Error: kubectl not found. Please install kubectl.${NC}"
+        exit 1
+    fi
+
+    kubectl apply -f "$SECRET_CERTS_FILE"
+    kubectl apply -f "$SECRET_MFT_CONFIG_FILE"
+    kubectl apply -f "$SECRET_DB_FILE"
+
+    echo -e "${GREEN}✓ Secrets applied successfully${NC}"
+fi
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo ""
+echo "============================================================================"
+echo "Secret Generation Complete"
+echo "============================================================================"
+echo ""
+echo "Generated files:"
+echo "  - $SECRET_CERTS_FILE"
+echo "  - $SECRET_MFT_CONFIG_FILE"
+echo "  - $SECRET_DB_FILE"
+echo ""
+echo "IMPORTANT:"
+echo "  - These files contain sensitive data and should NOT be committed to Git"
+echo "  - Add them to .gitignore if not already present"
+echo "  - Store passwords securely (e.g., password manager, Azure Key Vault)"
+echo ""
+
+if [[ "$APPLY_SECRETS" == "false" ]]; then
+    echo "To apply secrets to cluster:"
+    echo "  kubectl apply -f $SECRET_CERTS_FILE"
+    echo "  kubectl apply -f $SECRET_MFT_CONFIG_FILE"
+    echo "  kubectl apply -f $SECRET_DB_FILE"
+    echo ""
+    echo "Or run this script with --apply flag:"
+    echo "  $0 --apply"
+    echo ""
+fi
+
+echo "Next steps:"
+echo "  1. Update values.yaml with your environment-specific values"
+echo "  2. Deploy using: ./deploy.sh"
+echo ""
