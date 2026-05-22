@@ -146,13 +146,14 @@ lifecycle: {}
   #     command: ["/bin/sh", "-c", "sleep 15"]
 
 # -- Startup probe - MFT takes time to initialize
+# HTTP port becomes available at ~68 seconds, so we start probing at 90s
 startupProbe:
   httpGet:
     path: /health/liveness
     port: http
   failureThreshold: 60
   periodSeconds: 10
-  initialDelaySeconds: 30
+  initialDelaySeconds: 90
 
 # -- Liveness probe
 livenessProbe:
@@ -175,6 +176,17 @@ readinessProbe:
   timeoutSeconds: 10
   successThreshold: 1
   failureThreshold: 3
+
+# JGroups cluster synchronization for multi-node deployments
+jgroups:
+  # -- Enable JGroups clustering for configuration synchronization across nodes
+  enabled: true
+
+  # -- TCP port for JGroups communication (default: 7800)
+  tcpPort: 7800
+
+  # -- Port range for discovery (default: 1)
+  portRange: 1
 
 # Active Transfer / Integration Server configuration
 activeTransfer:
@@ -243,6 +255,10 @@ database:
 
 # MFT-specific configuration (used in mft-config.json template)
 mftConfig:
+  # -- MFT Server ID (unique identifier for this MFT instance)
+  # Leave empty for auto-generation
+  serverId: ""
+
   # -- Gateway configuration
   gateways:
     - instanceName: "Gateway1"

@@ -18,6 +18,10 @@ spec:
     metadata:
       annotations:
         checksum/config-app-props: {{ include (print $.Template.BasePath "/configmap-application-properties.yaml") . | sha256sum }}
+        checksum/config-mft-props: {{ include (print $.Template.BasePath "/configmap-mft-properties.yaml") . | sha256sum }}
+        {{- if .Values.jgroups.enabled }}
+        checksum/config-jgroups: {{ include (print $.Template.BasePath "/configmap-jgroups.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -65,6 +69,15 @@ spec:
             - name: JAVA_CUSTOM_OPTS
               value: "{{ join " " .Values.activeTransfer.javaCustomOpts }}"
             {{- end }}
+            {{- if .Values.jgroups.enabled }}
+            # JGroups cluster discovery
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_LABELS
+              value: "app.kubernetes.io/name={{ include "active-transfer.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+            {{- end }}
             {{- if .Values.extraEnvs }}
             # Extra environment variables (includes secrets)
             {{- toYaml .Values.extraEnvs | nindent 12 }}
@@ -79,6 +92,11 @@ spec:
             - name: diag
               containerPort: {{ .Values.activeTransfer.diagnosticPort }}
               protocol: TCP
+            {{- if .Values.jgroups.enabled }}
+            - name: jgroups
+              containerPort: {{ .Values.jgroups.tcpPort }}
+              protocol: TCP
+            {{- end }}
             {{- if .Values.extraPorts }}
             {{- toYaml .Values.extraPorts | nindent 12 }}
             {{- end }}
@@ -108,11 +126,23 @@ spec:
               mountPath: {{ .Values.activeTransfer.installDir }}/application.properties
               subPath: application.properties
               readOnly: true
+            # MFT properties.cnf
+            - name: mft-properties
+              mountPath: {{ .Values.activeTransfer.installDir }}/packages/WmMFT/config/properties.cnf
+              subPath: properties.cnf
+              readOnly: true
             # MFT configuration JSON (from Secret)
             - name: mft-config-json
               mountPath: /mnt/injected/config/mft-config.json
               subPath: mft-config.json
               readOnly: true
+            {{- if .Values.jgroups.enabled }}
+            # JGroups configuration
+            - name: jgroups-config
+              mountPath: {{ .Values.activeTransfer.installDir }}/packages/WmMFT/resources/jgroup-properties.xml
+              subPath: jgroup-properties.xml
+              readOnly: true
+            {{- end }}
             {{- if .Values.extraVolumeMounts }}
             # Extra volume mounts (certificates, VFS)
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
@@ -136,6 +166,22 @@ spec:
             items:
               - key: mft-config.json
                 path: mft-config.json
+        # MFT properties ConfigMap
+        - name: mft-properties
+          configMap:
+            name: {{ include "active-transfer.fullname" . }}-mft-properties
+            items:
+              - key: properties.cnf
+                path: properties.cnf
+        {{- if .Values.jgroups.enabled }}
+        # JGroups configuration ConfigMap
+        - name: jgroups-config
+          configMap:
+            name: {{ include "active-transfer.fullname" . }}-jgroups
+            items:
+              - key: jgroup-properties.xml
+                path: jgroup-properties.xml
+        {{- end }}
         {{- if .Values.extraVolumes }}
         # Extra volumes (certificates, VFS)
         {{- toYaml .Values.extraVolumes | nindent 8 }}

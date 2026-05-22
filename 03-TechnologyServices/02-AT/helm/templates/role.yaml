@@ -1,0 +1,13 @@
+{{- if .Values.jgroups.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "active-transfer.fullname" . }}-jgroups
+  labels:
+    {{- include "active-transfer.labels" . | nindent 4 }}
+rules:
+  # Required for KUBE_PING protocol to discover other pods in the cluster
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+{{- end }}

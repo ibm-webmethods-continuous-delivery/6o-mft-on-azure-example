@@ -88,6 +88,14 @@ data:
     globalvariable.ZzMftConfigStartupTimeJsonFile.value=/mnt/injected/config/mft-config.json
 
     # ----------------------------------------------------------------------------
+    # JGroups Cluster Synchronization
+    # ----------------------------------------------------------------------------
+    {{- if .Values.jgroups.enabled }}
+    # Enable ActiveTransfer group synchronization for multi-node clustering
+    mft.cluster.sync.enabled=true
+    {{- end }}
+
+    # ----------------------------------------------------------------------------
     # Additional Settings
     # ----------------------------------------------------------------------------
     # Timezone
