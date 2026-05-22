@@ -164,6 +164,19 @@ resource "azurerm_network_security_group" "sftp" {
     source_address_prefix      = "*"
     destination_address_prefix = "AzureContainerRegistry"
   }
+
+  # Add to main.tf in azurerm_network_security_group.sftp resource:
+  security_rule {
+    name                       = "AllowGatewayFromAKS"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["8500", "8501"]
+    source_address_prefix      = azurerm_subnet.private_1.address_prefixes[0]  # AKS subnet
+    destination_address_prefix = "*"
+  }
 }
 
 # Network Security Group for AKS (Private Subnet)
@@ -425,11 +438,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   tags                      = var.tags
 
   default_node_pool {
-    name                   = "default"
-    node_count             = var.aks_node_count
-    vm_size                = var.aks_node_size
-    vnet_subnet_id         = azurerm_subnet.private_1.id
-    zones                  = ["1", "2", "3"]  # Distribute nodes across availability zones
+    name                        = "default"
+    node_count                  = var.aks_node_count
+    vm_size                     = var.aks_node_size
+    vnet_subnet_id              = azurerm_subnet.private_1.id
+    zones                       = ["1", "2", "3"] # Distribute nodes across availability zones
     temporary_name_for_rotation = "defaulttmp"
   }
 
@@ -657,7 +670,7 @@ resource "azurerm_application_gateway" "main" {
     priority                   = 100
   }
 
-  # Lifecycle block to ignore changes made by AGIC
+  # Lifecycle block to ignore changes made by AGIC and Kubernetes-managed tags
   lifecycle {
     ignore_changes = [
       backend_address_pool,
@@ -668,7 +681,9 @@ resource "azurerm_application_gateway" "main" {
       request_routing_rule,
       url_path_map,
       ssl_certificate,
-      redirect_configuration
+      redirect_configuration,
+      tags["ingress-for-aks-cluster-id"],
+      tags["managed-by-k8s-ingress"]
     ]
   }
 }

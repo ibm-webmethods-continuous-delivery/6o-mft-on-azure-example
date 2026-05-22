@@ -1,0 +1,206 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - 03-TechnologyServices/03-ATGateway/**
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: mft-azure-variables  # Variable group containing ACR_LOGIN_SERVER, SSH keys, etc.
+  - name: gatewayVM1IP
+    value: '10.1.0.4'
+  - name: gatewayVM2IP
+    value: '10.1.1.4'
+  - name: sshUser
+    value: 'azureuser'
+
+stages:
+  - stage: DeployGateway1
+    displayName: 'Deploy Gateway 1'
+    jobs:
+      - job: DeployToVM1
+        displayName: 'Deploy to Gateway VM 1'
+        steps:
+          - task: CopyFilesOverSSH@0
+            displayName: 'Copy Gateway 1 files to VM'
+            inputs:
+              sshEndpoint: 'gateway-vm-1-ssh'  # Service connection name
+              sourceFolder: '$(Build.SourcesDirectory)/03-TechnologyServices/03-ATGateway/gateway1'
+              contents: |
+                **/*
+              targetFolder: '/tmp/at-gateway-deploy'
+              cleanTargetFolder: true
+              overwrite: true
+              failOnEmptySource: true
+
+          - task: SSH@0
+            displayName: 'Deploy Gateway 1 Service'
+            inputs:
+              sshEndpoint: 'gateway-vm-1-ssh'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "=== Deploying ActiveTransfer Gateway 1 ==="
+                
+                # Set ACR login server from pipeline variable
+                export ACR_LOGIN_SERVER=$(ACR_LOGIN_SERVER)
+                
+                # Make deploy script executable
+                chmod +x /tmp/at-gateway-deploy/deploy.sh
+                
+                # Run deployment script
+                sudo -E /tmp/at-gateway-deploy/deploy.sh
+                
+                # Start the service
+                sudo systemctl start at-gateway.service
+                
+                # Wait for service to be ready
+                echo "Waiting for gateway to be ready..."
+                sleep 30
+                
+                # Check service status
+                sudo systemctl status at-gateway.service
+                
+                # Check container health
+                sudo docker ps | grep at-gateway1
+                
+                echo "=== Gateway 1 Deployment Complete ==="
+              readyTimeout: '20000'
+
+          - task: SSH@0
+            displayName: 'Verify Gateway 1 Health'
+            inputs:
+              sshEndpoint: 'gateway-vm-1-ssh'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "=== Verifying Gateway 1 Health ==="
+                
+                # Check if container is running
+                if ! sudo docker ps | grep -q at-gateway1; then
+                  echo "ERROR: Gateway 1 container is not running"
+                  exit 1
+                fi
+                
+                # Check container logs for errors
+                echo "Recent logs:"
+                sudo docker logs at-gateway1 --tail 50
+                
+                # Test port connectivity
+                if ! nc -zv localhost 8500; then
+                  echo "ERROR: Gateway port 8500 is not accessible"
+                  exit 1
+                fi
+                
+                echo "=== Gateway 1 is healthy ==="
+              readyTimeout: '20000'
+
+  - stage: DeployGateway2
+    displayName: 'Deploy Gateway 2'
+    dependsOn: DeployGateway1
+    jobs:
+      - job: DeployToVM2
+        displayName: 'Deploy to Gateway VM 2'
+        steps:
+          - task: CopyFilesOverSSH@0
+            displayName: 'Copy Gateway 2 files to VM'
+            inputs:
+              sshEndpoint: 'gateway-vm-2-ssh'  # Service connection name
+              sourceFolder: '$(Build.SourcesDirectory)/03-TechnologyServices/03-ATGateway/gateway2'
+              contents: |
+                **/*
+              targetFolder: '/tmp/at-gateway-deploy'
+              cleanTargetFolder: true
+              overwrite: true
+              failOnEmptySource: true
+
+          - task: SSH@0
+            displayName: 'Deploy Gateway 2 Service'
+            inputs:
+              sshEndpoint: 'gateway-vm-2-ssh'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "=== Deploying ActiveTransfer Gateway 2 ==="
+                
+                # Set ACR login server from pipeline variable
+                export ACR_LOGIN_SERVER=$(ACR_LOGIN_SERVER)
+                
+                # Make deploy script executable
+                chmod +x /tmp/at-gateway-deploy/deploy.sh
+                
+                # Run deployment script
+                sudo -E /tmp/at-gateway-deploy/deploy.sh
+                
+                # Start the service
+                sudo systemctl start at-gateway.service
+                
+                # Wait for service to be ready
+                echo "Waiting for gateway to be ready..."
+                sleep 30
+                
+                # Check service status
+                sudo systemctl status at-gateway.service
+                
+                # Check container health
+                sudo docker ps | grep at-gateway2
+                
+                echo "=== Gateway 2 Deployment Complete ==="
+              readyTimeout: '20000'
+
+          - task: SSH@0
+            displayName: 'Verify Gateway 2 Health'
+            inputs:
+              sshEndpoint: 'gateway-vm-2-ssh'
+              runOptions: 'inline'
+              inline: |
+                set -e
+                echo "=== Verifying Gateway 2 Health ==="
+                
+                # Check if container is running
+                if ! sudo docker ps | grep -q at-gateway2; then
+                  echo "ERROR: Gateway 2 container is not running"
+                  exit 1
+                fi
+                
+                # Check container logs for errors
+                echo "Recent logs:"
+                sudo docker logs at-gateway2 --tail 50
+                
+                # Test port connectivity
+                if ! nc -zv localhost 8500; then
+                  echo "ERROR: Gateway port 8500 is not accessible"
+                  exit 1
+                fi
+                
+                echo "=== Gateway 2 is healthy ==="
+              readyTimeout: '20000'
+
+  - stage: VerifyConnectivity
+    displayName: 'Verify Gateway Connectivity'
+    dependsOn: 
+      - DeployGateway1
+      - DeployGateway2
+    jobs:
+      - job: TestFromAKS
+        displayName: 'Test connectivity from AKS'
+        steps:
+          - task: Kubernetes@1
+            displayName: 'Test Gateway 1 connectivity'
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'aks-cluster-connection'
+              command: 'run'
+              arguments: 'test-gw1 --image=busybox --rm -it --restart=Never -- nc -zv $(gatewayVM1IP) 8500'
+
+          - task: Kubernetes@1
+            displayName: 'Test Gateway 2 connectivity'
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'aks-cluster-connection'
+              command: 'run'
+              arguments: 'test-gw2 --image=busybox --rm -it --restart=Never -- nc -zv $(gatewayVM2IP) 8500'

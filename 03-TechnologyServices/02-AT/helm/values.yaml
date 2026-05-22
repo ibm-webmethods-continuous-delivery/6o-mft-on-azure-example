@@ -260,6 +260,9 @@ mftConfig:
   serverId: ""
 
   # -- Gateway configuration
+  # NOTE: This section is NOT (YET) used by the Helm templates.
+  # Gateway configuration is managed in templates/secret-mft-config.yaml.template
+  # To do: consolidate parameters in the values files
   gateways:
     - instanceName: "Gateway1"
       host: "REPLACE_WITH_GATEWAY1_IP"

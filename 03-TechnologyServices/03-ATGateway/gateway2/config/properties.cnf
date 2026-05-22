@@ -1,0 +1,40 @@
+#WmMFT properties - Gateway 2 Configuration
+#Generated for Azure deployment
+mft.client.outbound.useProxy=false
+mft.session.replication.enable=false
+mft.server.crlUrl=
+mft.user.email.from=
+mft.server.https.auth.saml=true
+mft.vfs.tree.pagination.pageSize=200
+mft.server.http.header.verification.enable=true
+mft.user.email.subject=ActiveTransfer User Registration
+mft.event.sleep.time=1
+mft.session.replication.other.nodes=
+mft.ssl.client.acceptAnyCert=true
+mft.client.ftp.list.command=
+mft.partners.useTNPartners=false
+mft.http.default.port.secure=false
+mft.vfs.tree.pagination.depth=1
+mft.server.ftp.list.allowEmpty=false
+mft.server.runtime.mode=Gateway
+mft.never.ban.list=
+mft.server.http.header.csp=
+mft.session.replication.address=
+mft.agent.event.log.activityTypes=asset, auth, event
+mft.password.change.token.expiry=24
+mft.server.password.complexity=^(?\=.*[a-z])(?\=.*[A-Z])(?\=.*\\d)(?\=.*[@$\!%*?&\#])[A-Za-z\\d@$\!%*?&\#]{8,}$
+mft.gatewayServer.accept.ip.list=
+mft.server.http.header.csp.xss=
+mft.web.security.csrf=false
+mft.http.default.port=2080
+mft.log.sessionlog.disable=false
+mft.agent.user=
+mft.server.dmz.auth.publicKey.internal=true
+mft.server.id=Gateway2-Azure
+mft.user.email.public.ip=
+mft.group.aliases=
+mft.gatewayServer.port=8500
+mft.web.security.httpOnly=false
+mft.server.https.auth.saml.redirecturi=
+mft.aliases.tn=
+mft.sharing.account.tempdir=
