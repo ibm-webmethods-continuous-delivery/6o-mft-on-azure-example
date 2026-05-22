@@ -425,15 +425,17 @@ resource "azurerm_kubernetes_cluster" "main" {
   tags                      = var.tags
 
   default_node_pool {
-    name           = "default"
-    node_count     = var.aks_node_count
-    vm_size        = var.aks_node_size
-    vnet_subnet_id = azurerm_subnet.private_1.id
+    name                   = "default"
+    node_count             = var.aks_node_count
+    vm_size                = var.aks_node_size
+    vnet_subnet_id         = azurerm_subnet.private_1.id
+    zones                  = ["1", "2", "3"]  # Distribute nodes across availability zones
+    temporary_name_for_rotation = "defaulttmp"
   }
 
   lifecycle {
     ignore_changes = [
-      default_node_pool,
+      default_node_pool[0].upgrade_settings,
       microsoft_defender
     ]
   }
@@ -575,6 +577,13 @@ resource "azurerm_postgresql_flexible_server_configuration" "require_secure_tran
   name      = "require_secure_transport"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "off"
+}
+
+# PostgreSQL Configuration - Increase max_connections
+resource "azurerm_postgresql_flexible_server_configuration" "max_connections" {
+  name      = "max_connections"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "200"
 }
 
 # Public IP for Application Gateway
