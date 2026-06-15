@@ -575,6 +575,16 @@ resource "azurerm_federated_identity_credential" "mft" {
 resource "azurerm_federated_identity_credential" "dbc" {
   name      = "${var.prefix}-dbc-federated-credential"
   parent_id = azurerm_user_assigned_identity.mft.id
+
+# Federated credential for Database User Init service account
+resource "azurerm_federated_identity_credential" "db_user_init" {
+  name      = "${var.prefix}-db-user-init-federated-credential"
+  parent_id = azurerm_user_assigned_identity.mft.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject   = "system:serviceaccount:default:database-user-init-sa"
+}
+
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:default:database-configurator-sa"
