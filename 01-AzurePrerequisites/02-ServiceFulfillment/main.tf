@@ -562,13 +562,22 @@ resource "azurerm_user_assigned_identity" "mft" {
   tags                = var.tags
 }
 
-# Federated credential for workload identity (AKS OIDC)
+# Federated credential for workload identity (AKS OIDC) - MFT service account
 resource "azurerm_federated_identity_credential" "mft" {
   name      = "${var.prefix}-mft-federated-credential"
   parent_id = azurerm_user_assigned_identity.mft.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:${var.mft_namespace}:${var.mft_service_account_name}"
+}
+
+# Federated credential for Database Configurator service account
+resource "azurerm_federated_identity_credential" "dbc" {
+  name      = "${var.prefix}-dbc-federated-credential"
+  parent_id = azurerm_user_assigned_identity.mft.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject   = "system:serviceaccount:default:database-configurator-sa"
 }
 
 # Grant Key Vault Secrets User role to MFT user assigned identity
@@ -617,10 +626,9 @@ resource "azurerm_key_vault_secret" "defaults" {
   value        = each.value
   key_vault_id = azurerm_key_vault.main.id
 
-  # Set expiration (90 days from creation)
-  expiration_date = timeadd(timestamp(), "2160h")
-
   # Content type for documentation
+  # NOTE: expiration_date removed to prevent unnecessary updates on every apply
+  # Secrets can be manually set to expire via Azure Portal or az cli if needed
   content_type = "text/plain"
 
   tags = merge(var.tags, {
