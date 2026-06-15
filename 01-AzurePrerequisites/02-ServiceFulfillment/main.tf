@@ -636,6 +636,55 @@ resource "azurerm_key_vault_secret" "defaults" {
 }
 
 # ============================================================================
+# Database Configurator Credentials in Key Vault
+# ============================================================================
+
+# Local variables for Database Configurator credentials
+locals {
+  # Database credentials for Database Configurator
+  dbc_credentials = {
+    "postgres-server-fqdn"      = azurerm_postgresql_flexible_server.main.fqdn
+    "postgres-online-db"        = azurerm_postgresql_flexible_server_database.online.name
+    "postgres-archive-db"       = azurerm_postgresql_flexible_server_database.archive.name
+    "postgres-user"             = var.postgres_dbc_user
+    "postgres-password"         = var.postgres_dbc_password
+    "postgres-archive-user"     = var.postgres_dbc_archive_user
+    "postgres-archive-password" = var.postgres_dbc_archive_password
+  }
+}
+
+# Create Database Configurator secrets in Key Vault
+resource "azurerm_key_vault_secret" "dbc_credentials" {
+  for_each = local.dbc_credentials
+
+  name         = "${local.environment}-dbc-${each.key}"
+  value        = each.value
+  key_vault_id = azurerm_key_vault.main.id
+
+  # Set expiration (90 days from creation)
+  expiration_date = timeadd(timestamp(), "2160h")
+
+  # Content type for documentation
+  content_type = "text/plain"
+
+  tags = merge(var.tags, {
+    ManagedBy   = "Terraform"
+    Purpose     = "Database-Configurator"
+    Environment = local.environment
+    Component   = "DBC"
+  })
+
+  depends_on = [
+    azurerm_role_assignment.terraform_kv_admin,
+    azurerm_postgresql_flexible_server.main,
+    azurerm_postgresql_flexible_server_database.online,
+    azurerm_postgresql_flexible_server_database.archive
+  ]
+}
+
+
+
+# ============================================================================
 # Certificate Upload to Key Vault
 # ============================================================================
 
@@ -643,13 +692,13 @@ resource "azurerm_key_vault_secret" "defaults" {
 locals {
   # Certificate files mapping (only when upload_certificates is enabled)
   certificate_files = var.upload_certificates ? {
-    "${local.environment}-mft-cert-admin-ui-keystore-pkcs12"     = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
-    "${local.environment}-mft-cert-admin-ui-keystore-jks"        = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.jks"
-    "${local.environment}-mft-cert-web-client-keystore-pkcs12"   = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
-    "${local.environment}-mft-cert-web-client-keystore-jks"      = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.jks"
-    "${local.environment}-mft-cert-truststore-pkcs12"            = "${var.certificates_base_path}/02-admin-ui/out/rsa/public.trust.store.p12"
-    "${local.environment}-mft-cert-truststore-jks"               = "${var.certificates_base_path}/out/global.public.trust.store.jks"
-    "${local.environment}-mft-cert-ca-bundle-pem"                = "${var.certificates_base_path}/out/all_certs.pem"
+    "${local.environment}-mft-cert-admin-ui-keystore-pkcs12"   = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
+    "${local.environment}-mft-cert-admin-ui-keystore-jks"      = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.jks"
+    "${local.environment}-mft-cert-web-client-keystore-pkcs12" = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
+    "${local.environment}-mft-cert-web-client-keystore-jks"    = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.jks"
+    "${local.environment}-mft-cert-truststore-pkcs12"          = "${var.certificates_base_path}/02-admin-ui/out/rsa/public.trust.store.p12"
+    "${local.environment}-mft-cert-truststore-jks"             = "${var.certificates_base_path}/out/global.public.trust.store.jks"
+    "${local.environment}-mft-cert-ca-bundle-pem"              = "${var.certificates_base_path}/out/all_certs.pem"
   } : {}
 
   # SSH private key (updates existing placeholder)
@@ -671,11 +720,11 @@ resource "azurerm_key_vault_secret" "certificates" {
   content_type = "application/octet-stream"
 
   tags = merge(var.tags, {
-    ManagedBy     = "Terraform"
-    Purpose       = "MFT-Certificates"
-    Environment   = local.environment
-    CertType      = "KeyStore-TrustStore"
-    UploadedFrom  = basename(each.value)
+    ManagedBy    = "Terraform"
+    Purpose      = "MFT-Certificates"
+    Environment  = local.environment
+    CertType     = "KeyStore-TrustStore"
+    UploadedFrom = basename(each.value)
   })
 
   depends_on = [
@@ -721,19 +770,19 @@ locals {
   # Certificate files for import as Key Vault certificates
   certificate_imports = var.upload_certificates ? {
     "${local.environment}-mft-admin-ui-cert-with-chain" = {
-      file_path = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
+      file_path   = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
       description = "Admin UI certificate with full chain"
     }
     "${local.environment}-mft-admin-ui-cert-no-chain" = {
-      file_path = "${var.certificates_base_path}/02-admin-ui/out/rsa/private.key.store.p12"
+      file_path   = "${var.certificates_base_path}/02-admin-ui/out/rsa/private.key.store.p12"
       description = "Admin UI certificate without chain"
     }
     "${local.environment}-mft-web-client-cert-with-chain" = {
-      file_path = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
+      file_path   = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
       description = "Web Client certificate with full chain"
     }
     "${local.environment}-mft-web-client-cert-no-chain" = {
-      file_path = "${var.certificates_base_path}/03-web-client/out/rsa/private.key.store.p12"
+      file_path   = "${var.certificates_base_path}/03-web-client/out/rsa/private.key.store.p12"
       description = "Web Client certificate without chain"
     }
   } : {}
@@ -779,12 +828,12 @@ resource "azurerm_key_vault_certificate" "imported" {
   }
 
   tags = merge(var.tags, {
-    ManagedBy     = "Terraform"
-    Purpose       = "MFT-Certificates"
-    Environment   = local.environment
-    CertType      = "Imported-PKCS12"
-    Description   = each.value.description
-    UploadedFrom  = basename(each.value.file_path)
+    ManagedBy    = "Terraform"
+    Purpose      = "MFT-Certificates"
+    Environment  = local.environment
+    CertType     = "Imported-PKCS12"
+    Description  = each.value.description
+    UploadedFrom = basename(each.value.file_path)
   })
 
   depends_on = [

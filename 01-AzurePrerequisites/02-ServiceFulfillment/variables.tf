@@ -265,6 +265,47 @@ variable "app_gateway_sku_tier" {
   }
 }
 
+# Database Configurator Credentials
+variable "postgres_dbc_user" {
+  description = "Database user for Database Configurator (online database)"
+  type        = string
+  default     = "mft_app_user"
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]{0,62}$", var.postgres_dbc_user))
+    error_message = "PostgreSQL username must start with a letter and contain only letters, numbers, and underscores (max 63 chars)"
+  }
+}
+
+variable "postgres_dbc_password" {
+  description = "Database password for Database Configurator (online database)"
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = length(var.postgres_dbc_password) >= 8
+    error_message = "PostgreSQL password must be at least 8 characters long"
+  }
+}
+
+variable "postgres_dbc_archive_user" {
+  description = "Database user for Database Configurator (archive database)"
+  type        = string
+  default     = "mft_archive_user"
+  validation {
+    condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]{0,62}$", var.postgres_dbc_archive_user))
+    error_message = "PostgreSQL username must start with a letter and contain only letters, numbers, and underscores (max 63 chars)"
+  }
+}
+
+variable "postgres_dbc_archive_password" {
+  description = "Database password for Database Configurator (archive database)"
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = length(var.postgres_dbc_archive_password) >= 8
+    error_message = "PostgreSQL password must be at least 8 characters long"
+  }
+}
+
 variable "app_gateway_capacity" {
   description = "Capacity (instance count) for Application Gateway"
   type        = number

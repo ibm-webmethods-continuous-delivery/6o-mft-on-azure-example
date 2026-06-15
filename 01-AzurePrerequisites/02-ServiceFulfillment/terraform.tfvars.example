@@ -41,6 +41,14 @@ postgres_admin_password = "YourSecurePassword123!"  # Change this!
 postgres_online_db_name = "mft_online"
 postgres_archive_db_name = "mft_archive"
 
+# Database Configurator Credentials
+postgres_dbc_user             = "mft_app_user"
+postgres_dbc_password         = "YourSecurePassword456!"  # Change this!
+postgres_dbc_archive_user     = "mft_archive_user"
+postgres_dbc_archive_password = "YourSecurePassword789!"  # Change this!
+
+
+
 # Application Gateway Configuration
 app_gateway_sku_name  = "Standard_v2"
 app_gateway_sku_tier  = "Standard_v2"

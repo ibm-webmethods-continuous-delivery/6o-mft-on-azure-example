@@ -221,3 +221,211 @@ Main improvements recommended for this folder:
 - reduce duplication between `terraform.tfvars.example` and `common.tfvars`
 - add explicit validation for `resource_group_name_existing`
 - avoid storing secrets in plain example files beyond placeholders
+
+
+## Azure Key Vault Integration
+
+This Terraform stack automatically provisions an Azure Key Vault and populates it with secrets required by MFT components.
+
+### Key Vault Features
+
+- **RBAC Authorization**: Uses Azure RBAC instead of access policies
+- **Workload Identity**: Integrated with AKS OIDC for secure, credential-free access
+- **Automatic Secret Rotation**: CSI Secrets Store driver rotates secrets every 2 minutes
+- **Private Networking**: Can be configured for private endpoint access (controlled by `key_vault_public_access_enabled`)
+- **Soft Delete & Purge Protection**: 90-day retention for deleted secrets
+
+### Managed Identity for Workload Access
+
+The stack creates a user-assigned managed identity (`mft-identity`) with:
+
+- Federated credential for AKS OIDC authentication
+- `Key Vault Secrets User` role on the Key Vault
+- `Key Vault Certificate User` role on the Key Vault
+
+This identity is used by Kubernetes workloads via Azure Workload Identity (no credentials stored in Kubernetes).
+
+### Secrets Automatically Created
+
+#### 1. Database Configurator Credentials
+
+The following secrets are created for the Database Configurator component:
+
+- `${environment}-dbc-postgres-server-fqdn`: PostgreSQL server FQDN
+- `${environment}-dbc-postgres-online-db`: Online database name
+- `${environment}-dbc-postgres-archive-db`: Archive database name
+- `${environment}-dbc-postgres-user`: Application user for online database
+- `${environment}-dbc-postgres-password`: Password for online database user
+- `${environment}-dbc-postgres-archive-user`: Application user for archive database
+- `${environment}-dbc-postgres-archive-password`: Password for archive database user
+
+**Configuration Variables:**
+
+```hcl
+# In your .tfvars file
+postgres_dbc_user             = "mft_app_user"
+postgres_dbc_password         = "YourSecurePassword456!"
+postgres_dbc_archive_user     = "mft_archive_user"
+postgres_dbc_archive_password = "YourSecurePassword789!"
+```
+
+#### 2. MFT Default Secrets
+
+Default placeholder secrets for MFT components (should be updated after deployment):
+
+- `${environment}-mft-secret-admin-password`
+- `${environment}-mft-secret-db-online-password`
+- `${environment}-mft-secret-db-archive-password`
+- `${environment}-mft-secret-admin-ui-keystore-password`
+- `${environment}-mft-secret-admin-ui-truststore-password`
+- `${environment}-mft-secret-web-client-keystore-password`
+- `${environment}-mft-secret-web-client-truststore-password`
+- `${environment}-mft-secret-sftp-ssh-private-key`
+- `${environment}-mft-secret-config-json`
+
+**⚠️ WARNING**: These default secrets have placeholder values and expire in 90 days. Update them immediately after deployment.
+
+#### 3. Certificate Files (Optional)
+
+When `upload_certificates = true`, the stack uploads certificate files to Key Vault:
+
+- Admin UI keystores (PKCS12, JKS)
+- Web Client keystores (PKCS12, JKS)
+- Truststores (PKCS12, JKS)
+- CA bundle (PEM)
+- SFTP SSH private key
+
+### Secret Naming Convention
+
+All secrets follow a hierarchical naming pattern:
+
+```
+${environment}-${component}-${secret-name}
+```
+
+Examples:
+- `dev-dbc-postgres-password`
+- `prod-mft-secret-admin-password`
+- `test-mft-cert-admin-ui-keystore-pkcs12`
+
+This allows multiple environments to share the same Key Vault while maintaining clear separation.
+
+### Using Secrets in Kubernetes
+
+Kubernetes workloads access Key Vault secrets via the CSI Secrets Store driver:
+
+1. **ServiceAccount** with workload identity annotation
+2. **SecretProviderClass** defining which secrets to mount
+3. **Pod/Job** mounting the CSI volume
+
+Example SecretProviderClass:
+
+```yaml
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: dbc-azure-kv-secrets
+spec:
+  provider: azure
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "false"
+    clientID: "<mft_managed_identity_client_id>"
+    keyvaultName: "<key_vault_name>"
+    tenantId: "<tenant_id>"
+    objects: |
+      array:
+        - |
+          objectName: dev-dbc-postgres-password
+          objectType: secret
+          objectAlias: POSTGRES_PASSWORD
+```
+
+See the Database Configurator deployment (`03-TechnologyServices/01-DatabaseConfigurator`) for a complete working example.
+
+### Key Vault Outputs
+
+Retrieve Key Vault information:
+
+```sh
+terraform output key_vault_name
+terraform output key_vault_uri
+terraform output mft_managed_identity_client_id
+terraform output tenant_id
+terraform output environment_name
+```
+
+### Updating Secrets
+
+**Via Azure CLI:**
+
+```sh
+KV_NAME=$(terraform output -raw key_vault_name)
+ENV=$(terraform output -raw environment_name)
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-password" \
+  --value "NewSecurePassword123!"
+```
+
+**Via Terraform:**
+
+Update the variable values in your `.tfvars` file and run `terraform apply`.
+
+### Security Best Practices
+
+1. **Never commit secrets to Git**: Use `.tfvars` files that are in `.gitignore`
+2. **Use strong passwords**: Minimum 12 characters with complexity
+3. **Rotate secrets regularly**: Set up Azure Key Vault secret rotation policies
+4. **Monitor access**: Enable Azure Monitor logging for Key Vault
+5. **Use private endpoints**: Set `key_vault_public_access_enabled = false` for production
+6. **Limit RBAC permissions**: Grant only necessary roles to identities
+
+### Troubleshooting
+
+**Secret not found in Key Vault:**
+
+```sh
+# List all secrets
+az keyvault secret list --vault-name "$KV_NAME" --query "[].name" -o tsv
+
+# Check specific secret
+az keyvault secret show --vault-name "$KV_NAME" --name "${ENV}-dbc-postgres-password"
+```
+
+**Workload cannot access secrets:**
+
+1. Verify managed identity has correct roles:
+   ```sh
+   az role assignment list --assignee <mft_managed_identity_principal_id> --all
+   ```
+
+2. Check federated credential configuration:
+   ```sh
+   az identity federated-credential list \
+     --identity-name <prefix>-mft-identity \
+     --resource-group <resource_group_name>
+   ```
+
+3. Verify CSI driver is installed in AKS:
+   ```sh
+   kubectl get pods -n kube-system | grep csi-secrets-store
+   ```
+
+**Secret expired:**
+
+Secrets created by Terraform have a 90-day expiration. Update them before expiry:
+
+```sh
+# Check expiration
+az keyvault secret show --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-password" \
+  --query "attributes.expires"
+
+# Update secret (removes expiration)
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-password" \
+  --value "NewPassword123!"
+```
+

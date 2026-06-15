@@ -10,7 +10,7 @@ fi
 POSTGRES_SERVER_FQDN=$(terraform output -raw postgres_server_fqdn)
 POSTGRES_ADMIN_USER=$(terraform output -raw postgres_admin_username)
 POSTGRES_ADMIN_PASSWORD=$(terraform output -raw postgres_admin_password)
-POSTGRES_ONLINE_DB=$(terraform output -raw postgres_archive_db_name)
+POSTGRES_ONLINE_DB=$(terraform output -raw postgres_online_db_name)
 POSTGRES_ARCHIVE_DB=$(terraform output -raw postgres_archive_db_name)
 
 export POSTGRES_SERVER_FQDN

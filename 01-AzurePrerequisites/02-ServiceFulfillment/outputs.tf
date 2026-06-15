@@ -181,8 +181,35 @@ output "app_gateway_id" {
 
 output "app_gateway_name" {
   description = "Name of the Application Gateway"
-  value       = azurerm_application_gateway.main.name
+
+  value = azurerm_application_gateway.main.name
 }
+
+# Database Configurator Credentials
+output "postgres_dbc_user" {
+  description = "Database user for Database Configurator (online database)"
+  value       = var.postgres_dbc_user
+  sensitive   = true
+}
+
+output "postgres_dbc_password" {
+  description = "Database password for Database Configurator (online database)"
+  value       = var.postgres_dbc_password
+  sensitive   = true
+}
+
+output "postgres_dbc_archive_user" {
+  description = "Database user for Database Configurator (archive database)"
+  value       = var.postgres_dbc_archive_user
+  sensitive   = true
+}
+
+output "postgres_dbc_archive_password" {
+  description = "Database password for Database Configurator (archive database)"
+  value       = var.postgres_dbc_archive_password
+  sensitive   = true
+}
+
 
 output "app_gateway_public_ip" {
   description = "Public IP address of the Application Gateway"
