@@ -48,10 +48,201 @@ Ensure the following resources are provisioned (via Terraform in `01-AzurePrereq
 - Azure PostgreSQL Flexible Server
 - Online database created
 - Archive database created
-- Database users with appropriate permissions
+- Azure Key Vault with application database passwords
 - Network connectivity from AKS to PostgreSQL (private endpoint or service endpoint)
 
-### 2. Container Image
+### 2. Azure Key Vault Setup with CSI Driver Integration
+
+This component uses **Azure Key Vault with Secrets Store CSI Driver** for secure secrets management. Database credentials are stored in Azure Key Vault and mounted directly into pods using Azure Workload Identity (OIDC-based authentication).
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  AKS Cluster                                                │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Pod: database-configurator                           │  │
+│  │  ┌─────────────────────────────────────────────────┐  │  │
+│  │  │  ServiceAccount: database-configurator-sa       │  │  │
+│  │  │  (with workload identity annotation)            │  │  │
+│  │  └─────────────────────────────────────────────────┘  │  │
+│  │                      │                                 │  │
+│  │                      ▼                                 │  │
+│  │  ┌─────────────────────────────────────────────────┐  │  │
+│  │  │  CSI Secrets Store Driver                       │  │  │
+│  │  │  - Mounts secrets from Key Vault                │  │  │
+│  │  │  - Creates K8s Secret (synced)                  │  │  │
+│  │  │  - Auto-rotation every 2 minutes                │  │  │
+│  │  └─────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          │ OIDC Token Exchange
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Azure AD                                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Managed Identity: mft-identity                       │  │
+│  │  - Federated Credential (OIDC)                        │  │
+│  │  - Subject: system:serviceaccount:default:...        │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          │ Authenticated Access
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Azure Key Vault                                            │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Secrets (hierarchical naming):                       │  │
+│  │  - dev-dbc-postgres-server-fqdn                       │  │
+│  │  - dev-dbc-postgres-online-db                         │  │
+│  │  - dev-dbc-postgres-archive-db                        │  │
+│  │  - dev-dbc-postgres-user                              │  │
+│  │  - dev-dbc-postgres-password                          │  │
+│  │  - dev-dbc-postgres-archive-user                      │  │
+│  │  - dev-dbc-postgres-archive-password                  │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### How It Works
+
+1. **Workload Identity Authentication**:
+   - Pod uses ServiceAccount with Azure Workload Identity annotation
+   - AKS OIDC issuer provides token to Azure AD
+   - Azure AD validates token against federated credential
+   - Managed identity is granted access to Key Vault
+
+2. **Secret Mounting**:
+   - CSI driver mounts secrets as files in `/mnt/secrets-store`
+   - Secrets are also synced to Kubernetes Secret: `dbc-postgres-credentials-synced`
+   - Pod uses standard `envFrom.secretRef` pattern
+
+3. **Automatic Rotation**:
+   - CSI driver polls Key Vault every 2 minutes
+   - Updated secrets are automatically remounted
+   - No pod restart required for secret updates
+
+#### Infrastructure Prerequisites (Configured in Terraform)
+
+The following are automatically configured when you apply the Terraform in `01-AzurePrerequisites/02-ServiceFulfillment`:
+
+✅ **AKS Cluster**:
+- OIDC issuer enabled
+- CSI Secrets Store driver enabled with 2-minute rotation
+
+✅ **Managed Identity**:
+- User-assigned identity: `${prefix}-mft-identity`
+- Federated credential for workload identity
+- Subject: `system:serviceaccount:default:database-configurator-sa`
+
+✅ **Key Vault**:
+- RBAC authorization enabled
+- Role assignments:
+  - `Key Vault Secrets User` → MFT managed identity
+  - `Key Vault Administrator` → Terraform identity (for secret creation)
+
+✅ **Network**:
+- Private endpoint (if `key_vault_public_access_enabled = false`)
+- Service endpoint from AKS subnet
+
+#### Required Secrets in Key Vault
+
+Before running the Database Configurator, ensure these secrets exist in Key Vault:
+
+| Secret Name | Description | Example Value |
+|-------------|-------------|---------------|
+| `<env>-dbc-postgres-server-fqdn` | PostgreSQL server FQDN | `myserver.postgres.database.azure.com` |
+| `<env>-dbc-postgres-online-db` | Online database name | `mft_online` |
+| `<env>-dbc-postgres-archive-db` | Archive database name | `mft_archive` |
+| `<env>-dbc-postgres-user` | Online DB application user | `mft_app_user` |
+| `<env>-dbc-postgres-password` | Online DB password | `SecurePassword123!` |
+| `<env>-dbc-postgres-archive-user` | Archive DB application user | `mft_archive_user` |
+| `<env>-dbc-postgres-archive-password` | Archive DB password | `SecurePassword456!` |
+
+**Note**: `<env>` is the environment name from Terraform (default: `dev`)
+
+#### Option 1: Create Secrets via Terraform (Recommended)
+
+Add to `01-AzurePrerequisites/02-ServiceFulfillment/main.tf`:
+
+```hcl
+# Database credentials for Database Configurator
+resource "azurerm_key_vault_secret" "dbc_credentials" {
+  for_each = {
+    "postgres-server-fqdn"      = azurerm_postgresql_flexible_server.main.fqdn
+    "postgres-online-db"        = azurerm_postgresql_flexible_server_database.online.name
+    "postgres-archive-db"       = azurerm_postgresql_flexible_server_database.archive.name
+    "postgres-user"             = var.postgres_app_username
+    "postgres-password"         = var.postgres_app_password
+    "postgres-archive-user"     = var.postgres_archive_username
+    "postgres-archive-password" = var.postgres_archive_password
+  }
+  
+  name         = "${var.environment_name}-dbc-${each.key}"
+  value        = each.value
+  key_vault_id = azurerm_key_vault.main.id
+  
+  depends_on = [azurerm_role_assignment.terraform_kv_admin]
+}
+```
+
+Then apply Terraform:
+
+```bash
+cd ../../01-AzurePrerequisites/02-ServiceFulfillment
+terraform apply
+```
+
+#### Option 2: Create Secrets via Azure CLI
+
+```bash
+# Get Key Vault name and environment from Terraform
+cd ../../01-AzurePrerequisites/02-ServiceFulfillment
+KV_NAME=$(terraform output -raw key_vault_name)
+ENV=$(terraform output -raw environment_name)
+POSTGRES_FQDN=$(terraform output -raw postgres_server_fqdn)
+ONLINE_DB=$(terraform output -raw postgres_online_db_name)
+ARCHIVE_DB=$(terraform output -raw postgres_archive_db_name)
+
+# Store database connection details
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-server-fqdn" --value "$POSTGRES_FQDN"
+
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-online-db" --value "$ONLINE_DB"
+
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-archive-db" --value "$ARCHIVE_DB"
+
+# Store application credentials (use same as DatabaseUserInit)
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-user" --value "mft_app_user"
+
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-password" --value "YOUR_ONLINE_PASSWORD"
+
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-archive-user" --value "mft_archive_user"
+
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-archive-password" --value "YOUR_ARCHIVE_PASSWORD"
+```
+
+#### Verifying Key Vault Setup
+
+```bash
+# List all DBC secrets
+az keyvault secret list --vault-name "$KV_NAME" \
+  --query "[?starts_with(name, '${ENV}-dbc-')].name" -o table
+
+# Verify a specific secret (without showing value)
+az keyvault secret show --vault-name "$KV_NAME" \
+  --name "${ENV}-dbc-postgres-server-fqdn" \
+  --query "name"
+```
+
+### 3. Container Image
 
 The Database Configurator container image must be available in your Azure Container Registry (ACR):
 
@@ -64,14 +255,23 @@ terraform output -raw acr_login_server
 
 This image is built in `02-ContainerImages/02-active-transfer-dcc-ingest/`.
 
-### 3. Kubernetes Access
+### 4. Kubernetes Access
 
 - `kubectl` configured with access to target AKS cluster
 - Appropriate RBAC permissions to create Jobs, ConfigMaps, and Secrets
 
+### 5. Azure CLI Authentication
+
+Ensure you are logged in to Azure CLI:
+
+```bash
+az login
+az account show
+```
+
 ## Deployment
 
-## Execution Order
+### Execution Order
 
 Run the database preparation flow in this order:
 
@@ -83,33 +283,35 @@ Run the database preparation flow in this order:
 
 Before running DBC, deploy `../00-DatabaseUserInit` to create the application users required by DBC and Active Transfer.
 
-### Step 2: Create Database Credentials Secret
+### Step 2: Generate Database Credentials Secret
 
-1. Copy the secret template:
-   ```bash
-   cp kubernetes/secret-dbc-creds.yaml.template kubernetes/secret-dbc-creds.yaml
-   ```
+The script automatically retrieves Terraform outputs and fetches passwords from Azure Key Vault:
 
-2. Get values from Terraform outputs using the helper script:
-   ```bash
-   ./show_db_tf_outputs.sh
-   ```
+```bash
+# Generate secret (fetches passwords from Key Vault)
+./scripts/generate-secret.sh
 
-   This will display all database connection values from Terraform in a convenient format.
+# Apply the secret
+kubectl apply -f kubernetes/secret-dbc-creds.yaml
+```
 
-3. Edit `kubernetes/secret-dbc-creds.yaml` and fill in the values:
-   - `POSTGRES_SERVER_FQDN`: PostgreSQL server FQDN from Terraform
-   - `POSTGRES_ONLINE_DB`: Online database name from Terraform
-   - `POSTGRES_ARCHIVE_DB`: Archive database name from Terraform
-   - `POSTGRES_USER`: application username created by `00-DatabaseUserInit`
-   - `POSTGRES_PASSWORD`: application password created for the online database user
-   - `POSTGRES_ARCHIVE_USER`: application username created by `00-DatabaseUserInit`
-   - `POSTGRES_ARCHIVE_PASSWORD`: application password created for the archive database user
+**What the script does:**
+- Retrieves database connection details from Terraform outputs
+- Fetches Key Vault name from Terraform
+- Retrieves application passwords from Azure Key Vault
+- Generates Kubernetes secret with all required credentials
 
-4. Apply the secret:
-   ```bash
-   kubectl apply -f kubernetes/secret-dbc-creds.yaml
-   ```
+**Application User Details** (default usernames, can be customized):
+- Online database: `mft_app_user`
+- Archive database: `mft_archive_user`
+
+To use custom usernames, set environment variables before running `generate-secret.sh`:
+
+```bash
+export POSTGRES_USER="custom_online_user"
+export POSTGRES_ARCHIVE_USER="custom_archive_user"
+./scripts/generate-secret.sh
+```
 
 ### Step 3: Deploy Using Script (Recommended)
 
@@ -260,6 +462,33 @@ kubectl run -it --rm debug --image=postgres:15 --restart=Never -- \
 kubectl get secret dbc-postgres-credentials -o yaml
 ```
 
+### Key Vault Access Errors
+
+**Symptoms**: "Failed to fetch password from Key Vault" errors
+
+**Possible Causes**:
+- Not logged in to Azure CLI
+- Secret not set in Key Vault
+- Insufficient permissions
+
+**Solutions**:
+```bash
+# Verify Azure CLI login
+az login
+az account show
+
+# Check secret exists
+az keyvault secret show \
+  --vault-name <KEY_VAULT_NAME> \
+  --name dev-mft-secret-db-online-password
+
+# Set the secret if missing
+az keyvault secret set \
+  --vault-name <KEY_VAULT_NAME> \
+  --name dev-mft-secret-db-online-password \
+  --value "YOUR_PASSWORD"
+```
+
 ### SSL/TLS Errors
 
 **Symptoms**: SSL connection errors
@@ -314,15 +543,16 @@ kubectl delete configmap dbc-entrypoint-script
 │   ├── job-dbc.yaml.template           # Job template (auto-generated to job-dbc.yaml)
 │   ├── job-dbc.yaml                    # Generated Job manifest (gitignored)
 │   ├── configmap-dbc-script.yaml       # ConfigMap with entrypoint script
-│   └── secret-dbc-creds.yaml.template  # Secret template (copy and fill)
+│   └── secret-dbc-creds.yaml.template  # Secret template (for reference)
 ├── scripts/
-│   └── entrypoint.sh                   # DBC initialization script
+│   ├── entrypoint.sh                   # DBC initialization script
+│   └── generate-secret.sh              # Secret generation from Key Vault
 ├── deploy.sh                           # Deployment automation script
 ├── show_db_tf_outputs.sh               # Helper to display Terraform outputs
 └── README.md                           # This file
 ```
 
-**Note**: The `job-dbc.yaml` file is auto-generated from the template by `deploy.sh` and is excluded from version control.
+**Note**: The `job-dbc.yaml` and `secret-dbc-creds.yaml` files are auto-generated and excluded from version control.
 
 ## Configuration
 
@@ -360,13 +590,11 @@ The following environment variables are used by the entrypoint script:
 
 ### ⚠️ IMPORTANT: Production Secrets Management
 
-This vanilla example uses **basic Kubernetes Secrets** for simplicity. This approach is **NOT recommended for production environments**.
+This example uses Azure Key Vault for centralized secrets management, which is a significant improvement over basic Kubernetes Secrets. However, for production environments, consider additional security measures:
 
 ### Production Recommendations
 
-Organizations deploying this solution in production should implement enterprise-grade secrets management:
-
-#### 1. Azure Key Vault with Secrets Store CSI Driver
+#### 1. Azure Key Vault with Secrets Store CSI Driver (Recommended)
 
 **Benefits**:
 - Native Azure integration
@@ -374,6 +602,7 @@ Organizations deploying this solution in production should implement enterprise-
 - Centralized secrets management
 - Audit logging via Azure Monitor
 - RBAC and access policies
+- Secrets mounted directly into pods (no intermediate K8s secrets)
 
 **Implementation**:
 ```bash
@@ -397,12 +626,11 @@ spec:
     objects: |
       array:
         - |
-          objectName: postgres-server-fqdn
+          objectName: dev-mft-secret-db-online-password
           objectType: secret
         - |
-          objectName: postgres-online-db
+          objectName: dev-mft-secret-db-archive-password
           objectType: secret
-        # ... more secrets
     tenantId: "<TENANT_ID>"
 EOF
 ```
@@ -417,47 +645,6 @@ EOF
 - GitOps-friendly
 - Multiple backend support
 
-**Implementation**:
-```bash
-# Install ESO
-helm repo add external-secrets https://charts.external-secrets.io
-helm install external-secrets external-secrets/external-secrets
-
-# Create SecretStore
-kubectl apply -f - <<EOF
-apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
-metadata:
-  name: azure-backend
-spec:
-  provider:
-    azurekv:
-      authType: ManagedIdentity
-      vaultUrl: "https://<KEY_VAULT_NAME>.vault.azure.net"
-      identityId: "<IDENTITY_CLIENT_ID>"
-EOF
-
-# Create ExternalSecret
-kubectl apply -f - <<EOF
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: dbc-postgres-credentials
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: azure-backend
-    kind: SecretStore
-  target:
-    name: dbc-postgres-credentials
-  data:
-  - secretKey: POSTGRES_SERVER_FQDN
-    remoteRef:
-      key: postgres-server-fqdn
-  # ... more mappings
-EOF
-```
-
 **Reference**: https://external-secrets.io/
 
 #### 3. HashiCorp Vault
@@ -470,45 +657,32 @@ EOF
 
 **Reference**: https://www.vaultproject.io/
 
-#### 4. Sealed Secrets
-
-**Benefits**:
-- Encrypt secrets in Git repositories
-- GitOps-friendly
-- No external dependencies
-
-**Reference**: https://github.com/bitnami-labs/sealed-secrets
-
 ### Security Best Practices
 
-1. **Never commit actual credentials to version control**
-   - Use `.gitignore` to exclude `secret-dbc-creds.yaml`
-   - Only commit the `.template` file
+1. **Credential Management**
+   - Use Azure Key Vault for centralized secret storage
+   - Implement credential rotation policies
+   - Use separate credentials for different environments
 
-2. **Use separate credentials for different environments**
-   - Development, staging, and production should have different credentials
-   - Implement least-privilege access
+2. **Access Control**
+   - Use Azure Managed Identity for Key Vault access
+   - Implement least-privilege access principles
+   - Enable audit logging for secret access
 
-3. **Implement credential rotation policies**
-   - Regularly rotate database passwords
-   - Use automated rotation where possible
-
-4. **Enable audit logging**
-   - Track who accesses secrets and when
-   - Monitor for unauthorized access attempts
-
-5. **Use managed identities**
-   - Prefer Azure Managed Identity over service principals
-   - Eliminate the need to manage credentials for Azure resources
-
-6. **Implement network security**
+3. **Network Security**
    - Use private endpoints for PostgreSQL
    - Implement network policies in Kubernetes
    - Restrict database access to specific subnets
 
-7. **Enable Pod Security Standards**
+4. **Monitoring and Auditing**
+   - Track who accesses secrets and when
+   - Monitor for unauthorized access attempts
+   - Set up alerts for suspicious activity
+
+5. **Pod Security**
    - Use restricted profile for production workloads
    - Implement security contexts (non-root, read-only filesystem where possible)
+   - Enable Pod Security Standards
 
 ## Next Steps
 
@@ -520,7 +694,7 @@ After successful database initialization:
 
 2. **Deploy Active Transfer Service**
    - Proceed to `03-TechnologyServices/02-AT/`
-   - Use the same database credentials
+   - Use the same database credentials from Key Vault
 
 3. **Configure Monitoring**
    - Set up alerts for database connectivity issues
@@ -540,4 +714,5 @@ For issues or questions:
 - [webMethods Database Configurator Documentation](https://www.ibm.com/docs/en/webmethods-integration/webmethods-installer/11.1.0?topic=iwpp-installing-products-creating-database-components-connecting-products-database-components)
 - [Azure PostgreSQL Flexible Server](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/)
 - [Kubernetes Jobs](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+- [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/)
 - [Azure Key Vault CSI Driver](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver)

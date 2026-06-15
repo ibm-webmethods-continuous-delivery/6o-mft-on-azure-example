@@ -15,87 +15,323 @@ Terraform provisions the PostgreSQL server and databases but does **not** create
 00-DatabaseUserInit → 01-DatabaseConfigurator → 02-AT
 ```
 
-## Quick Start
+## Architecture
 
-### Step 1: Decide Application Credentials
+This component uses **Azure Key Vault with CSI Secrets Store driver** for secure credential management:
 
-Choose usernames and generate strong passwords for the application users:
-
-```bash
-# Example usernames (you can customize these)
-export POSTGRES_USER="mft_app_user"
-export POSTGRES_ARCHIVE_USER="mft_archive_user"
-
-# Generate strong passwords (Linux/macOS)
-export POSTGRES_PASSWORD=$(openssl rand -base64 24)
-export POSTGRES_ARCHIVE_PASSWORD=$(openssl rand -base64 24)
-
-# Display for saving (IMPORTANT: Save these securely!)
-echo "Online DB User: ${POSTGRES_USER}"
-echo "Online DB Password: ${POSTGRES_PASSWORD}"
-echo "Archive DB User: ${POSTGRES_ARCHIVE_USER}"
-echo "Archive DB Password: ${POSTGRES_ARCHIVE_PASSWORD}"
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Kubernetes Job: database-user-init                              │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ ServiceAccount: database-user-init-sa                     │  │
+│  │ Annotation: azure.workload.identity/client-id             │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                           │                                      │
+│                           │ OIDC Token Exchange                  │
+│                           ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ Azure Managed Identity (mft-identity)                     │  │
+│  │ - Federated Credential: database-user-init-sa             │  │
+│  │ - RBAC: Key Vault Secrets User                            │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                           │                                      │
+│                           │ Authenticate & Fetch Secrets         │
+│                           ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ SecretProviderClass: db-user-init-azure-kv-secrets        │  │
+│  │ - Maps Key Vault secrets to pod volumes                   │  │
+│  │ - Syncs to Kubernetes Secret                              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                           │                                      │
+│                           ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ CSI Volume Mount: /mnt/secrets-store                      │  │
+│  │ Kubernetes Secret: db-user-init-credentials-synced        │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                           │                                      │
+│                           ▼                                      │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ Container: postgres-client                                │  │
+│  │ - Reads credentials from synced secret                    │  │
+│  │ - Creates PostgreSQL application users                    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+              ┌────────────────────────┐
+              │ Azure PostgreSQL       │
+              │ - Creates app users    │
+              │ - Grants privileges    │
+              └────────────────────────┘
 ```
 
-**CRITICAL:** Save these credentials securely. You will need them for Database Configurator and Active Transfer deployment.
+### Key Components
 
-### Step 2: Generate and Apply Secret
+1. **ServiceAccount with Workload Identity**: Enables OIDC authentication to Azure
+2. **Federated Credential**: Maps Kubernetes ServiceAccount to Azure Managed Identity
+3. **SecretProviderClass**: Defines which secrets to fetch from Key Vault
+4. **CSI Driver**: Mounts secrets as files and syncs to Kubernetes Secret
+5. **Job**: Executes PostgreSQL user creation script
 
-The script automatically retrieves Terraform outputs and generates the Kubernetes secret:
+## Prerequisites
+
+### 1. Terraform Applied
+
+Ensure Terraform has been applied in the Service Fulfillment stack:
+
+```bash
+cd /aio/work/c/iwcd/6o-mft-on-azure-example/01-AzurePrerequisites/02-ServiceFulfillment
+terraform apply -var-file=<your-tfvars-file>
+```
+
+This creates:
+- Azure Key Vault
+- Database credentials as Key Vault secrets (with naming convention: `${environment}-dbc-*`)
+- Managed identity with federated credential for `database-user-init-sa`
+- RBAC role assignments for Key Vault access
+
+### 2. Database Credentials in Key Vault
+
+Terraform automatically creates the following secrets in Key Vault:
+
+- `${environment}-dbc-postgres-server-fqdn` - PostgreSQL server FQDN
+- `${environment}-dbc-postgres-online-db` - Online database name
+- `${environment}-dbc-postgres-archive-db` - Archive database name
+- `${environment}-dbc-postgres-admin-user` - PostgreSQL admin username
+- `${environment}-dbc-postgres-admin-password` - PostgreSQL admin password
+- `${environment}-dbc-postgres-user` - Application username for online database
+- `${environment}-dbc-postgres-password` - Password for online database user
+- `${environment}-dbc-postgres-archive-user` - Application username for archive database
+- `${environment}-dbc-postgres-archive-password` - Password for archive database user
+
+**Note**: The passwords are set via Terraform variables. Ensure you've configured secure passwords in your `terraform.tfvars` file:
+
+```hcl
+postgres_dbc_user             = "mft_app_user"
+postgres_dbc_password         = "YourSecurePassword123!"
+postgres_dbc_archive_user     = "mft_archive_user"
+postgres_dbc_archive_password = "YourSecurePassword456!"
+```
+
+### 3. AKS Cluster with CSI Driver
+
+The AKS cluster must have the CSI Secrets Store driver enabled (already configured in Terraform):
+
+```bash
+# Verify CSI driver is available
+kubectl get csidriver secrets-store.csi.k8s.io
+```
+
+## Quick Start
+
+### Deploy the Job
+
+The deployment script automatically:
+1. Retrieves configuration from Terraform outputs
+2. Generates ServiceAccount and SecretProviderClass manifests
+3. Deploys all required Kubernetes resources
 
 ```bash
 cd /aio/work/c/iwcd/6o-mft-on-azure-example/03-TechnologyServices/00-DatabaseUserInit
 
-# Generate secret (uses environment variables from Step 1)
-./scripts/generate-secret.sh
+# Deploy and follow logs
+./deploy.sh --logs
 
-# Apply the secret
-kubectl apply -f kubernetes/secret-db-user-init-admin-creds.yaml
-```
-
-**Alternative:** If you prefer interactive prompts, run the script without setting environment variables:
-
-```bash
-./scripts/generate-secret.sh
-# The script will prompt you for the application credentials
-```
-
-### Step 3: Deploy the Job
-
-```bash
+# Or deploy without following logs
 ./deploy.sh
+
+# Delete existing job before deploying (useful for re-runs)
+./deploy.sh --delete --logs
+
+# Dry run to see what would be deployed
+./deploy.sh --dry-run
 ```
 
-### Step 4: Verify Execution
+### Verify Deployment
 
 ```bash
-kubectl get jobs -l app=database-user-init
-kubectl logs -l app=database-user-init --tail=50
+# Check job status
+kubectl get job database-user-init
+
+# Check pod status
+kubectl get pods -l app=database-user-init
+
+# View logs
+kubectl logs -l app=database-user-init
+
+# Check SecretProviderClass
+kubectl get secretproviderclass db-user-init-azure-kv-secrets
+
+# Check synced secret (created when pod starts)
+kubectl get secret db-user-init-credentials-synced
+
+# Describe pod to see CSI volume mount details
+kubectl describe pod -l app=database-user-init
 ```
 
 ## What Gets Created
 
 The initialization job:
 
-- Connects to PostgreSQL using admin credentials (from Terraform)
-- Creates two application users with strong passwords (your input)
-- Grants necessary privileges on the online and archive databases
-- Is idempotent and can be re-run safely
+1. **Authenticates to Azure** using Workload Identity (OIDC)
+2. **Fetches credentials** from Azure Key Vault via CSI driver
+3. **Connects to PostgreSQL** using admin credentials
+4. **Creates application users** with passwords from Key Vault
+5. **Grants necessary privileges** on the online and archive databases
+6. **Is idempotent** and can be re-run safely
+
+### Application Users
+
+The usernames and passwords are retrieved from Key Vault secrets:
+
+- **Online database user**: Value from `${environment}-dbc-postgres-user` secret
+- **Online database password**: Value from `${environment}-dbc-postgres-password` secret
+- **Archive database user**: Value from `${environment}-dbc-postgres-archive-user` secret
+- **Archive database password**: Value from `${environment}-dbc-postgres-archive-password` secret
 
 ## Files
 
-- `scripts/generate-secret.sh` - Automated secret generation from Terraform outputs
-- `scripts/create-users.sh` - Idempotent PostgreSQL user/grant initialization
-- `kubernetes/secret-db-user-init-admin-creds.yaml.template` - Secret template with envsubst variables
-- `kubernetes/configmap-db-user-init-script.yaml` - Mounts the initialization script
+### Kubernetes Manifests
+
+- `kubernetes/serviceaccount-db-user-init.yaml.template` - ServiceAccount with Workload Identity annotation
+- `kubernetes/secretproviderclass-db-user-init.yaml.template` - SecretProviderClass for Key Vault integration
+- `kubernetes/configmap-db-user-init-script.yaml` - PostgreSQL user creation script
 - `kubernetes/job-db-user-init.yaml` - Kubernetes Job definition
-- `deploy.sh` - Deployment helper script
+
+### Scripts
+
+- `deploy.sh` - Automated deployment script
 - `show_db_tf_outputs.sh` - Display Terraform outputs (for reference)
 
-## Notes
+### Deprecated Files
 
-- The job uses PostgreSQL admin credentials only to create application users
-- DBC and Active Transfer should use the application users, not admin credentials
-- The generated secret file is in `.gitignore` and should never be committed
-- For production, use enterprise secrets management (Azure Key Vault, HashiCorp Vault, etc.)
-- Rotate credentials regularly in production environments
+- `scripts/generate-secret.sh` - **DEPRECATED**: Legacy manual secret generation (kept for reference)
+- `kubernetes/secret-db-user-init-admin-creds.yaml.template` - **DEPRECATED**: Legacy secret template
+
+**Note**: The CSI driver approach eliminates the need for manual secret generation. The deprecated files are kept for reference but should not be used.
+
+## Troubleshooting
+
+### Error: CSI driver not found
+
+**Symptom**: `kubectl get csidriver secrets-store.csi.k8s.io` fails
+
+**Solution**: Ensure AKS cluster has CSI Secrets Store driver enabled. This is configured in Terraform:
+
+```hcl
+key_vault_secrets_provider {
+  secret_rotation_enabled  = true
+  secret_rotation_interval = "2m"
+}
+```
+
+### Error: Pod fails to mount secrets
+
+**Symptom**: Pod events show "failed to mount secrets store objects"
+
+**Possible Causes**:
+
+1. **Federated credential not created**: Check Terraform applied successfully
+   ```bash
+   cd ../../01-AzurePrerequisites/02-ServiceFulfillment
+   terraform output mft_managed_identity_id
+   az identity federated-credential list \
+     --identity-name <identity-name> \
+     --resource-group <rg-name>
+   ```
+
+2. **Secret names don't match**: Verify secret names in Key Vault
+   ```bash
+   KV_NAME=$(terraform output -raw key_vault_name)
+   ENV=$(terraform output -raw environment_name)
+   az keyvault secret list --vault-name "$KV_NAME" | grep "${ENV}-dbc"
+   ```
+
+3. **RBAC permissions missing**: Check managed identity has Key Vault Secrets User role
+   ```bash
+   az role assignment list \
+     --assignee <managed-identity-principal-id> \
+     --scope <key-vault-id>
+   ```
+
+### Error: Job fails with authentication error
+
+**Symptom**: Logs show "AADSTS700213: No matching federated identity record found"
+
+**Solution**: The federated credential subject must exactly match the ServiceAccount:
+
+```
+system:serviceaccount:default:database-user-init-sa
+```
+
+Verify in Terraform:
+
+```hcl
+resource "azurerm_federated_identity_credential" "db_user_init" {
+  subject = "system:serviceaccount:default:database-user-init-sa"
+  ...
+}
+```
+
+### Error: Secrets not synced to Kubernetes Secret
+
+**Symptom**: `kubectl get secret db-user-init-credentials-synced` not found
+
+**Solution**: The secret is only created when a pod mounts the CSI volume. Check:
+
+1. Pod is running: `kubectl get pods -l app=database-user-init`
+2. Pod events: `kubectl describe pod -l app=database-user-init`
+3. SecretProviderClass exists: `kubectl get secretproviderclass db-user-init-azure-kv-secrets`
+
+### Error: PostgreSQL connection fails
+
+**Symptom**: Job logs show "could not connect to server"
+
+**Possible Causes**:
+
+1. **Network connectivity**: Verify AKS can reach PostgreSQL (check firewall rules)
+2. **Admin credentials incorrect**: Verify Terraform outputs match PostgreSQL configuration
+3. **Database not ready**: Wait for PostgreSQL to be fully provisioned
+
+## Security Considerations
+
+### Workload Identity (OIDC)
+
+- **No credentials stored in Kubernetes**: Authentication uses OIDC tokens
+- **Automatic token rotation**: Tokens are short-lived and automatically refreshed
+- **Least privilege**: Managed identity only has Key Vault Secrets User role
+
+### Secret Management
+
+- **Centralized in Key Vault**: Single source of truth for credentials
+- **Automatic rotation**: CSI driver refreshes secrets every 2 minutes (configurable)
+- **Audit trail**: All secret access logged in Azure Monitor
+
+### Network Security
+
+- **Private endpoints**: Key Vault can use private endpoint (controlled by Terraform variable)
+- **Network policies**: Consider implementing Kubernetes network policies for pod-to-pod communication
+
+## Next Steps
+
+After successful user initialization:
+
+1. **Deploy Database Configurator** (`01-DatabaseConfigurator`):
+   ```bash
+   cd ../01-DatabaseConfigurator
+   ./deploy.sh --logs
+   ```
+
+2. **Deploy Active Transfer** (`02-AT`):
+   ```bash
+   cd ../02-AT
+   # Follow deployment instructions in that directory
+   ```
+
+## References
+
+- [Azure Workload Identity](https://azure.github.io/azure-workload-identity/)
+- [CSI Secrets Store Driver](https://secrets-store-csi-driver.sigs.k8s.io/)
+- [Azure Key Vault Provider](https://azure.github.io/secrets-store-csi-driver-provider-azure/)
+- [Terraform Configuration](../../01-AzurePrerequisites/02-ServiceFulfillment/README.md)

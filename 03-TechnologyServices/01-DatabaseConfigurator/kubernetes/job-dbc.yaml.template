@@ -24,8 +24,8 @@ spec:
         app: database-configurator
         component: initialization
     spec:
-      # Use service account with appropriate RBAC permissions if needed
-      # serviceAccountName: database-configurator
+      # Use service account with Azure Workload Identity for Key Vault access
+      serviceAccountName: database-configurator-sa
 
       restartPolicy: Never
 
@@ -57,10 +57,10 @@ spec:
         - /bin/sh
         - /scripts/entrypoint.sh
 
-        # Environment variables from Secret
+        # Environment variables from Secret synced from Key Vault via CSI driver
         envFrom:
         - secretRef:
-            name: dbc-postgres-credentials
+            name: dbc-postgres-credentials-synced
 
         # Additional environment variables
         env:
@@ -75,6 +75,10 @@ spec:
         volumeMounts:
         - name: entrypoint-script
           mountPath: /scripts
+          readOnly: true
+        # Mount secrets from Azure Key Vault via CSI driver
+        - name: secrets-store
+          mountPath: "/mnt/secrets-store"
           readOnly: true
 
         # Resource limits and requests
@@ -95,6 +99,13 @@ spec:
           items:
           - key: entrypoint.sh
             path: entrypoint.sh
+      # CSI volume for Azure Key Vault secrets
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: "dbc-azure-kv-secrets"
 
 ---
 # USAGE INSTRUCTIONS:

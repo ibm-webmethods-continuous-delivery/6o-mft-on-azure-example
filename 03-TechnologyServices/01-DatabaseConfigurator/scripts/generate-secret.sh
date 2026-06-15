@@ -1,37 +1,5 @@
 #!/bin/sh
-#!/bin/sh
-#
-# ============================================================================
-# DEPRECATED: This script is deprecated and kept for reference only
-# ============================================================================
-#
-# This script manually generates Kubernetes secrets by fetching credentials
-# from Azure Key Vault using Azure CLI. This approach has been replaced by
-# the CSI Secrets Store driver integration.
-#
-# RECOMMENDED APPROACH:
-# Use the automated deployment script which leverages Azure Workload Identity
-# and CSI Secrets Store driver for secure, automatic credential management:
-#
-#   ./deploy.sh --logs
-#
-# BENEFITS OF NEW APPROACH:
-# - No manual secret generation required
-# - Automatic credential fetching via CSI driver
-# - Workload Identity (OIDC) authentication (more secure)
-# - No Azure CLI dependency in deployment
-# - Consistent with other components (DatabaseConfigurator, Active Transfer)
-#
-# This script is kept for:
-# - Reference and understanding of the legacy approach
-# - Troubleshooting and debugging purposes
-# - Fallback option if CSI driver issues occur
-#
-# For more information, see README.md
-# ============================================================================
-#
-
-# Generate Kubernetes secret from template using Terraform outputs and Azure Key Vault
+# Generate Kubernetes secret for Database Configurator using Terraform outputs and Azure Key Vault
 
 set -e
 
@@ -95,14 +63,11 @@ KEY_VAULT_NAME=$(terraform output -raw key_vault_name 2>/dev/null)
 cd "${BASE_DIR}" || exit 1
 
 # Validate Terraform outputs
-if [ -z "${POSTGRES_SERVER_FQDN}" ] || [ -z "${POSTGRES_ADMIN_USER}" ] || \
-   [ -z "${POSTGRES_ADMIN_PASSWORD}" ] || [ -z "${POSTGRES_ONLINE_DB}" ] || \
+if [ -z "${POSTGRES_SERVER_FQDN}" ] || [ -z "${POSTGRES_ONLINE_DB}" ] || \
    [ -z "${POSTGRES_ARCHIVE_DB}" ]; then
     error "Failed to retrieve all required Terraform outputs"
     error "Please ensure Terraform has been applied successfully"
     info "Current folder is $(pwd)"
-    info "Environment variables:"
-    env | sort
     exit 1
 fi
 
@@ -114,7 +79,6 @@ fi
 
 info "Retrieved Terraform outputs:"
 info "  - Server FQDN: ${POSTGRES_SERVER_FQDN}"
-info "  - Admin User: ${POSTGRES_ADMIN_USER}"
 info "  - Online DB: ${POSTGRES_ONLINE_DB}"
 info "  - Archive DB: ${POSTGRES_ARCHIVE_DB}"
 info "  - Key Vault: ${KEY_VAULT_NAME}"
@@ -188,8 +152,6 @@ info "  - Archive DB User: ${POSTGRES_ARCHIVE_USER}"
 
 # Export all variables for envsubst
 export POSTGRES_SERVER_FQDN
-export POSTGRES_ADMIN_USER
-export POSTGRES_ADMIN_PASSWORD
 export POSTGRES_ONLINE_DB
 export POSTGRES_ARCHIVE_DB
 export POSTGRES_USER
@@ -198,8 +160,8 @@ export POSTGRES_ARCHIVE_USER
 export POSTGRES_ARCHIVE_PASSWORD
 
 # Generate secret from template
-TEMPLATE_FILE="${BASE_DIR}/kubernetes/secret-db-user-init-admin-creds.yaml.template"
-OUTPUT_FILE="${BASE_DIR}/kubernetes/secret-db-user-init-admin-creds.yaml"
+TEMPLATE_FILE="${BASE_DIR}/kubernetes/secret-dbc-creds.yaml.template"
+OUTPUT_FILE="${BASE_DIR}/kubernetes/secret-dbc-creds.yaml"
 
 if [ ! -f "${TEMPLATE_FILE}" ]; then
     error "Template file not found: ${TEMPLATE_FILE}"

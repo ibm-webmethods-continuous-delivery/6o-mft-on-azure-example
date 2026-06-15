@@ -575,9 +575,9 @@ resource "azurerm_federated_identity_credential" "mft" {
 resource "azurerm_federated_identity_credential" "dbc" {
   name      = "${var.prefix}-dbc-federated-credential"
   parent_id = azurerm_user_assigned_identity.mft.id
-  audience = ["api://AzureADTokenExchange"]
-  issuer   = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject  = "system:serviceaccount:default:database-configurator-sa"
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject   = "system:serviceaccount:default:database-configurator-sa"
 }
 
 # Federated credential for Database User Init service account
@@ -663,6 +663,8 @@ locals {
     "postgres-server-fqdn"      = azurerm_postgresql_flexible_server.main.fqdn
     "postgres-online-db"        = azurerm_postgresql_flexible_server_database.online.name
     "postgres-archive-db"       = azurerm_postgresql_flexible_server_database.archive.name
+    "postgres-admin-user"       = var.postgres_admin_username
+    "postgres-admin-password"   = var.postgres_admin_password
     "postgres-user"             = var.postgres_dbc_user
     "postgres-password"         = var.postgres_dbc_password
     "postgres-archive-user"     = var.postgres_dbc_archive_user

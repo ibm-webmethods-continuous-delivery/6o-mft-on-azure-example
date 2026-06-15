@@ -61,8 +61,8 @@ show_help() {
     exit 0
 }
 
-get_acr_login_server() {
-    print_info "Retrieving ACR login server from Terraform..."
+get_terraform_outputs() {
+    print_info "Retrieving configuration from Terraform..."
 
     # Check if Terraform directory exists
     if [ ! -d "${TF_DIR}" ]; then
@@ -71,7 +71,7 @@ get_acr_login_server() {
         exit 1
     fi
 
-    # Navigate to Terraform directory and get ACR login server
+    # Navigate to Terraform directory
     cd "${TF_DIR}" || exit 1
 
     if ! command -v terraform &> /dev/null; then
@@ -79,23 +79,106 @@ get_acr_login_server() {
         exit 1
     fi
 
+    # Get all required outputs
     ACR_LOGIN_SERVER=$(terraform output -raw acr_login_server 2>/dev/null)
-
-    if [ -z "${ACR_LOGIN_SERVER}" ] || [ "${ACR_LOGIN_SERVER}" = "null" ]; then
-        print_error "Failed to retrieve ACR login server from Terraform outputs."
-        print_error "Please ensure Terraform has been applied successfully."
-        exit 1
-    fi
+    MFT_IDENTITY_CLIENT_ID=$(terraform output -raw mft_managed_identity_client_id 2>/dev/null)
+    KEY_VAULT_NAME=$(terraform output -raw key_vault_name 2>/dev/null)
+    TENANT_ID=$(terraform output -raw tenant_id 2>/dev/null)
+    ENVIRONMENT_NAME=$(terraform output -raw environment_name 2>/dev/null)
 
     cd "${SCRIPT_DIR}" || exit 1
 
-    print_success "ACR login server: ${ACR_LOGIN_SERVER}"
+    # Validate outputs
+    if [ -z "${ACR_LOGIN_SERVER}" ] || [ "${ACR_LOGIN_SERVER}" = "null" ]; then
+        print_error "Failed to retrieve ACR login server from Terraform outputs."
+        exit 1
+    fi
+
+    if [ -z "${MFT_IDENTITY_CLIENT_ID}" ] || [ "${MFT_IDENTITY_CLIENT_ID}" = "null" ]; then
+        print_error "Failed to retrieve managed identity client ID from Terraform outputs."
+        exit 1
+    fi
+
+    if [ -z "${KEY_VAULT_NAME}" ] || [ "${KEY_VAULT_NAME}" = "null" ]; then
+        print_error "Failed to retrieve Key Vault name from Terraform outputs."
+        exit 1
+    fi
+
+    if [ -z "${TENANT_ID}" ] || [ "${TENANT_ID}" = "null" ]; then
+        print_error "Failed to retrieve tenant ID from Terraform outputs."
+        exit 1
+    fi
+
+    if [ -z "${ENVIRONMENT_NAME}" ] || [ "${ENVIRONMENT_NAME}" = "null" ]; then
+        print_error "Failed to retrieve environment name from Terraform outputs."
+        exit 1
+    fi
+
+    # Export for use in templates
     export ACR_LOGIN_SERVER
+    export MFT_IDENTITY_CLIENT_ID
+    export KEY_VAULT_NAME
+    export TENANT_ID
+    export ENVIRONMENT_NAME
+
+    print_success "ACR login server: ${ACR_LOGIN_SERVER}"
+    print_success "Managed identity client ID: ${MFT_IDENTITY_CLIENT_ID}"
+    print_success "Key Vault name: ${KEY_VAULT_NAME}"
+    print_success "Tenant ID: ${TENANT_ID}"
+    print_success "Environment: ${ENVIRONMENT_NAME}"
 }
 
-generate_job_manifest() {
-    print_info "Generating job manifest from template..."
+generate_manifests() {
+    print_info "Generating Kubernetes manifests from templates..."
 
+    # Check if envsubst is available
+    if ! command -v envsubst &> /dev/null; then
+        print_error "envsubst not found. Please install gettext package."
+        exit 1
+    fi
+
+    # Generate ServiceAccount
+    TEMPLATE_FILE="${KUBERNETES_DIR}/serviceaccount-dbc.yaml.template"
+    OUTPUT_FILE="${KUBERNETES_DIR}/serviceaccount-dbc.yaml"
+
+    if [ ! -f "${TEMPLATE_FILE}" ]; then
+        print_error "Template file not found: ${TEMPLATE_FILE}"
+        exit 1
+    fi
+
+    sed "s|<mft_managed_identity_client_id>|${MFT_IDENTITY_CLIENT_ID}|g" \
+        "${TEMPLATE_FILE}" > "${OUTPUT_FILE}"
+
+    if [ $? -eq 0 ]; then
+        print_success "ServiceAccount manifest generated: ${OUTPUT_FILE}"
+    else
+        print_error "Failed to generate ServiceAccount manifest"
+        exit 1
+    fi
+
+    # Generate SecretProviderClass
+    TEMPLATE_FILE="${KUBERNETES_DIR}/secretproviderclass-dbc.yaml.template"
+    OUTPUT_FILE="${KUBERNETES_DIR}/secretproviderclass-dbc.yaml"
+
+    if [ ! -f "${TEMPLATE_FILE}" ]; then
+        print_error "Template file not found: ${TEMPLATE_FILE}"
+        exit 1
+    fi
+
+    sed -e "s|<mft_managed_identity_client_id>|${MFT_IDENTITY_CLIENT_ID}|g" \
+        -e "s|<key_vault_name>|${KEY_VAULT_NAME}|g" \
+        -e "s|<tenant_id>|${TENANT_ID}|g" \
+        -e "s|<environment_name>|${ENVIRONMENT_NAME}|g" \
+        "${TEMPLATE_FILE}" > "${OUTPUT_FILE}"
+
+    if [ $? -eq 0 ]; then
+        print_success "SecretProviderClass manifest generated: ${OUTPUT_FILE}"
+    else
+        print_error "Failed to generate SecretProviderClass manifest"
+        exit 1
+    fi
+
+    # Generate Job
     TEMPLATE_FILE="${KUBERNETES_DIR}/job-dbc.yaml.template"
     OUTPUT_FILE="${KUBERNETES_DIR}/job-dbc.yaml"
 
@@ -104,19 +187,12 @@ generate_job_manifest() {
         exit 1
     fi
 
-    # Check if envsubst is available
-    if ! command -v envsubst &> /dev/null; then
-        print_error "envsubst not found. Please install gettext package."
-        exit 1
-    fi
-
-    # Generate manifest from template
     envsubst < "${TEMPLATE_FILE}" > "${OUTPUT_FILE}"
 
     if [ $? -eq 0 ]; then
         print_success "Job manifest generated: ${OUTPUT_FILE}"
     else
-        print_error "Failed to generate job manifest"
+        print_error "Failed to generate Job manifest"
         exit 1
     fi
 }
@@ -141,15 +217,14 @@ check_prerequisites() {
         print_warning "Namespace '${NAMESPACE}' does not exist. It will be created."
     fi
 
-    # Check if secret exists
-    if ! kubectl get secret dbc-postgres-credentials -n "${NAMESPACE}" &> /dev/null; then
-        print_error "Secret 'dbc-postgres-credentials' not found in namespace '${NAMESPACE}'."
-        print_error "Please create the secret from template first:"
-        print_error "  1. Copy secret-dbc-creds.yaml.template to secret-dbc-creds.yaml"
-        print_error "  2. Fill in actual values from Terraform outputs"
-        print_error "  3. Apply: kubectl apply -f kubernetes/secret-dbc-creds.yaml"
-        exit 1
+    # Check if CSI Secrets Store driver is installed
+    if ! kubectl get csidriver secrets-store.csi.k8s.io &> /dev/null; then
+        print_warning "CSI Secrets Store driver not found. Key Vault integration may not work."
+        print_warning "The driver should be enabled on the AKS cluster."
     fi
+
+    # Note: We don't check for the secret here as it will be created by the CSI driver
+    # when the pod starts. The SecretProviderClass will handle the secret synchronization.
 
     print_success "Prerequisites check passed"
 }
@@ -161,6 +236,28 @@ delete_existing_job() {
         # Wait a moment for the job to be fully deleted
         sleep 2
         print_success "Existing job deleted"
+    fi
+}
+
+deploy_serviceaccount() {
+    print_info "Deploying ServiceAccount..."
+
+    if [ "${DRY_RUN}" = true ]; then
+        kubectl apply -f "${KUBERNETES_DIR}/serviceaccount-dbc.yaml" -n "${NAMESPACE}" --dry-run=client
+    else
+        kubectl apply -f "${KUBERNETES_DIR}/serviceaccount-dbc.yaml" -n "${NAMESPACE}"
+        print_success "ServiceAccount deployed"
+    fi
+}
+
+deploy_secretproviderclass() {
+    print_info "Deploying SecretProviderClass..."
+
+    if [ "${DRY_RUN}" = true ]; then
+        kubectl apply -f "${KUBERNETES_DIR}/secretproviderclass-dbc.yaml" -n "${NAMESPACE}" --dry-run=client
+    else
+        kubectl apply -f "${KUBERNETES_DIR}/secretproviderclass-dbc.yaml" -n "${NAMESPACE}"
+        print_success "SecretProviderClass deployed"
     fi
 }
 
@@ -259,18 +356,20 @@ echo ""
 # Check prerequisites
 check_prerequisites
 
-# Get ACR login server from Terraform
-get_acr_login_server
+# Get all required values from Terraform
+get_terraform_outputs
 
-# Generate job manifest from template
-generate_job_manifest
+# Generate all manifests from templates
+generate_manifests
 
 # Delete existing job if requested
 if [ "${DELETE_EXISTING}" = true ]; then
     delete_existing_job
 fi
 
-# Deploy resources
+# Deploy resources in order
+deploy_serviceaccount
+deploy_secretproviderclass
 deploy_configmap
 deploy_job
 

@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Database User Initialization Deployment Script
+# Uses Azure Key Vault CSI Secrets Store driver for credential management
 #
 
 set -e
@@ -11,6 +12,7 @@ DELETE_EXISTING=false
 FOLLOW_LOGS=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUBERNETES_DIR="${SCRIPT_DIR}/kubernetes"
+TF_DIR="${SCRIPT_DIR}/../../01-AzurePrerequisites/02-ServiceFulfillment"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,10 +51,16 @@ Options:
   --help                Show this help message
 
 Prerequisites:
-  1. Decide application credentials (see README.md Step 1)
-  2. Generate secret: ./scripts/generate-secret.sh
-  3. Apply secret: kubectl apply -f kubernetes/secret-db-user-init-admin-creds.yaml
-  4. Run this script
+  1. Terraform applied in ../../01-AzurePrerequisites/02-ServiceFulfillment
+  2. AKS cluster with CSI Secrets Store driver enabled
+  3. Database credentials populated in Azure Key Vault (via Terraform)
+  4. Federated credential for database-user-init-sa created (via Terraform)
+
+This script automatically:
+  - Retrieves configuration from Terraform outputs
+  - Generates ServiceAccount and SecretProviderClass manifests
+  - Deploys all required Kubernetes resources
+  - Uses Azure Workload Identity for secure Key Vault access
 EOF
     exit 0
 }
@@ -74,19 +82,78 @@ check_prerequisites() {
         print_warning "Namespace '${NAMESPACE}' does not exist. It will be created by kubectl apply if manifests include it or after manual creation."
     fi
 
-    # Check if secret exists
-    if ! kubectl get secret db-user-init-admin-credentials -n "${NAMESPACE}" >/dev/null 2>&1; then
-        print_error "Secret 'db-user-init-admin-credentials' not found in namespace '${NAMESPACE}'."
-        echo ""
-        print_info "To create the secret, follow these steps:"
-        echo "  1. Set application credentials (see README.md Step 1)"
-        echo "  2. Run: ./scripts/generate-secret.sh"
-        echo "  3. Apply: kubectl apply -f kubernetes/secret-db-user-init-admin-creds.yaml"
-        echo ""
+    # Check if CSI Secrets Store driver is available
+    if ! kubectl get csidriver secrets-store.csi.k8s.io >/dev/null 2>&1; then
+        print_error "CSI Secrets Store driver not found in cluster."
+        print_error "Please ensure the AKS cluster has the CSI driver enabled."
         exit 1
     fi
 
     print_success "Prerequisites check passed"
+}
+
+retrieve_terraform_outputs() {
+    print_info "Retrieving Terraform outputs..."
+
+    if [ ! -d "${TF_DIR}" ]; then
+        print_error "Terraform directory not found: ${TF_DIR}"
+        exit 1
+    fi
+
+    cd "${TF_DIR}" || exit 1
+
+    # Check if Terraform state exists
+    if ! terraform show >/dev/null 2>&1; then
+        print_error "Terraform state not found or invalid."
+        print_error "Please run 'terraform apply' in ${TF_DIR}"
+        exit 1
+    fi
+
+    # Retrieve outputs
+    export MFT_IDENTITY_CLIENT_ID=$(terraform output -raw mft_managed_identity_client_id 2>/dev/null)
+    export KEY_VAULT_NAME=$(terraform output -raw key_vault_name 2>/dev/null)
+    export TENANT_ID=$(terraform output -raw tenant_id 2>/dev/null)
+    export ENVIRONMENT=$(terraform output -raw environment_name 2>/dev/null)
+
+    cd "${SCRIPT_DIR}" || exit 1
+
+    # Validate outputs
+    if [ -z "${MFT_IDENTITY_CLIENT_ID}" ] || [ -z "${KEY_VAULT_NAME}" ] || \
+       [ -z "${TENANT_ID}" ] || [ -z "${ENVIRONMENT}" ]; then
+        print_error "Failed to retrieve all required Terraform outputs."
+        print_error "Please ensure Terraform has been applied successfully."
+        exit 1
+    fi
+
+    print_success "Terraform outputs retrieved:"
+    print_info "  - Client ID: ${MFT_IDENTITY_CLIENT_ID}"
+    print_info "  - Key Vault: ${KEY_VAULT_NAME}"
+    print_info "  - Tenant ID: ${TENANT_ID}"
+    print_info "  - Environment: ${ENVIRONMENT}"
+}
+
+generate_manifests() {
+    print_info "Generating Kubernetes manifests from templates..."
+
+    # Generate ServiceAccount
+    if [ -f "${KUBERNETES_DIR}/serviceaccount-db-user-init.yaml.template" ]; then
+        envsubst < "${KUBERNETES_DIR}/serviceaccount-db-user-init.yaml.template" \
+            > "${KUBERNETES_DIR}/serviceaccount-db-user-init.yaml"
+        print_success "ServiceAccount manifest generated"
+    else
+        print_error "ServiceAccount template not found"
+        exit 1
+    fi
+
+    # Generate SecretProviderClass
+    if [ -f "${KUBERNETES_DIR}/secretproviderclass-db-user-init.yaml.template" ]; then
+        envsubst < "${KUBERNETES_DIR}/secretproviderclass-db-user-init.yaml.template" \
+            > "${KUBERNETES_DIR}/secretproviderclass-db-user-init.yaml"
+        print_success "SecretProviderClass manifest generated"
+    else
+        print_error "SecretProviderClass template not found"
+        exit 1
+    fi
 }
 
 delete_existing_job() {
@@ -94,6 +161,28 @@ delete_existing_job() {
         print_info "Deleting existing job..."
         kubectl delete job database-user-init -n "${NAMESPACE}"
         print_success "Existing job deleted"
+    fi
+}
+
+deploy_serviceaccount() {
+    print_info "Deploying ServiceAccount..."
+
+    if [ "${DRY_RUN}" = true ]; then
+        kubectl apply -f "${KUBERNETES_DIR}/serviceaccount-db-user-init.yaml" -n "${NAMESPACE}" --dry-run=client
+    else
+        kubectl apply -f "${KUBERNETES_DIR}/serviceaccount-db-user-init.yaml" -n "${NAMESPACE}"
+        print_success "ServiceAccount deployed"
+    fi
+}
+
+deploy_secretproviderclass() {
+    print_info "Deploying SecretProviderClass..."
+
+    if [ "${DRY_RUN}" = true ]; then
+        kubectl apply -f "${KUBERNETES_DIR}/secretproviderclass-db-user-init.yaml" -n "${NAMESPACE}" --dry-run=client
+    else
+        kubectl apply -f "${KUBERNETES_DIR}/secretproviderclass-db-user-init.yaml" -n "${NAMESPACE}"
+        print_success "SecretProviderClass deployed"
     fi
 }
 
@@ -144,6 +233,12 @@ show_status() {
 
     print_info "Pod status:"
     kubectl get pods -n "${NAMESPACE}" -l app=database-user-init 2>/dev/null || print_warning "No pods found"
+
+    print_info "SecretProviderClass status:"
+    kubectl get secretproviderclass db-user-init-azure-kv-secrets -n "${NAMESPACE}" 2>/dev/null || print_warning "SecretProviderClass not found"
+
+    print_info "Synced secret status:"
+    kubectl get secret db-user-init-credentials-synced -n "${NAMESPACE}" 2>/dev/null || print_warning "Synced secret not found (will be created when pod starts)"
 }
 
 while [ $# -gt 0 ]; do
@@ -185,11 +280,15 @@ echo "=========================================="
 echo ""
 
 check_prerequisites
+retrieve_terraform_outputs
+generate_manifests
 
 if [ "${DELETE_EXISTING}" = true ]; then
     delete_existing_job
 fi
 
+deploy_serviceaccount
+deploy_secretproviderclass
 deploy_configmap
 deploy_job
 
@@ -202,6 +301,7 @@ if [ "${DRY_RUN}" = false ]; then
     show_status
     echo ""
     print_info "To view logs: kubectl logs -l app=database-user-init -n ${NAMESPACE}"
+    print_info "To check secret mount: kubectl describe pod -l app=database-user-init -n ${NAMESPACE}"
 else
     echo ""
     print_info "Dry run completed. No resources were created."

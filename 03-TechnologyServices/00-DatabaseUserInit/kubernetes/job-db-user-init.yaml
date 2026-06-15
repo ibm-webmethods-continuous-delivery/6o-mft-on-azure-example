@@ -11,13 +11,15 @@ metadata:
 spec:
   backoffLimit: 3
   activeDeadlineSeconds: 1800
-  ttlSecondsAfterFinished: 86400
+  ttlSecondsAfterFinished: 300
   template:
     metadata:
       labels:
         app: database-user-init
         component: initialization
     spec:
+      # Use service account with Azure Workload Identity for Key Vault access
+      serviceAccountName: database-user-init-sa
       restartPolicy: Never
       securityContext:
         runAsNonRoot: true
@@ -41,10 +43,14 @@ spec:
         - /scripts/create-users.sh
         envFrom:
         - secretRef:
-            name: db-user-init-admin-credentials
+            name: db-user-init-credentials-synced
         volumeMounts:
         - name: init-script
           mountPath: /scripts
+          readOnly: true
+        # Mount secrets from Azure Key Vault via CSI driver
+        - name: secrets-store
+          mountPath: /mnt/secrets-store
           readOnly: true
         resources:
           requests:
@@ -61,3 +67,10 @@ spec:
           items:
           - key: create-users.sh
             path: create-users.sh
+      # CSI driver volume for Azure Key Vault secrets
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: db-user-init-azure-kv-secrets
