@@ -6,40 +6,40 @@ services:
     container_name: at-gateway1
     hostname: at-gateway1
     restart: unless-stopped
-    
+
     ports:
       - "8500:8500"
       - "8501:8501"
-    
+
     volumes:
       # Mount custom Gateway configuration
       - ./config/properties.cnf:/opt/softwareag/IntegrationServer/instances/default/packages/WmMFT/config/properties.cnf:ro
       # Persistent data volumes
-      - gateway-data:/opt/softwareag/IntegrationServer/instances/default/packages/WmMFT/pub
+      # - gateway-data:/opt/softwareag/IntegrationServer/instances/default/packages/WmMFT/pub
       - gateway-logs:/opt/softwareag/IntegrationServer/instances/default/logs
-    
+
     environment:
       # Gateway-specific environment variables
       - MFT_SERVER_RUNTIME_MODE=Gateway
       - MFT_GATEWAY_PORT=8500
-      
+
       # JVM settings for Gateway (lighter than full server)
       - JAVA_MIN_MEM=512m
       - JAVA_MAX_MEM=1024m
-      
+
       # Logging
       - LOG_LEVEL=INFO
-    
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8500/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    
+
     networks:
       - gateway-network
-    
+
     logging:
       driver: "json-file"
       options:
