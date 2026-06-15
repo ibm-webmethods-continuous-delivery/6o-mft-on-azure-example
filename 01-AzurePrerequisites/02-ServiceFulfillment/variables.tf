@@ -275,3 +275,52 @@ variable "app_gateway_capacity" {
   }
 }
 
+# Azure Key Vault Configuration
+variable "key_vault_public_access_enabled" {
+  description = "Enable public network access to Key Vault (true) or use private endpoint (false)"
+  type        = bool
+  default     = false
+}
+
+variable "mft_namespace" {
+  description = "Kubernetes namespace for MFT deployment"
+  type        = string
+  default     = "default"
+}
+
+variable "mft_service_account_name" {
+  description = "Kubernetes service account name for MFT workload identity"
+  type        = string
+  default     = "mft-service-account"
+}
+
+variable "environment_name" {
+  description = "Environment name for hierarchical secret naming (dev/test/prod)"
+  type        = string
+  default     = "dev"
+  validation {
+    condition     = contains(["dev", "test", "prod"], var.environment_name)
+    error_message = "Environment must be dev, test, or prod"
+  }
+}
+
+# Certificate Upload Configuration
+variable "upload_certificates" {
+  description = "Enable automatic upload of certificate files to Key Vault"
+  type        = bool
+  default     = false
+}
+
+variable "certificates_base_path" {
+  description = "Relative path from this module to the certificates directory"
+  type        = string
+  default     = "../../03-TechnologyServices/00-Certificates/data/subjects/az-certs"
+}
+
+variable "certificate_password" {
+  description = "Password for PKCS12 and JKS keystores (should match TEST_PK_SECRET from cert generation)"
+  type        = string
+  sensitive   = true
+  default     = "ChangeMe123"
+}
+

@@ -174,7 +174,7 @@ resource "azurerm_network_security_group" "sftp" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_ranges    = ["8500", "8501"]
-    source_address_prefix      = azurerm_subnet.private_1.address_prefixes[0]  # AKS subnet
+    source_address_prefix      = azurerm_subnet.private_1.address_prefixes[0] # AKS subnet
     destination_address_prefix = "*"
   }
 }
@@ -464,6 +464,12 @@ resource "azurerm_kubernetes_cluster" "main" {
     network_plugin = "azure"
     network_policy = "azure"
   }
+
+  # Enable Key Vault Secrets Provider (CSI Driver)
+  key_vault_secrets_provider {
+    secret_rotation_enabled  = true
+    secret_rotation_interval = "2m"
+  }
 }
 
 # Grant ACR Pull access to AKS (optional, controlled by variable)
@@ -472,6 +478,318 @@ resource "azurerm_role_assignment" "aks_acr" {
   scope                = data.azurerm_container_registry.main.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+}
+
+# ============================================================================
+# Azure Key Vault for MFT Secrets Management
+# ============================================================================
+
+# Get current Azure client configuration
+data "azurerm_client_config" "current" {}
+
+# Azure Key Vault
+resource "azurerm_key_vault" "main" {
+  name                = "${var.prefix}-kv"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
+
+  # Network configuration - switchable between public and private
+  public_network_access_enabled = var.key_vault_public_access_enabled
+
+  # RBAC model (preferred over access policies)
+  rbac_authorization_enabled = true
+
+  # Soft delete and purge protection
+  soft_delete_retention_days = 90
+  purge_protection_enabled   = true
+
+  tags = var.tags
+}
+
+# Private endpoint for Key Vault (when private access is enabled)
+resource "azurerm_private_endpoint" "key_vault" {
+  count               = var.key_vault_public_access_enabled ? 0 : 1
+  name                = "${var.prefix}-kv-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = azurerm_subnet.private_1.id
+
+  private_service_connection {
+    name                           = "${var.prefix}-kv-psc"
+    private_connection_resource_id = azurerm_key_vault.main.id
+    subresource_names              = ["vault"]
+    is_manual_connection           = false
+  }
+
+  tags = var.tags
+}
+
+# Private DNS zone for Key Vault
+resource "azurerm_private_dns_zone" "key_vault" {
+  count               = var.key_vault_public_access_enabled ? 0 : 1
+  name                = "privatelink.vaultcore.azure.net"
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+# Link Private DNS zone to VNet
+resource "azurerm_private_dns_zone_virtual_network_link" "key_vault" {
+  count                 = var.key_vault_public_access_enabled ? 0 : 1
+  name                  = "${var.prefix}-kv-dns-link"
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.key_vault[0].name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
+# Private DNS A record for Key Vault
+resource "azurerm_private_dns_a_record" "key_vault" {
+  count               = var.key_vault_public_access_enabled ? 0 : 1
+  name                = azurerm_key_vault.main.name
+  zone_name           = azurerm_private_dns_zone.key_vault[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  records             = [azurerm_private_endpoint.key_vault[0].private_service_connection[0].private_ip_address]
+}
+
+# User-assigned managed identity for MFT workload
+resource "azurerm_user_assigned_identity" "mft" {
+  name                = "${var.prefix}-mft-identity"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+# Federated credential for workload identity (AKS OIDC)
+resource "azurerm_federated_identity_credential" "mft" {
+  name      = "${var.prefix}-mft-federated-credential"
+  parent_id = azurerm_user_assigned_identity.mft.id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject   = "system:serviceaccount:${var.mft_namespace}:${var.mft_service_account_name}"
+}
+
+# Grant Key Vault Secrets User role to MFT user assigned identity
+resource "azurerm_role_assignment" "mft_kv_secrets_user" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.mft.principal_id
+}
+
+# Grant Key Vault Certificate User role to MFT user assigned identity
+resource "azurerm_role_assignment" "mft_kv_certificates_user" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Certificate User"
+  principal_id         = azurerm_user_assigned_identity.mft.principal_id
+}
+
+# Grant current identity running Terraform Key Vault Administrator role (for secret creation)
+resource "azurerm_role_assignment" "terraform_kv_admin" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# Local variables for default secrets
+locals {
+  environment = var.environment_name
+
+  default_secrets = {
+    "${local.environment}-mft-secret-admin-password"                 = "ChangeMe123!"
+    "${local.environment}-mft-secret-db-online-password"             = "ChangeMe123!"
+    "${local.environment}-mft-secret-db-archive-password"            = "ChangeMe123!"
+    "${local.environment}-mft-secret-admin-ui-keystore-password"     = "ChangeMe123!"
+    "${local.environment}-mft-secret-admin-ui-truststore-password"   = "ChangeMe123!"
+    "${local.environment}-mft-secret-web-client-keystore-password"   = "ChangeMe123!"
+    "${local.environment}-mft-secret-web-client-truststore-password" = "ChangeMe123!"
+    "${local.environment}-mft-secret-sftp-ssh-private-key"           = "placeholder-ssh-key"
+    "${local.environment}-mft-secret-config-json"                    = "{}"
+  }
+}
+
+# Create default secrets in Key Vault with expiration
+resource "azurerm_key_vault_secret" "defaults" {
+  for_each = local.default_secrets
+
+  name         = each.key
+  value        = each.value
+  key_vault_id = azurerm_key_vault.main.id
+
+  # Set expiration (90 days from creation)
+  expiration_date = timeadd(timestamp(), "2160h")
+
+  # Content type for documentation
+  content_type = "text/plain"
+
+  tags = merge(var.tags, {
+    ManagedBy   = "Terraform"
+    Purpose     = "MFT-Example"
+    Environment = local.environment
+    Warning     = "DEFAULT-VALUE-CHANGE-IMMEDIATELY"
+  })
+
+  depends_on = [
+    azurerm_role_assignment.terraform_kv_admin
+  ]
+}
+
+# ============================================================================
+# Certificate Upload to Key Vault
+# ============================================================================
+
+# Local variables for certificate file paths
+locals {
+  # Certificate files mapping (only when upload_certificates is enabled)
+  certificate_files = var.upload_certificates ? {
+    "${local.environment}-mft-cert-admin-ui-keystore-pkcs12"     = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
+    "${local.environment}-mft-cert-admin-ui-keystore-jks"        = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.jks"
+    "${local.environment}-mft-cert-web-client-keystore-pkcs12"   = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
+    "${local.environment}-mft-cert-web-client-keystore-jks"      = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.jks"
+    "${local.environment}-mft-cert-truststore-pkcs12"            = "${var.certificates_base_path}/02-admin-ui/out/rsa/public.trust.store.p12"
+    "${local.environment}-mft-cert-truststore-jks"               = "${var.certificates_base_path}/out/global.public.trust.store.jks"
+    "${local.environment}-mft-cert-ca-bundle-pem"                = "${var.certificates_base_path}/out/all_certs.pem"
+  } : {}
+
+  # SSH private key (updates existing placeholder)
+  sftp_ssh_key_file = var.upload_certificates ? "${var.certificates_base_path}/04-sftp-server/out/id_rsa" : null
+}
+
+# Upload certificate files to Key Vault as base64-encoded secrets
+resource "azurerm_key_vault_secret" "certificates" {
+  for_each = local.certificate_files
+
+  name         = each.key
+  value        = filebase64(each.value)
+  key_vault_id = azurerm_key_vault.main.id
+
+  # Set expiration to 365 days (matching certificate validity)
+  expiration_date = timeadd(timestamp(), "8760h")
+
+  # Content type for documentation
+  content_type = "application/octet-stream"
+
+  tags = merge(var.tags, {
+    ManagedBy     = "Terraform"
+    Purpose       = "MFT-Certificates"
+    Environment   = local.environment
+    CertType      = "KeyStore-TrustStore"
+    UploadedFrom  = basename(each.value)
+  })
+
+  depends_on = [
+    azurerm_role_assignment.terraform_kv_admin
+  ]
+}
+
+# Update SFTP SSH private key (replaces placeholder)
+# TODO: understand why this was in conflict with ${local.environment}-mft-sftp-ssh-private-key and if we want both. For now keep both
+resource "azurerm_key_vault_secret" "sftp_ssh_key" {
+  count = var.upload_certificates ? 1 : 0
+
+  name         = "${local.environment}-mft-sftp-ssh-private-key-loaded"
+  value        = file(local.sftp_ssh_key_file)
+  key_vault_id = azurerm_key_vault.main.id
+
+  # Set expiration to 365 days
+  expiration_date = timeadd(timestamp(), "8760h")
+
+  # Content type for documentation
+  content_type = "text/plain"
+
+  tags = merge(var.tags, {
+    ManagedBy    = "Terraform"
+    Purpose      = "MFT-SFTP-SSH"
+    Environment  = local.environment
+    KeyType      = "SSH-PrivateKey"
+    UploadedFrom = basename(local.sftp_ssh_key_file)
+  })
+
+  depends_on = [
+    azurerm_role_assignment.terraform_kv_admin,
+    azurerm_key_vault_secret.defaults
+  ]
+}
+
+# ============================================================================
+# Certificate Import to Key Vault (as Certificates, not just Secrets)
+# ============================================================================
+
+# Local variables for certificate imports (PKCS12 files only)
+locals {
+  # Certificate files for import as Key Vault certificates
+  certificate_imports = var.upload_certificates ? {
+    "${local.environment}-mft-admin-ui-cert-with-chain" = {
+      file_path = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
+      description = "Admin UI certificate with full chain"
+    }
+    "${local.environment}-mft-admin-ui-cert-no-chain" = {
+      file_path = "${var.certificates_base_path}/02-admin-ui/out/rsa/private.key.store.p12"
+      description = "Admin UI certificate without chain"
+    }
+    "${local.environment}-mft-web-client-cert-with-chain" = {
+      file_path = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
+      description = "Web Client certificate with full chain"
+    }
+    "${local.environment}-mft-web-client-cert-no-chain" = {
+      file_path = "${var.certificates_base_path}/03-web-client/out/rsa/private.key.store.p12"
+      description = "Web Client certificate without chain"
+    }
+  } : {}
+}
+
+# Import PKCS12 certificates into Key Vault as certificates
+resource "azurerm_key_vault_certificate" "imported" {
+  for_each = local.certificate_imports
+
+  name         = each.key
+  key_vault_id = azurerm_key_vault.main.id
+
+  certificate {
+    contents = filebase64(each.value.file_path)
+    password = var.certificate_password
+  }
+
+  certificate_policy {
+    issuer_parameters {
+      name = "Unknown"
+    }
+
+    key_properties {
+      exportable = true
+      key_size   = 2048
+      key_type   = "RSA"
+      reuse_key  = false
+    }
+
+    secret_properties {
+      content_type = "application/x-pkcs12"
+    }
+
+    x509_certificate_properties {
+      key_usage = [
+        "digitalSignature",
+        "keyEncipherment",
+      ]
+
+      subject            = "CN=Imported Certificate"
+      validity_in_months = 12
+    }
+  }
+
+  tags = merge(var.tags, {
+    ManagedBy     = "Terraform"
+    Purpose       = "MFT-Certificates"
+    Environment   = local.environment
+    CertType      = "Imported-PKCS12"
+    Description   = each.value.description
+    UploadedFrom  = basename(each.value.file_path)
+  })
+
+  depends_on = [
+    azurerm_role_assignment.terraform_kv_admin
+  ]
 }
 
 # ============================================================================
