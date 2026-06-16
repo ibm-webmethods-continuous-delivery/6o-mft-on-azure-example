@@ -273,17 +273,33 @@ postgres_dbc_archive_password = "YourSecurePassword789!"
 
 Default placeholder secrets for MFT components (should be updated after deployment):
 
-- `${environment}-mft-secret-admin-password`
-- `${environment}-mft-secret-db-online-password`
-- `${environment}-mft-secret-db-archive-password`
-- `${environment}-mft-secret-admin-ui-keystore-password`
-- `${environment}-mft-secret-admin-ui-truststore-password`
-- `${environment}-mft-secret-web-client-keystore-password`
-- `${environment}-mft-secret-web-client-truststore-password`
-- `${environment}-mft-secret-sftp-ssh-private-key`
-- `${environment}-mft-secret-config-json`
+- `${environment}-mft-admin-password`
+- `${environment}-mft-db-online-password` (DEPRECATED)
+- `${environment}-mft-db-archive-password` (DEPRECATED)
+- `${environment}-mft-admin-ui-jks-keystore-password`
+- `${environment}-mft-admin-ui-pkcs12-keystore-password`
+- `${environment}-mft-admin-ui-jks-truststore-password`
+- `${environment}-mft-admin-ui-pkcs12-truststore-password`
+- `${environment}-mft-web-client-jks-keystore-password`
+- `${environment}-mft-web-client-pkcs12-keystore-password`
+- `${environment}-mft-web-client-jks-truststore-password`
+- `${environment}-mft-web-client-pkcs12-truststore-password`
+- `${environment}-mft-cert-jks-truststore-password`
+- `${environment}-mft-cert-pkcs12-truststore-password`
+- `${environment}-mft-sftp-ssh-private-key`
+- `${environment}-mft-config-json`
 
 **⚠️ WARNING**: These default secrets have placeholder values and expire in 90 days. Update them immediately after deployment.
+
+**Keystore and Truststore Naming Rules:**
+
+- **Keystores** (`${env}-mft-${config-name}-{keystore-type}-keystore`): Contain private keys and are encrypted at rest when deployed in PODs. The corresponding password is a Key Vault secret with the name `${env}-mft-${config-name}-{keystore-type}-keystore-password`
+  - Example: `vanilla-mft-cert-admin-ui-jks-keystore` with password `vanilla-mft-admin-ui-jks-keystore-password`
+
+- **Truststores** (`${env}-mft-${config-name}-{truststore-type}-truststore`): Contain trusted certificates but no private keys, and are encrypted at rest when deployed in PODs. The corresponding password is a Key Vault secret with the name `${env}-mft-${config-name}-{truststore-type}-truststore-password`
+  - Example: `vanilla-mft-cert-truststore-jks` with password `vanilla-mft-cert-jks-truststore-password`
+
+- **Bag/Entry Passwords**: For PKCS12 stores, bag names and passwords, as well as entry passwords in JKS stores, are managed separately. For the current scope, bag or entry passwords are assumed to coincide with the store passwords. Bag or entry names are resolved in the `mft-config.json` file that references the secrets.
 
 #### 3. Certificate Files (Optional)
 

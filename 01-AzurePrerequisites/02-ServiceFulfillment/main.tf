@@ -627,21 +627,45 @@ locals {
       value       = "ChangeMe123!"
       description = "DEPRECATED: Use ${local.environment}-mft-db-postgres-archive-password instead"
     }
-    "${local.environment}-mft-admin-ui-keystore-password" = {
+    "${local.environment}-mft-admin-ui-jks-keystore-password" = {
       value       = "ChangeMe123!"
-      description = "Password for MFT Admin UI keystore (PKCS12/JKS)"
+      description = "Password for MFT Admin UI JKS keystore"
     }
-    "${local.environment}-mft-admin-ui-truststore-password" = {
+    "${local.environment}-mft-admin-ui-pkcs12-keystore-password" = {
       value       = "ChangeMe123!"
-      description = "Password for MFT Admin UI truststore (PKCS12/JKS)"
+      description = "Password for MFT Admin UI PKCS12 keystore"
     }
-    "${local.environment}-mft-web-client-keystore-password" = {
+    "${local.environment}-mft-admin-ui-jks-truststore-password" = {
       value       = "ChangeMe123!"
-      description = "Password for MFT Web Client keystore (PKCS12/JKS)"
+      description = "Password for MFT Admin UI JKS truststore"
     }
-    "${local.environment}-mft-web-client-truststore-password" = {
+    "${local.environment}-mft-admin-ui-pkcs12-truststore-password" = {
       value       = "ChangeMe123!"
-      description = "Password for MFT Web Client truststore (PKCS12/JKS)"
+      description = "Password for MFT Admin UI PKCS12 truststore"
+    }
+    "${local.environment}-mft-web-client-jks-keystore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client JKS keystore"
+    }
+    "${local.environment}-mft-web-client-pkcs12-keystore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client PKCS12 keystore"
+    }
+    "${local.environment}-mft-web-client-jks-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client JKS truststore"
+    }
+    "${local.environment}-mft-web-client-pkcs12-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client PKCS12 truststore"
+    }
+    "${local.environment}-mft-cert-jks-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for global MFT JKS truststore"
+    }
+    "${local.environment}-mft-cert-pkcs12-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for global MFT PKCS12 truststore"
     }
     "${local.environment}-mft-sftp-ssh-private-key" = {
       value       = "placeholder-ssh-key"
@@ -767,13 +791,34 @@ resource "azurerm_key_vault_secret" "mft_db_credentials" {
 locals {
   # Certificate files mapping (only when upload_certificates is enabled)
   certificate_files = var.upload_certificates ? {
-    "${local.environment}-mft-cert-admin-ui-keystore-pkcs12"   = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
-    "${local.environment}-mft-cert-admin-ui-keystore-jks"      = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.jks"
-    "${local.environment}-mft-cert-web-client-keystore-pkcs12" = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
-    "${local.environment}-mft-cert-web-client-keystore-jks"    = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.jks"
-    "${local.environment}-mft-cert-truststore-pkcs12"          = "${var.certificates_base_path}/02-admin-ui/out/rsa/public.trust.store.p12"
-    "${local.environment}-mft-cert-truststore-jks"             = "${var.certificates_base_path}/out/global.public.trust.store.jks"
-    "${local.environment}-mft-cert-ca-bundle-pem"              = "${var.certificates_base_path}/out/all_certs.pem"
+    "${local.environment}-mft-cert-admin-ui-keystore-pkcs12" = {
+      file_path   = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.p12"
+      description = "PKCS12 keystore, encrypted to open HTTPS ports for administration UI. Password is provided in the secret with name ${local.environment}-mft-admin-ui-pkcs12-keystore-password"
+    }
+    "${local.environment}-mft-cert-admin-ui-keystore-jks" = {
+      file_path   = "${var.certificates_base_path}/02-admin-ui/out/rsa/full.chain.key.store.jks"
+      description = "JKS formatted keystore, encrypted to open HTTPS ports for administration UI. Password is provided in the secret with name ${local.environment}-mft-admin-ui-jks-keystore-password"
+    }
+    "${local.environment}-mft-cert-web-client-keystore-pkcs12" = {
+      file_path   = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.p12"
+      description = "Keystore for web client HTTPS port, in PKCS12 format, password in ${local.environment}-mft-web-client-pkcs12-keystore-password"
+    }
+    "${local.environment}-mft-cert-web-client-keystore-jks" = {
+      file_path   = "${var.certificates_base_path}/03-web-client/out/rsa/full.chain.key.store.jks"
+      description = "Keystore for web client HTTPS port, in JKS format, password in ${local.environment}-mft-web-client-jks-keystore-password"
+    }
+    "${local.environment}-mft-cert-truststore-pkcs12" = {
+      file_path   = "${var.certificates_base_path}/02-admin-ui/out/rsa/public.trust.store.p12"
+      description = "Global truststore for MFT, in PKCS12 format, encrypted. Password is taken from the keyvault secret with name ${local.environment}-mft-cert-pkcs12-truststore-password"
+    }
+    "${local.environment}-mft-cert-truststore-jks" = {
+      file_path   = "${var.certificates_base_path}/out/global.public.trust.store.jks"
+      description = "Global truststore for MFT, in JKS format, encrypted. Password is taken from the keyvault secret with name ${local.environment}-mft-cert-jks-truststore-password"
+    }
+    "${local.environment}-mft-cert-ca-bundle-pem" = {
+      file_path   = "${var.certificates_base_path}/out/all_certs.pem"
+      description = "Bundle of certificates, in PEM format, without encryption"
+    }
   } : {}
 
   # SSH private key (updates existing placeholder)
@@ -785,7 +830,7 @@ resource "azurerm_key_vault_secret" "certificates" {
   for_each = local.certificate_files
 
   name         = each.key
-  value        = filebase64(each.value)
+  value        = filebase64(each.value.file_path)
   key_vault_id = azurerm_key_vault.main.id
 
   # Set expiration to 365 days (matching certificate validity)
@@ -799,7 +844,8 @@ resource "azurerm_key_vault_secret" "certificates" {
     Purpose      = "MFT-Certificates"
     Environment  = local.environment
     CertType     = "KeyStore-TrustStore"
-    UploadedFrom = basename(each.value)
+    UploadedFrom = basename(each.value.file_path)
+    Description  = each.value.description
   })
 
   depends_on = [
