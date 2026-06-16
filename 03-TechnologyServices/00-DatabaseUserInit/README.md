@@ -93,17 +93,17 @@ This creates:
 
 ### 2. Database Credentials in Key Vault
 
-Terraform automatically creates the following secrets in Key Vault:
+Terraform automatically creates the following secrets in Key Vault (default environment is `vanilla`):
 
-- `${environment}-dbc-postgres-server-fqdn` - PostgreSQL server FQDN
-- `${environment}-dbc-postgres-online-db` - Online database name
-- `${environment}-dbc-postgres-archive-db` - Archive database name
-- `${environment}-dbc-postgres-admin-user` - PostgreSQL admin username
-- `${environment}-dbc-postgres-admin-password` - PostgreSQL admin password
-- `${environment}-dbc-postgres-user` - Application username for online database
-- `${environment}-dbc-postgres-password` - Password for online database user
-- `${environment}-dbc-postgres-archive-user` - Application username for archive database
-- `${environment}-dbc-postgres-archive-password` - Password for archive database user
+- `${environment}-mft-db-postgres-server-fqdn` - PostgreSQL server FQDN
+- `${environment}-mft-db-postgres-online-db` - Online database name
+- `${environment}-mft-db-postgres-archive-db` - Archive database name
+- `${environment}-mft-db-postgres-admin-user` - PostgreSQL admin username
+- `${environment}-mft-db-postgres-admin-password` - PostgreSQL admin password
+- `${environment}-mft-db-postgres-online-user` - Application username for online database (shared by MFT tools)
+- `${environment}-mft-db-postgres-online-password` - Password for online database user (shared by MFT tools)
+- `${environment}-mft-db-postgres-archive-user` - Application username for archive database
+- `${environment}-mft-db-postgres-archive-password` - Password for archive database user
 
 **Note**: The passwords are set via Terraform variables. Ensure you've configured secure passwords in your `terraform.tfvars` file:
 
@@ -185,10 +185,10 @@ The initialization job:
 
 The usernames and passwords are retrieved from Key Vault secrets:
 
-- **Online database user**: Value from `${environment}-dbc-postgres-user` secret
-- **Online database password**: Value from `${environment}-dbc-postgres-password` secret
-- **Archive database user**: Value from `${environment}-dbc-postgres-archive-user` secret
-- **Archive database password**: Value from `${environment}-dbc-postgres-archive-password` secret
+- **Online database user**: Value from `${environment}-mft-db-postgres-online-user` secret
+- **Online database password**: Value from `${environment}-mft-db-postgres-online-password` secret
+- **Archive database user**: Value from `${environment}-mft-db-postgres-archive-user` secret
+- **Archive database password**: Value from `${environment}-mft-db-postgres-archive-password` secret
 
 ## Files
 
@@ -245,7 +245,7 @@ key_vault_secrets_provider {
    ```bash
    KV_NAME=$(terraform output -raw key_vault_name)
    ENV=$(terraform output -raw environment_name)
-   az keyvault secret list --vault-name "$KV_NAME" | grep "${ENV}-dbc"
+   az keyvault secret list --vault-name "$KV_NAME" | grep "${ENV}-mft-db"
    ```
 
 3. **RBAC permissions missing**: Check managed identity has Key Vault Secrets User role

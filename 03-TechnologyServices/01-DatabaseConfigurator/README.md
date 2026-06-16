@@ -94,13 +94,13 @@ This component uses **Azure Key Vault with Secrets Store CSI Driver** for secure
 │  Azure Key Vault                                            │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │  Secrets (hierarchical naming):                       │  │
-│  │  - dev-dbc-postgres-server-fqdn                       │  │
-│  │  - dev-dbc-postgres-online-db                         │  │
-│  │  - dev-dbc-postgres-archive-db                        │  │
-│  │  - dev-dbc-postgres-user                              │  │
-│  │  - dev-dbc-postgres-password                          │  │
-│  │  - dev-dbc-postgres-archive-user                      │  │
-│  │  - dev-dbc-postgres-archive-password                  │  │
+│  │  - vanilla-mft-db-postgres-server-fqdn                       │  │
+│  │  - vanilla-mft-db-postgres-online-db                         │  │
+│  │  - vanilla-mft-db-postgres-archive-db                        │  │
+│  │  - vanilla-mft-db-postgres-user                              │  │
+│  │  - vanilla-mft-db-postgres-password                          │  │
+│  │  - vanilla-mft-db-postgres-archive-user                      │  │
+│  │  - vanilla-mft-db-postgres-archive-password                  │  │
 │  └───────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -152,15 +152,15 @@ Before running the Database Configurator, ensure these secrets exist in Key Vaul
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
-| `<env>-dbc-postgres-server-fqdn` | PostgreSQL server FQDN | `myserver.postgres.database.azure.com` |
-| `<env>-dbc-postgres-online-db` | Online database name | `mft_online` |
-| `<env>-dbc-postgres-archive-db` | Archive database name | `mft_archive` |
-| `<env>-dbc-postgres-user` | Online DB application user | `mft_app_user` |
-| `<env>-dbc-postgres-password` | Online DB password | `SecurePassword123!` |
-| `<env>-dbc-postgres-archive-user` | Archive DB application user | `mft_archive_user` |
-| `<env>-dbc-postgres-archive-password` | Archive DB password | `SecurePassword456!` |
+| `<env>-mft-db-postgres-server-fqdn` | PostgreSQL server FQDN | `myserver.postgres.database.azure.com` |
+| `<env>-mft-db-postgres-online-db` | Online database name | `mft_online` |
+| `<env>-mft-db-postgres-archive-db` | Archive database name | `mft_archive` |
+| `<env>-mft-db-postgres-online-user` | Online DB application user (shared by MFT tools) | `mft_app_user` |
+| `<env>-mft-db-postgres-online-password` | Online DB password (shared by MFT tools) | `SecurePassword123!` |
+| `<env>-mft-db-postgres-archive-user` | Archive DB application user | `mft_archive_user` |
+| `<env>-mft-db-postgres-archive-password` | Archive DB password | `SecurePassword456!` |
 
-**Note**: `<env>` is the environment name from Terraform (default: `dev`)
+**Note**: `<env>` is the environment name from Terraform (default: `vanilla`)
 
 #### Option 1: Create Secrets via Terraform (Recommended)
 
@@ -207,26 +207,26 @@ ARCHIVE_DB=$(terraform output -raw postgres_archive_db_name)
 
 # Store database connection details
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-server-fqdn" --value "$POSTGRES_FQDN"
+  --name "${ENV}-mft-db-postgres-server-fqdn" --value "$POSTGRES_FQDN"
 
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-online-db" --value "$ONLINE_DB"
+  --name "${ENV}-mft-db-postgres-online-db" --value "$ONLINE_DB"
 
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-archive-db" --value "$ARCHIVE_DB"
+  --name "${ENV}-mft-db-postgres-archive-db" --value "$ARCHIVE_DB"
 
 # Store application credentials (use same as DatabaseUserInit)
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-user" --value "mft_app_user"
+  --name "${ENV}-mft-db-postgres-user" --value "mft_app_user"
 
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-password" --value "YOUR_ONLINE_PASSWORD"
+  --name "${ENV}-mft-db-postgres-password" --value "YOUR_ONLINE_PASSWORD"
 
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-archive-user" --value "mft_archive_user"
+  --name "${ENV}-mft-db-postgres-archive-user" --value "mft_archive_user"
 
 az keyvault secret set --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-archive-password" --value "YOUR_ARCHIVE_PASSWORD"
+  --name "${ENV}-mft-db-postgres-archive-password" --value "YOUR_ARCHIVE_PASSWORD"
 ```
 
 #### Verifying Key Vault Setup
@@ -238,7 +238,7 @@ az keyvault secret list --vault-name "$KV_NAME" \
 
 # Verify a specific secret (without showing value)
 az keyvault secret show --vault-name "$KV_NAME" \
-  --name "${ENV}-dbc-postgres-server-fqdn" \
+  --name "${ENV}-mft-db-postgres-server-fqdn" \
   --query "name"
 ```
 
