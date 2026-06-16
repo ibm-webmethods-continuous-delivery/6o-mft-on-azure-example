@@ -336,12 +336,12 @@ variable "mft_service_account_name" {
 }
 
 variable "environment_name" {
-  description = "Environment name for hierarchical secret naming (dev/test/prod)"
+  description = "Environment name for hierarchical secret naming (vanilla/dev/test/prod)"
   type        = string
-  default     = "dev"
+  default     = "vanilla"
   validation {
-    condition     = contains(["dev", "test", "prod"], var.environment_name)
-    error_message = "Environment must be dev, test, or prod"
+    condition     = contains(["vanilla", "dev", "test", "prod"], var.environment_name)
+    error_message = "Environment must be vanilla, dev, test, or prod"
   }
 }
 

@@ -610,29 +610,56 @@ resource "azurerm_role_assignment" "terraform_kv_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
-# Local variables for default secrets
+# Local variables for default secrets with descriptions
 locals {
   environment = var.environment_name
 
   default_secrets = {
-    "${local.environment}-mft-secret-admin-password"                 = "ChangeMe123!"
-    "${local.environment}-mft-secret-db-online-password"             = "ChangeMe123!"
-    "${local.environment}-mft-secret-db-archive-password"            = "ChangeMe123!"
-    "${local.environment}-mft-secret-admin-ui-keystore-password"     = "ChangeMe123!"
-    "${local.environment}-mft-secret-admin-ui-truststore-password"   = "ChangeMe123!"
-    "${local.environment}-mft-secret-web-client-keystore-password"   = "ChangeMe123!"
-    "${local.environment}-mft-secret-web-client-truststore-password" = "ChangeMe123!"
-    "${local.environment}-mft-secret-sftp-ssh-private-key"           = "placeholder-ssh-key"
-    "${local.environment}-mft-secret-config-json"                    = "{}"
+    "${local.environment}-mft-admin-password" = {
+      value       = "ChangeMe123!"
+      description = "MFT administrator password for admin UI and management operations"
+    }
+    "${local.environment}-mft-db-online-password" = {
+      value       = "ChangeMe123!"
+      description = "DEPRECATED: Use ${local.environment}-mft-db-postgres-online-password instead"
+    }
+    "${local.environment}-mft-db-archive-password" = {
+      value       = "ChangeMe123!"
+      description = "DEPRECATED: Use ${local.environment}-mft-db-postgres-archive-password instead"
+    }
+    "${local.environment}-mft-admin-ui-keystore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Admin UI keystore (PKCS12/JKS)"
+    }
+    "${local.environment}-mft-admin-ui-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Admin UI truststore (PKCS12/JKS)"
+    }
+    "${local.environment}-mft-web-client-keystore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client keystore (PKCS12/JKS)"
+    }
+    "${local.environment}-mft-web-client-truststore-password" = {
+      value       = "ChangeMe123!"
+      description = "Password for MFT Web Client truststore (PKCS12/JKS)"
+    }
+    "${local.environment}-mft-sftp-ssh-private-key" = {
+      value       = "placeholder-ssh-key"
+      description = "SSH private key for SFTP server authentication (placeholder, replace with actual key)"
+    }
+    "${local.environment}-mft-config-json" = {
+      value       = "{}"
+      description = "MFT configuration JSON for runtime configuration management"
+    }
   }
 }
 
-# Create default secrets in Key Vault with expiration
+# Create default secrets in Key Vault with descriptions
 resource "azurerm_key_vault_secret" "defaults" {
   for_each = local.default_secrets
 
   name         = each.key
-  value        = each.value
+  value        = each.value.value
   key_vault_id = azurerm_key_vault.main.id
 
   # Content type for documentation
@@ -645,6 +672,7 @@ resource "azurerm_key_vault_secret" "defaults" {
     Purpose     = "MFT-Example"
     Environment = local.environment
     Warning     = "DEFAULT-VALUE-CHANGE-IMMEDIATELY"
+    Description = each.value.description
   })
 
   depends_on = [
@@ -653,31 +681,58 @@ resource "azurerm_key_vault_secret" "defaults" {
 }
 
 # ============================================================================
-# Database Configurator Credentials in Key Vault
+# MFT Database Credentials in Key Vault
 # ============================================================================
 
-# Local variables for Database Configurator credentials
+# Local variables for MFT database credentials with descriptions
 locals {
-  # Database credentials for Database Configurator
-  dbc_credentials = {
-    "postgres-server-fqdn"      = azurerm_postgresql_flexible_server.main.fqdn
-    "postgres-online-db"        = azurerm_postgresql_flexible_server_database.online.name
-    "postgres-archive-db"       = azurerm_postgresql_flexible_server_database.archive.name
-    "postgres-admin-user"       = var.postgres_admin_username
-    "postgres-admin-password"   = var.postgres_admin_password
-    "postgres-user"             = var.postgres_dbc_user
-    "postgres-password"         = var.postgres_dbc_password
-    "postgres-archive-user"     = var.postgres_dbc_archive_user
-    "postgres-archive-password" = var.postgres_dbc_archive_password
+  # Database credentials for MFT components (Database Configurator, etc.)
+  mft_db_credentials = {
+    "postgres-server-fqdn" = {
+      value       = azurerm_postgresql_flexible_server.main.fqdn
+      description = "PostgreSQL Flexible Server FQDN for MFT database connections"
+    }
+    "postgres-online-db" = {
+      value       = azurerm_postgresql_flexible_server_database.online.name
+      description = "PostgreSQL database name for MFT online transactions"
+    }
+    "postgres-archive-db" = {
+      value       = azurerm_postgresql_flexible_server_database.archive.name
+      description = "PostgreSQL database name for MFT archiving"
+    }
+    "postgres-admin-user" = {
+      value       = var.postgres_admin_username
+      description = "PostgreSQL administrator username for database bootstrap and maintenance"
+    }
+    "postgres-admin-password" = {
+      value       = var.postgres_admin_password
+      description = "PostgreSQL administrator password for database bootstrap and maintenance"
+    }
+    "postgres-online-user" = {
+      value       = var.postgres_dbc_user
+      description = "PostgreSQL user for MFT online database operations (shared by MFT tools)"
+    }
+    "postgres-online-password" = {
+      value       = var.postgres_dbc_password
+      description = "PostgreSQL password for MFT online database operations (shared by MFT tools)"
+    }
+    "postgres-archive-user" = {
+      value       = var.postgres_dbc_archive_user
+      description = "PostgreSQL user for MFT archive database operations"
+    }
+    "postgres-archive-password" = {
+      value       = var.postgres_dbc_archive_password
+      description = "PostgreSQL password for MFT archive database operations"
+    }
   }
 }
 
-# Create Database Configurator secrets in Key Vault
-resource "azurerm_key_vault_secret" "dbc_credentials" {
-  for_each = local.dbc_credentials
+# Create MFT database secrets in Key Vault with descriptions
+resource "azurerm_key_vault_secret" "mft_db_credentials" {
+  for_each = local.mft_db_credentials
 
-  name         = "${local.environment}-dbc-${each.key}"
-  value        = each.value
+  name         = "${local.environment}-mft-db-${each.key}"
+  value        = each.value.value
   key_vault_id = azurerm_key_vault.main.id
 
   # Set expiration (90 days from creation)
@@ -688,9 +743,10 @@ resource "azurerm_key_vault_secret" "dbc_credentials" {
 
   tags = merge(var.tags, {
     ManagedBy   = "Terraform"
-    Purpose     = "Database-Configurator"
+    Purpose     = "MFT-Database"
     Environment = local.environment
-    Component   = "DBC"
+    Component   = "MFT-DB"
+    Description = each.value.description
   })
 
   depends_on = [

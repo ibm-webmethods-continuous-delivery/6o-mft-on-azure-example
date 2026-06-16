@@ -185,27 +185,27 @@ output "app_gateway_name" {
   value = azurerm_application_gateway.main.name
 }
 
-# Database Configurator Credentials
-output "postgres_dbc_user" {
-  description = "Database user for Database Configurator (online database)"
+# MFT Database Credentials
+output "postgres_mft_db_online_user" {
+  description = "Database user for MFT online database operations (shared by MFT tools)"
   value       = var.postgres_dbc_user
   sensitive   = true
 }
 
-output "postgres_dbc_password" {
-  description = "Database password for Database Configurator (online database)"
+output "postgres_mft_db_online_password" {
+  description = "Database password for MFT online database operations (shared by MFT tools)"
   value       = var.postgres_dbc_password
   sensitive   = true
 }
 
-output "postgres_dbc_archive_user" {
-  description = "Database user for Database Configurator (archive database)"
+output "postgres_mft_db_archive_user" {
+  description = "Database user for MFT archive database operations"
   value       = var.postgres_dbc_archive_user
   sensitive   = true
 }
 
-output "postgres_dbc_archive_password" {
-  description = "Database password for Database Configurator (archive database)"
+output "postgres_mft_db_archive_password" {
+  description = "Database password for MFT archive database operations"
   value       = var.postgres_dbc_archive_password
   sensitive   = true
 }

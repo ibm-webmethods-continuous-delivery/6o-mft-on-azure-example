@@ -299,6 +299,162 @@ When `upload_certificates = true`, the stack uploads certificate files to Key Va
 
 All secrets follow a hierarchical naming pattern:
 
+
+### Certificate File Management
+
+#### Overview
+
+MFT requires several certificate files (JKS keystores, truststores, SSH keys) that must be stored in Key Vault. These are binary files that cannot be directly managed by Terraform and require manual upload.
+
+#### Required Certificate Files
+
+The following certificate files must be uploaded to Key Vault:
+
+| Secret Name | Purpose | Source File | Format |
+|-------------|---------|-------------|--------|
+| `${environment}-mft-admin-ui-keystore-jks` | Admin UI HTTPS certificate | `3p-certificates/data/subjects/az-certs/02-admin-ui/out/rsa/full.chain.key.store.jks` | JKS binary |
+| `${environment}-mft-admin-ui-truststore-jks` | Admin UI truststore | `3p-certificates/data/subjects/az-certs/02-admin-ui/out/rsa/simple.trust.store.jks` | JKS binary |
+| `${environment}-mft-web-client-keystore-jks` | Web Client HTTPS certificate | `3p-certificates/data/subjects/az-certs/03-web-client/out/rsa/full.chain.key.store.jks` | JKS binary |
+| `${environment}-mft-web-client-truststore-jks` | Web Client truststore | `3p-certificates/data/subjects/az-certs/03-web-client/out/rsa/simple.trust.store.jks` | JKS binary |
+| `${environment}-mft-sftp-ssh-private-key` | SFTP server RSA private key | `3p-certificates/data/subjects/az-certs/04-sftp-server/out/id_rsa` | PEM text |
+| `${environment}-mft-sftp-ssh-public-key` | SFTP server RSA public key | `3p-certificates/data/subjects/az-certs/04-sftp-server/out/id_rsa.pub` | PEM text |
+
+#### Upload Certificate Files to Key Vault
+
+**Prerequisites:**
+1. Generate certificates using the `3p-certificates` project
+2. Ensure certificates are available in the paths listed above
+3. Have Azure CLI authenticated with appropriate permissions
+
+**Upload Script:**
+
+```bash
+#!/bin/bash
+# Upload certificate files to Azure Key Vault
+
+# Get Key Vault name from Terraform output
+KV_NAME=$(terraform output -raw key_vault_name)
+ENV=$(terraform output -raw environment_name)
+
+# Certificate base path (adjust to your local path)
+CERT_BASE_PATH="../../../3p-certificates/data/subjects/az-certs"
+
+# Upload Admin UI certificates
+echo "Uploading Admin UI certificates..."
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-admin-ui-keystore-jks" \
+  --file "${CERT_BASE_PATH}/02-admin-ui/out/rsa/full.chain.key.store.jks" \
+  --encoding base64
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-admin-ui-truststore-jks" \
+  --file "${CERT_BASE_PATH}/02-admin-ui/out/rsa/simple.trust.store.jks" \
+  --encoding base64
+
+# Upload Web Client certificates
+echo "Uploading Web Client certificates..."
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-web-client-keystore-jks" \
+  --file "${CERT_BASE_PATH}/03-web-client/out/rsa/full.chain.key.store.jks" \
+  --encoding base64
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-web-client-truststore-jks" \
+  --file "${CERT_BASE_PATH}/03-web-client/out/rsa/simple.trust.store.jks" \
+  --encoding base64
+
+# Upload SFTP SSH keys
+echo "Uploading SFTP SSH keys..."
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-sftp-ssh-private-key" \
+  --file "${CERT_BASE_PATH}/04-sftp-server/out/id_rsa"
+
+az keyvault secret set \
+  --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-sftp-ssh-public-key" \
+  --file "${CERT_BASE_PATH}/04-sftp-server/out/id_rsa.pub"
+
+echo "Certificate upload complete!"
+```
+
+**Verify Upload:**
+
+```bash
+# List all certificate secrets
+az keyvault secret list --vault-name "$KV_NAME" | grep -E "(keystore|truststore|ssh)"
+
+# Check a specific secret (shows metadata, not content)
+az keyvault secret show --vault-name "$KV_NAME" --name "${ENV}-mft-admin-ui-keystore-jks"
+```
+
+#### Certificate File Handling in Kubernetes
+
+When the CSI Secrets Store driver mounts these secrets:
+
+1. **Binary files are base64-decoded automatically** by the CSI driver
+2. **Files are mounted at specified paths** in the pod (e.g., `/mnt/certs/admin-ui/keystore.jks`)
+3. **MFT configuration references these mounted paths** in `mft-config.json`
+
+**Example mft-config.json reference:**
+
+```json
+{
+  "declareMftCertificateList": [
+    {
+      "certificateId": "adminUiCert",
+      "path": "/mnt/certs/admin-ui/keystore.jks",
+      "keyPassword": "<from-key-vault>",
+      "keyStorePassword": "<from-key-vault>"
+    }
+  ]
+}
+```
+
+#### Troubleshooting Certificate Issues
+
+**Problem: Certificate file not found in pod**
+
+```bash
+# Check if secret exists in Key Vault
+az keyvault secret show --vault-name "$KV_NAME" --name "${ENV}-mft-admin-ui-keystore-jks"
+
+# Check SecretProviderClass configuration
+kubectl describe secretproviderclass -n mft
+
+# Check pod events for mount errors
+kubectl describe pod -n mft -l app.kubernetes.io/name=active-transfer
+```
+
+**Problem: Certificate file is corrupted or invalid**
+
+```bash
+# Verify base64 encoding is correct
+az keyvault secret show --vault-name "$KV_NAME" \
+  --name "${ENV}-mft-admin-ui-keystore-jks" \
+  --query "value" -o tsv | base64 -d > /tmp/test.jks
+
+# Test the JKS file
+keytool -list -keystore /tmp/test.jks -storepass <password>
+```
+
+**Problem: Permission denied accessing certificates**
+
+```bash
+# Verify managed identity has correct role
+az role assignment list \
+  --assignee $(terraform output -raw mft_managed_identity_client_id) \
+  --scope $(terraform output -raw key_vault_id)
+
+# Should show "Key Vault Secrets User" and "Key Vault Certificate User" roles
+```
+
+
+
 ```
 ${environment}-${component}-${secret-name}
 ```
