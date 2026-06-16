@@ -564,29 +564,38 @@ resource "azurerm_user_assigned_identity" "mft" {
 
 # Federated credential for workload identity (AKS OIDC) - MFT service account
 resource "azurerm_federated_identity_credential" "mft" {
-  name      = "${var.prefix}-mft-federated-credential"
-  parent_id = azurerm_user_assigned_identity.mft.id
-  audience  = ["api://AzureADTokenExchange"]
-  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject   = "system:serviceaccount:${var.mft_namespace}:${var.mft_service_account_name}"
+  name                      = "${var.prefix}-mft-federated-credential"
+  user_assigned_identity_id = azurerm_user_assigned_identity.mft.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:${var.mft_namespace}:${var.mft_service_account_name}"
 }
 
 # Federated credential for Database Configurator service account
 resource "azurerm_federated_identity_credential" "dbc" {
-  name      = "${var.prefix}-dbc-federated-credential"
-  parent_id = azurerm_user_assigned_identity.mft.id
-  audience  = ["api://AzureADTokenExchange"]
-  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject   = "system:serviceaccount:default:database-configurator-sa"
+  name                      = "${var.prefix}-dbc-federated-credential"
+  user_assigned_identity_id = azurerm_user_assigned_identity.mft.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:default:database-configurator-sa"
 }
 
 # Federated credential for Database User Init service account
 resource "azurerm_federated_identity_credential" "db_user_init" {
-  name      = "${var.prefix}-db-user-init-federated-credential"
-  parent_id = azurerm_user_assigned_identity.mft.id
-  audience  = ["api://AzureADTokenExchange"]
-  issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject   = "system:serviceaccount:default:database-user-init-sa"
+  name                      = "${var.prefix}-db-user-init-federated-credential"
+  user_assigned_identity_id = azurerm_user_assigned_identity.mft.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:default:database-user-init-sa"
+}
+
+# Federated credential for active transfer - mft service
+resource "azurerm_federated_identity_credential" "mft_workload_identity" {
+  name                      = "${var.prefix}-mft-service-federated-credential"
+  user_assigned_identity_id = azurerm_user_assigned_identity.mft.id
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:mft:mft-service-account"
+  audience                  = ["api://AzureADTokenExchange"]
 }
 
 # Grant Key Vault Secrets User role to MFT user assigned identity
