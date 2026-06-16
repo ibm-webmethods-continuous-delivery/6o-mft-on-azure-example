@@ -619,14 +619,6 @@ locals {
       value       = "ChangeMe123!"
       description = "MFT administrator password for admin UI and management operations"
     }
-    "${local.environment}-mft-db-online-password" = {
-      value       = "ChangeMe123!"
-      description = "DEPRECATED: Use ${local.environment}-mft-db-postgres-online-password instead"
-    }
-    "${local.environment}-mft-db-archive-password" = {
-      value       = "ChangeMe123!"
-      description = "DEPRECATED: Use ${local.environment}-mft-db-postgres-archive-password instead"
-    }
     "${local.environment}-mft-admin-ui-jks-keystore-password" = {
       value       = "ChangeMe123!"
       description = "Password for MFT Admin UI JKS keystore"
