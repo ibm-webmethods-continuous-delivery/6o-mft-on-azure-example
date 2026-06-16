@@ -687,9 +687,10 @@ resource "azurerm_key_vault_secret" "defaults" {
   key_vault_id = azurerm_key_vault.main.id
 
   # Content type for documentation
-  # NOTE: expiration_date removed to prevent unnecessary updates on every apply
-  # Secrets can be manually set to expire via Azure Portal or az cli if needed
   content_type = "text/plain"
+
+  # Set expiration
+  expiration_date = var.secret_expiration_date
 
   tags = merge(var.tags, {
     ManagedBy   = "Terraform"
@@ -702,6 +703,10 @@ resource "azurerm_key_vault_secret" "defaults" {
   depends_on = [
     azurerm_role_assignment.terraform_kv_admin
   ]
+
+  lifecycle {
+    ignore_changes = [value, expiration_date]
+  }
 }
 
 # ============================================================================
@@ -759,8 +764,8 @@ resource "azurerm_key_vault_secret" "mft_db_credentials" {
   value        = each.value.value
   key_vault_id = azurerm_key_vault.main.id
 
-  # Set expiration (90 days from creation)
-  expiration_date = timeadd(timestamp(), "2160h")
+  # Set expiration
+  expiration_date = var.secret_expiration_date
 
   # Content type for documentation
   content_type = "text/plain"
@@ -779,6 +784,10 @@ resource "azurerm_key_vault_secret" "mft_db_credentials" {
     azurerm_postgresql_flexible_server_database.online,
     azurerm_postgresql_flexible_server_database.archive
   ]
+
+  lifecycle {
+    ignore_changes = [value, expiration_date]
+  }
 }
 
 
@@ -833,8 +842,8 @@ resource "azurerm_key_vault_secret" "certificates" {
   value        = filebase64(each.value.file_path)
   key_vault_id = azurerm_key_vault.main.id
 
-  # Set expiration to 365 days (matching certificate validity)
-  expiration_date = timeadd(timestamp(), "8760h")
+  # Set expiration
+  expiration_date = var.secret_expiration_date
 
   # Content type for documentation
   content_type = "application/octet-stream"
@@ -851,6 +860,10 @@ resource "azurerm_key_vault_secret" "certificates" {
   depends_on = [
     azurerm_role_assignment.terraform_kv_admin
   ]
+
+  lifecycle {
+    ignore_changes = [value, expiration_date]
+  }
 }
 
 # Update SFTP SSH private key (replaces placeholder)
@@ -862,8 +875,8 @@ resource "azurerm_key_vault_secret" "sftp_ssh_key" {
   value        = file(local.sftp_ssh_key_file)
   key_vault_id = azurerm_key_vault.main.id
 
-  # Set expiration to 365 days
-  expiration_date = timeadd(timestamp(), "8760h")
+  # Set expiration
+  expiration_date = var.secret_expiration_date
 
   # Content type for documentation
   content_type = "text/plain"
@@ -880,6 +893,10 @@ resource "azurerm_key_vault_secret" "sftp_ssh_key" {
     azurerm_role_assignment.terraform_kv_admin,
     azurerm_key_vault_secret.defaults
   ]
+
+  lifecycle {
+    ignore_changes = [value, expiration_date]
+  }
 }
 
 # ============================================================================
@@ -1016,6 +1033,11 @@ resource "azurerm_private_dns_zone" "postgres" {
   name                = "${var.prefix}-postgres.private.postgres.database.azure.com"
   resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
+
+  # Known issue, TODO: check for tags having spaces
+  lifecycle {
+    ignore_changes = [tags["Ephemeral Resource"]]
+  }
 }
 
 # Link Private DNS Zone to VNet
@@ -1025,6 +1047,10 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
+  # Known issue, TODO: check for tags having spaces
+  lifecycle {
+    ignore_changes = [tags["Ephemeral Resource"]]
+  }
 }
 
 # PostgreSQL Flexible Server

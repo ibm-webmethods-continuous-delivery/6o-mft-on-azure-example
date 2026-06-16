@@ -365,3 +365,13 @@ variable "certificate_password" {
   default     = "ChangeMe123"
 }
 
+variable "secret_expiration_date" {
+  description = "Fixed expiration date for Key Vault secrets (RFC3339 format). Set once and don't change to avoid drift."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.secret_expiration_date == null || can(timeadd(var.secret_expiration_date, "0s"))
+    error_message = "Expiration date must be in RFC3339 format (e.g., '2030-12-31T23:59:59Z') or null"
+  }
+}
+
