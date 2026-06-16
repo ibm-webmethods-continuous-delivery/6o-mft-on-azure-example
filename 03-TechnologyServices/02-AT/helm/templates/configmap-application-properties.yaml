@@ -47,7 +47,7 @@ data:
 
     # Database credentials (from environment variables/secrets)
     jdbc.DBPool.userid={{ .Values.database.onlineDbUser }}
-    jdbc.DBPool.password=$env{POSTGRES_PASSWORD}
+    jdbc.DBPool.password=$env{MFT_DB_POSTGRES_ONLINE_PASSWORD}
 
     # Driver configuration
     jdbc.DBPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
@@ -68,7 +68,7 @@ data:
 
     # Database credentials (from environment variables/secrets)
     jdbc.DBPoolArchive.userid={{ .Values.database.archiveDbUser }}
-    jdbc.DBPoolArchive.password=$env{POSTGRES_ARCHIVE_PASSWORD}
+    jdbc.DBPoolArchive.password=$env{MFT_DB_POSTGRES_ARCHIVE_PASSWORD}
 
     # Driver configuration
     jdbc.DBPoolArchive.driverAlias=DataDirect Connect JDBC PostgreSQL Driver

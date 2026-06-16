@@ -16,6 +16,10 @@ image:
   pullPolicy: IfNotPresent
   # -- Image tag - use specific version in production
   tag: "latest"
+  # -- Init container image with envsubst and curl pre-installed
+  initContainer:
+    repository: "REPLACE_WITH_ACR_LOGIN_SERVER/alpine"
+    tag: "init-3.23"
 
 # -- Image pull secret for Azure Container Registry
 imagePullSecrets:
@@ -37,22 +41,22 @@ extraLabels:
 # -- Extra environment variables
 extraEnvs:
   # Admin password for Integration Server
-  - name: SAG_IS_ADMIN_PASSWORD
+  - name: MFT_ADMIN_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-admin-credentials
-        key: admin-password
+        key: mft-admin-password
   # Database passwords
-  - name: POSTGRES_PASSWORD
+  - name: MFT_DB_POSTGRES_ONLINE_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-db-credentials
-        key: online-db-password
-  - name: POSTGRES_ARCHIVE_PASSWORD
+        key: mft-db-postgres-online-password
+  - name: MFT_DB_POSTGRES_ARCHIVE_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-db-credentials
-        key: archive-db-password
+        key: mft-db-postgres-archive-password
   # Admin UI keystore and truststore passwords - JKS format
   - name: MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD
     valueFrom:

@@ -46,12 +46,11 @@ spec:
         # Environment variable substitution for mft-config.json
         # Replaces ${ENV_VAR} placeholders with actual values from secrets
         - name: envsubst-config
-          image: alpine:3.19
+          image: "{{ .Values.image.initContainer.repository }}:{{ .Values.image.initContainer.tag }}"
           command:
             - /bin/sh
             - -c
             - |
-              apk add --no-cache gettext
               envsubst < /mnt/config-template/mft-config.json > /mnt/config-processed/mft-config.json
               echo "Environment variable substitution completed"
               cat /mnt/config-processed/mft-config.json
