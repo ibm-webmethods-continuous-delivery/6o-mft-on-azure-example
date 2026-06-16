@@ -1,0 +1,11 @@
+{{- /*
+Placeholder template for future secret rotation monitoring support.
+
+This file intentionally renders no Kubernetes resources yet.
+The previous commented example still contained Helm template expressions that
+were evaluated during rendering and could break YAML parsing in dry-run mode.
+Keep implementation notes here without emitting manifests until the feature is
+implemented.
+*/ -}}
+{{- if and (eq .Values.secretProvider.type "azureKeyVault") .Values.azureKeyVault.rotation.enabled }}
+{{- end }}

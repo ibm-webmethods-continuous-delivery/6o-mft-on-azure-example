@@ -27,6 +27,10 @@ spec:
         {{- end }}
       labels:
         {{- include "active-transfer.selectorLabels" . | nindent 8 }}
+        {{- if eq .Values.secretProvider.type "azureKeyVault" }}
+        # Enable workload identity for Azure Key Vault access
+        azure.workload.identity/use: "true"
+        {{- end }}
         {{- with .Values.extraLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -38,10 +42,42 @@ spec:
       serviceAccountName: {{ include "active-transfer.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      {{- if .Values.extraInitContainers }}
       initContainers:
+        # Environment variable substitution for mft-config.json
+        # Replaces ${ENV_VAR} placeholders with actual values from secrets
+        - name: envsubst-config
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache gettext
+              envsubst < /mnt/config-template/mft-config.json > /mnt/config-processed/mft-config.json
+              echo "Environment variable substitution completed"
+              cat /mnt/config-processed/mft-config.json
+          env:
+            {{- if .Values.extraEnvs }}
+            # Import all environment variables (includes secrets)
+            {{- toYaml .Values.extraEnvs | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: mft-config-template
+              mountPath: /mnt/config-template
+              readOnly: true
+            - name: mft-config-processed
+              mountPath: /mnt/config-processed
+              readOnly: false
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1724
+        {{- if .Values.extraInitContainers }}
         {{- toYaml .Values.extraInitContainers | nindent 8 }}
-      {{- end }}
+        {{- end }}
       {{- if .Values.terminationGracePeriodSeconds }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- end }}
@@ -121,6 +157,12 @@ spec:
             {{- toYaml .Values.lifecycle | nindent 12 }}
           {{- end }}
           volumeMounts:
+            {{- if eq .Values.secretProvider.type "azureKeyVault" }}
+            # Azure Key Vault secrets via CSI driver
+            - name: secrets-store
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+            {{- end }}
             # Application properties
             - name: application-properties
               mountPath: {{ .Values.activeTransfer.installDir }}/application.properties
@@ -131,11 +173,15 @@ spec:
               mountPath: {{ .Values.activeTransfer.installDir }}/packages/WmMFT/config/properties.cnf
               subPath: properties.cnf
               readOnly: true
-            # MFT configuration JSON (from Secret)
-            - name: mft-config-json
-              mountPath: /mnt/injected/config/mft-config.json
+            # MFT configuration JSON template (from ConfigMap)
+            - name: mft-config-template
+              mountPath: /mnt/config-template/mft-config.json
               subPath: mft-config.json
               readOnly: true
+            # MFT configuration JSON (processed by envsubst sidecar)
+            - name: mft-config-processed
+              mountPath: /mnt/injected/config
+              readOnly: false
             {{- if .Values.jgroups.enabled }}
             # JGroups configuration
             - name: jgroups-config
@@ -152,6 +198,15 @@ spec:
         {{- toYaml .Values.extraContainers | nindent 8 }}
         {{- end }}
       volumes:
+        {{- if eq .Values.secretProvider.type "azureKeyVault" }}
+        # CSI driver volume for Azure Key Vault secrets
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "active-transfer.fullname" . }}-azure-kv
+        {{- end }}
         # Application properties ConfigMap
         - name: application-properties
           configMap:
@@ -159,13 +214,16 @@ spec:
             items:
               - key: application.properties
                 path: application.properties
-        # MFT configuration Secret (contains passwords)
-        - name: mft-config-json
-          secret:
-            secretName: mft-config-json
+        # MFT configuration template ConfigMap (with ${ENV_VAR} placeholders)
+        - name: mft-config-template
+          configMap:
+            name: {{ include "active-transfer.fullname" . }}-mft-config
             items:
               - key: mft-config.json
                 path: mft-config.json
+        # MFT configuration processed (envsubst output, shared between init and main container)
+        - name: mft-config-processed
+          emptyDir: {}
         # MFT properties ConfigMap
         - name: mft-properties
           configMap:

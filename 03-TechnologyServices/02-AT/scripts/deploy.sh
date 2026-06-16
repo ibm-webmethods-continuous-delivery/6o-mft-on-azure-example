@@ -175,34 +175,87 @@ else
     print_success "Namespace exists"
 fi
 
-# Check if secrets exist
-print_info "Checking required secrets..."
-REQUIRED_SECRETS=(
-    "mft-db-credentials"
-    "mft-admin-ui-certs"
-    "mft-web-client-certs"
-    "mft-sftp-ssh-keys"
-    "mft-admin-credentials"
-)
+# Check secret provider configuration
+print_info "Checking secret provider configuration..."
 
-MISSING_SECRETS=()
-for secret in "${REQUIRED_SECRETS[@]}"; do
-    if ! kubectl get secret "$secret" -n "$NAMESPACE" &> /dev/null; then
-        MISSING_SECRETS+=("$secret")
+# Detect secret provider type from values file
+SECRET_PROVIDER_TYPE="kubernetes"
+if [[ -f "$VALUES_FILE" ]]; then
+    # Extract secretProvider.type from values file (handles both quoted and unquoted values)
+    # Filter out comment lines before extracting the type value
+    SECRET_PROVIDER_TYPE=$(grep -A 5 "^secretProvider:" "$VALUES_FILE" | grep -v "^[[:space:]]*#" | grep "type:" | sed 's/.*type:[[:space:]]*["'\'']*\([^"'\'']*\)["'\'']*$/\1/' | tr -d ' ')
+fi
+
+# Also check additional values file if provided
+if [[ -n "$ADDITIONAL_VALUES" ]] && [[ -f "$ADDITIONAL_VALUES" ]]; then
+    ADDITIONAL_TYPE=$(grep -A 5 "^secretProvider:" "$ADDITIONAL_VALUES" | grep -v "^[[:space:]]*#" | grep "type:" | sed 's/.*type:[[:space:]]*["'\'']*\([^"'\'']*\)["'\'']*$/\1/' | tr -d ' ')
+    if [[ -n "$ADDITIONAL_TYPE" ]]; then
+        SECRET_PROVIDER_TYPE="$ADDITIONAL_TYPE"
     fi
-done
+fi
 
-if [[ ${#MISSING_SECRETS[@]} -gt 0 ]]; then
-    print_error "Missing required secrets:"
-    for secret in "${MISSING_SECRETS[@]}"; do
-        echo "  - $secret"
+print_info "Secret provider type: $SECRET_PROVIDER_TYPE"
+
+if [[ "$SECRET_PROVIDER_TYPE" == "azureKeyVault" ]]; then
+    # Check for SecretProviderClass
+    print_info "Checking for SecretProviderClass..."
+    if ! kubectl get secretproviderclass -n "$NAMESPACE" &> /dev/null 2>&1; then
+        print_warning "No SecretProviderClass found. It will be created during deployment."
+    else
+        SPC_COUNT=$(kubectl get secretproviderclass -n "$NAMESPACE" --no-headers 2>/dev/null | wc -l)
+        print_success "Found $SPC_COUNT SecretProviderClass resource(s)"
+    fi
+    
+    # Check for CSI driver
+    print_info "Checking for Azure Key Vault CSI driver..."
+    if ! kubectl get csidriver secrets-store.csi.k8s.io &> /dev/null 2>&1; then
+        print_error "Azure Key Vault CSI driver not installed in cluster"
+        print_info "Install with: helm repo add csi-secrets-store-provider-azure https://azure.github.io/secrets-store-csi-driver-provider-azure/charts"
+        print_info "             helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure"
+        exit 1
+    fi
+    print_success "Azure Key Vault CSI driver is installed"
+    
+    print_info "Secrets will be retrieved from Azure Key Vault at pod startup"
+    
+elif [[ "$SECRET_PROVIDER_TYPE" == "kubernetes" ]]; then
+    # Check for manually created Kubernetes secrets (legacy approach)
+    print_info "Checking for manually created Kubernetes secrets..."
+    REQUIRED_SECRETS=(
+        "mft-db-credentials"
+        "mft-admin-ui-jks-certs"
+        "mft-admin-ui-pkcs12-certs"
+        "mft-web-client-jks-certs"
+        "mft-web-client-pkcs12-certs"
+        "mft-sftp-ssh-keys"
+        "mft-admin-credentials"
+        "mft-config-json"
+    )
+    
+    MISSING_SECRETS=()
+    for secret in "${REQUIRED_SECRETS[@]}"; do
+        if ! kubectl get secret "$secret" -n "$NAMESPACE" &> /dev/null; then
+            MISSING_SECRETS+=("$secret")
+        fi
     done
-    echo ""
-    print_info "Run generate-secrets.sh to create secrets:"
-    echo "  cd scripts && ./generate-secrets.sh --apply"
+    
+    if [[ ${#MISSING_SECRETS[@]} -gt 0 ]]; then
+        print_error "Missing required Kubernetes secrets:"
+        for secret in "${MISSING_SECRETS[@]}"; do
+            echo "  - $secret"
+        done
+        echo ""
+        print_warning "With secretProvider.type=kubernetes, you must manually create all secrets"
+        print_info "Consider switching to secretProvider.type=azureKeyVault for automatic secret management"
+        exit 1
+    fi
+    print_success "All required Kubernetes secrets exist"
+    
+else
+    print_error "Unknown secret provider type: $SECRET_PROVIDER_TYPE"
+    print_info "Valid values: 'kubernetes' or 'azureKeyVault'"
     exit 1
 fi
-print_success "All required secrets exist"
 
 # Check if values file exists
 print_info "Checking values file: $VALUES_FILE"

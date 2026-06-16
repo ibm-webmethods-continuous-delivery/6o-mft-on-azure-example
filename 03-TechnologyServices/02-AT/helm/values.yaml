@@ -53,28 +53,61 @@ extraEnvs:
       secretKeyRef:
         name: mft-db-credentials
         key: archive-db-password
-  # Admin UI keystore and truststore passwords
-  - name: ADMIN_UI_KEYSTORE_PASSWORD
+  # Admin UI keystore and truststore passwords - JKS format
+  - name: MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: mft-admin-ui-certs
-        key: keystore-password
-  - name: ADMIN_UI_TRUSTSTORE_PASSWORD
+        name: mft-admin-ui-jks-certs
+        key: jks-keystore-password
+  - name: MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: mft-admin-ui-certs
-        key: truststore-password
-  # Web Client keystore and truststore passwords
-  - name: WEB_CLIENT_KEYSTORE_PASSWORD
+        name: mft-admin-ui-jks-certs
+        key: jks-truststore-password
+  # Admin UI keystore and truststore passwords - PKCS12 format
+  - name: MFT_ADMIN_UI_PKCS12_KEYSTORE_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: mft-web-client-certs
-        key: keystore-password
-  - name: WEB_CLIENT_TRUSTSTORE_PASSWORD
+        name: mft-admin-ui-pkcs12-certs
+        key: pkcs12-keystore-password
+  - name: MFT_ADMIN_UI_PKCS12_TRUSTSTORE_PASSWORD
     valueFrom:
       secretKeyRef:
-        name: mft-web-client-certs
-        key: truststore-password
+        name: mft-admin-ui-pkcs12-certs
+        key: pkcs12-truststore-password
+  # Web Client keystore and truststore passwords - JKS format
+  - name: MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-jks-certs
+        key: jks-keystore-password
+  - name: MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-jks-certs
+        key: jks-truststore-password
+  # Web Client keystore and truststore passwords - PKCS12 format
+  - name: MFT_WEB_CLIENT_PKCS12_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-pkcs12-certs
+        key: pkcs12-keystore-password
+  - name: MFT_WEB_CLIENT_PKCS12_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-pkcs12-certs
+        key: pkcs12-truststore-password
+  # Global truststore passwords
+  - name: MFT_CERT_JKS_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-global-truststore-certs
+        key: jks-truststore-password
+  - name: MFT_CERT_PKCS12_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-global-truststore-certs
+        key: pkcs12-truststore-password
 
 # -- Extra ports for MFT (SFTP, HTTPS for web client)
 # Note: These are for internal testing. External traffic goes through gateways.
@@ -91,35 +124,48 @@ extraPorts:
 
 # -- Extra volumes for certificates and VFS
 extraVolumes:
-  - name: mft-config-json
+  # Admin UI certificates - JKS format (from Azure Key Vault via CSI)
+  - name: admin-ui-certs-jks
     secret:
-      secretName: mft-config-json
-  - name: admin-ui-certs
+      secretName: mft-admin-ui-certs-jks
+  # Admin UI certificates - PKCS12 format (from Azure Key Vault via CSI)
+  - name: admin-ui-certs-pkcs12
     secret:
-      secretName: mft-admin-ui-certs
-  - name: web-client-certs
+      secretName: mft-admin-ui-certs-pkcs12
+  # Web Client certificates - JKS format (from Azure Key Vault via CSI)
+  - name: web-client-certs-jks
     secret:
-      secretName: mft-web-client-certs
+      secretName: mft-web-client-certs-jks
+  # Web Client certificates - PKCS12 format (from Azure Key Vault via CSI)
+  - name: web-client-certs-pkcs12
+    secret:
+      secretName: mft-web-client-certs-pkcs12
+  # SFTP SSH keys (from Azure Key Vault via CSI)
   - name: sftp-ssh-keys
     secret:
       secretName: mft-sftp-ssh-keys
+  # VFS storage (shared across pods)
   - name: vfs-storage
     persistentVolumeClaim:
       claimName: active-transfer-vfs
 
 # -- Extra volume mounts
 extraVolumeMounts:
-  # MFT configuration JSON
-  - name: mft-config-json
-    mountPath: /mnt/injected/config
-    readOnly: true
-  # Admin UI certificates
-  - name: admin-ui-certs
+  # Admin UI certificates - JKS format
+  - name: admin-ui-certs-jks
     mountPath: /mnt/certs/admin-ui
     readOnly: true
-  # Web Client certificates
-  - name: web-client-certs
+  # Admin UI certificates - PKCS12 format
+  - name: admin-ui-certs-pkcs12
+    mountPath: /mnt/certs/admin-ui-pkcs12
+    readOnly: true
+  # Web Client certificates - JKS format
+  - name: web-client-certs-jks
     mountPath: /mnt/certs/web-client
+    readOnly: true
+  # Web Client certificates - PKCS12 format
+  - name: web-client-certs-pkcs12
+    mountPath: /mnt/certs/web-client-pkcs12
     readOnly: true
   # SFTP SSH keys
   - name: sftp-ssh-keys
@@ -229,21 +275,27 @@ activeTransfer:
       # See templates/configmap-application-properties.yaml
 
 # Database configuration (used in ConfigMap templates)
+# These values MUST be injected from Terraform outputs during deployment
 database:
-  # -- PostgreSQL server FQDN (from Terraform output)
-  serverFqdn: "REPLACE_WITH_POSTGRES_FQDN"
+  # -- PostgreSQL server FQDN (from Terraform output: azurerm_postgresql_flexible_server.fqdn)
+  # Example: "mft-postgres-dev.postgres.database.azure.com"
+  serverFqdn: ""
 
-  # -- Online database name (from Terraform output)
-  onlineDbName: "REPLACE_WITH_ONLINE_DB_NAME"
+  # -- Online database name (from Terraform output: online_database_name)
+  # Example: "mft_online"
+  onlineDbName: ""
 
-  # -- Archive database name (from Terraform output)
-  archiveDbName: "REPLACE_WITH_ARCHIVE_DB_NAME"
+  # -- Archive database name (from Terraform output: archive_database_name)
+  # Example: "mft_archive"
+  archiveDbName: ""
 
-  # -- Online database username (from 00-DatabaseUserInit)
-  onlineDbUser: "REPLACE_WITH_ONLINE_DB_USER"
+  # -- Online database username (from 00-DatabaseUserInit Terraform output)
+  # Example: "mft_online_user"
+  onlineDbUser: ""
 
-  # -- Archive database username (from 00-DatabaseUserInit)
-  archiveDbUser: "REPLACE_WITH_ARCHIVE_DB_USER"
+  # -- Archive database username (from 00-DatabaseUserInit Terraform output)
+  # Example: "mft_archive_user"
+  archiveDbUser: ""
 
   # -- SSL mode for PostgreSQL connections
   sslMode: "require"
@@ -259,18 +311,17 @@ mftConfig:
   # Leave empty for auto-generation
   serverId: ""
 
-  # -- Gateway configuration
-  # NOTE: This section is NOT (YET) used by the Helm templates.
-  # Gateway configuration is managed in templates/secret-mft-config.yaml.template
-  # To do: consolidate parameters in the values files
+  # -- Gateway configuration (STRUCTURE - injected at deployment time)
+  # These IPs MUST be provided from Terraform outputs or deployment configuration
+  # Example: Private IPs of gateway VMs in different availability zones
   gateways:
     - instanceName: "Gateway1"
-      host: "REPLACE_WITH_GATEWAY1_IP"
+      host: ""  # From Terraform: gateway_1_private_ip
       port: 8500
       active: true
       autoConnect: true
     - instanceName: "Gateway2"
-      host: "REPLACE_WITH_GATEWAY2_IP"
+      host: ""  # From Terraform: gateway_2_private_ip
       port: 8500
       active: true
       autoConnect: true
@@ -484,3 +535,48 @@ dnsConfig:
     - name: ndots
       value: "2"
     - name: edns0
+
+# Secret Provider Configuration
+secretProvider:
+  # -- Secret provider type: "kubernetes" or "azureKeyVault". Tested with azureKeyVault
+  type: "azureKeyVault"  # Default to existing behavior
+
+# Azure Key Vault Configuration (when secretProvider.type = "azureKeyVault")
+azureKeyVault:
+  # -- Key Vault name (from Terraform output: key_vault_name)
+  name: ""
+  
+  # -- Azure tenant ID (from Terraform output: tenant_id)
+  tenantId: ""
+  
+  # -- Managed identity client ID (from Terraform output: mft_managed_identity_client_id)
+  clientId: ""
+  
+  # -- Environment name for hierarchical secret naming (from Terraform output: environment_name)
+  environment: "dev"
+  
+  # -- Certificate storage options (multiple approaches for flexibility)
+  certificateOptions:
+    # Option 1: Truststore from Key Vault as certificate (no encryption at rest in pod)
+    truststoreAsCertificate: true
+    
+    # Option 2: PKCS12 from Key Vault as certificate for HTTPS (no encryption at rest in pod)
+    pkcs12AsCertificate: true
+    
+    # Option 3: PKCS12 from Key Vault as secret value (encrypted at rest + env var passwords)
+    pkcs12AsSecretValue: true
+    
+    # Option 4: JKS from Key Vault as secret value (encrypted at rest + env var passwords)
+    jksAsSecretValue: true
+  
+  # -- Sync secrets to Kubernetes secrets (for environment variables)
+  syncToK8sSecrets: true
+  
+  # -- Secret rotation configuration
+  rotation:
+    enabled: true
+    interval: "2m"
+    # Placeholder for rotation notification API
+    notificationApiUrl: "https://placeholder.example.com/api/secret-rotated"
+    # Placeholder for pod restart trigger
+    restartPodOnRotation: true

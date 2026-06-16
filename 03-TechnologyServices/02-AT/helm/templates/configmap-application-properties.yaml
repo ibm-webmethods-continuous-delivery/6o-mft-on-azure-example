@@ -106,3 +106,6 @@ data:
 
     # Maximum upload size (100MB)
     settings.watt.server.http.maxUploadSize=104857600
+
+    # Administrator password - must be controlled from the environment
+    user.Administrator.password=$env{MFT_ADMIN_PASSWORD}

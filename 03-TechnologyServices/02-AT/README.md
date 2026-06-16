@@ -317,11 +317,50 @@ Adjust based on your workload requirements.
 
 ## Secrets Management
 
+This deployment supports two secret management modes:
+
+### 1. Kubernetes Secrets (Default)
+Traditional Kubernetes secrets stored in etcd. Suitable for development and testing.
+
+**Quick Start**:
+```bash
+cd scripts
+./generate-secrets.sh --apply
+```
+
+### 2. Azure Key Vault (Recommended for Production)
+Secrets stored in Azure Key Vault and accessed via Secrets Store CSI Driver.
+
+**Benefits**:
+- Centralized secret management
+- Audit logging
+- Secret rotation
+- Encryption at rest in Azure
+- RBAC-based access control
+
+**Quick Start**:
+```bash
+# Ensure Terraform Phase 1 is complete
+cd ../../01-AzurePrerequisites/02-ServiceFulfillment
+terraform output -json > ../../03-TechnologyServices/02-AT/terraform-outputs.json
+
+# Deploy with Key Vault
+cd ../../03-TechnologyServices/02-AT/scripts
+./deploy-with-keyvault.sh
+```
+
+**See**: [README-KEYVAULT.md](helm/README-KEYVAULT.md) for detailed documentation on Azure Key Vault integration, including:
+- Configuration options
+- Secret rotation
+- Certificate storage approaches
+- Troubleshooting
+- Security best practices
+
 ### ⚠️ IMPORTANT: Production Security
 
 This vanilla example uses **basic Kubernetes Secrets** for simplicity. This approach is **NOT recommended for production environments**.
 
-### Production Recommendations
+### Additional Production Recommendations
 
 Organizations deploying this solution in production should implement enterprise-grade secrets management:
 
@@ -631,15 +670,14 @@ kubectl delete pvc -n mft active-transfer-vfs
 │   └── templates/
 │       ├── _helpers.tpl                              # Template helpers
 │       ├── configmap-application-properties.yaml     # Database & IS config
-│       ├── secret-mft-config.yaml.template           # MFT config template (processed by generate-secrets.sh)
+│       ├── configmap-mft-config.yaml                 # MFT config template (processed by envsubst init container)
 │       ├── deployment.yaml                           # Kubernetes Deployment
 │       ├── service.yaml                              # Kubernetes Service
 │       ├── ingress.yaml                              # Kubernetes Ingress
 │       ├── pvc.yaml                                  # PersistentVolumeClaim for VFS
 │       ├── serviceaccount.yaml                       # ServiceAccount
 │       ├── poddisruptionbudget.yaml                  # PodDisruptionBudget
-│       ├── secret-db-credentials.yaml.template       # Database credentials template
-│       └── secret-certificates.yaml.template         # Certificates template
+
 ├── scripts/
 │   ├── generate-secrets.sh                           # Generate Kubernetes secrets
 │   └── deploy.sh                                     # Deploy Helm chart

@@ -23,7 +23,184 @@ This Helm chart deploys IBM webMethods Active Transfer (MFT) on Azure Kubernetes
 
 ## Installation
 
-### 1. Prepare Secrets
+There are two deployment approaches:
+
+1. **Automated Deployment with Key Vault** (Recommended) - Uses `deploy-with-keyvault.sh` script
+2. **Manual Deployment with Kubernetes Secrets** (Legacy) - Requires manual secret creation
+
+### Automated Deployment with Key Vault (Recommended)
+
+This approach automatically:
+- Extracts configuration from Terraform outputs
+- Generates Helm values file with correct settings
+- Deploys with Azure Key Vault integration via CSI driver
+- No manual value replacement needed
+
+#### Prerequisites
+
+- Terraform infrastructure deployed (Phase 1: `01-AzurePrerequisites/02-ServiceFulfillment`)
+- Secrets populated in Azure Key Vault (database credentials automated, MFT secrets manual)
+- `helm`, `kubectl`, `jq`, and `terraform` CLI tools installed
+- Access to Terraform state directory
+
+#### Quick Start
+
+```bash
+cd /path/to/03-TechnologyServices/02-AT/scripts
+
+# Deploy with automatic Terraform output extraction
+./deploy-with-keyvault.sh --tfvars /path/to/your.tfvars
+
+# Or use existing Terraform outputs JSON
+./deploy-with-keyvault.sh --tf-outputs /path/to/terraform-outputs.json
+
+# Dry run to preview generated values
+./deploy-with-keyvault.sh --tfvars /path/to/your.tfvars --dry-run
+```
+
+#### What Gets Automated
+
+| Configuration | Source | Automated |
+|---------------|--------|-----------|
+| Database connection | Terraform outputs | ✅ Yes |
+| Image repository | ACR login server | ✅ Yes |
+| Ingress hostname | App Gateway public IP + nip.io | ✅ Yes |
+| Key Vault settings | Terraform outputs | ✅ Yes |
+| Gateway IPs | SFTP VM private IPs | ⚠️ Generated but not yet used by templates |
+| Database passwords | Key Vault (Terraform) | ✅ Yes |
+| Admin password | Key Vault (manual) | ❌ No - must be stored manually |
+| Certificate files | Kubernetes secrets | ❌ No - must be created manually |
+| MFT config JSON | Kubernetes secret | ❌ No - must be created manually |
+
+#### Generated Values File
+
+The script creates `helm/generated-values.keyvault.yaml` with:
+
+```yaml
+secretProvider:
+  type: "azureKeyVault"
+
+azureKeyVault:
+  name: "<from-terraform>"
+  tenantId: "<from-terraform>"
+  clientId: "<from-terraform>"
+  environment: "<from-terraform>"
+
+image:
+  repository: "<acr-login-server>/active-transfer-enhance"
+
+database:
+  serverFqdn: "<from-terraform>"
+  onlineDbName: "<from-terraform>"
+  archiveDbName: "<from-terraform>"
+  onlineDbUser: "<from-terraform>"
+  archiveDbUser: "<from-terraform>"
+
+ingress:
+  hosts:
+    - host: "<app-gateway-ip>.nip.io"
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 5555
+
+mftConfig:
+  gateways:
+    - instanceName: "Gateway1"
+      host: "<sftp-vm-1-ip>"
+      port: 8500
+    - instanceName: "Gateway2"
+      host: "<sftp-vm-2-ip>"
+      port: 8500
+```
+
+This file is retained for inspection and troubleshooting.
+
+#### Deployment Workflow
+
+```
+1. Terraform Apply (Phase 1)
+   ├─> Provisions infrastructure
+   ├─> Creates Key Vault
+   ├─> Stores database credentials
+   └─> Outputs deployment values
+
+2. Manual Secret Population (One-time)
+   ├─> Store admin password in Key Vault
+   ├─> Create certificate Kubernetes secrets
+   └─> Create MFT config JSON secret
+
+3. deploy-with-keyvault.sh
+   ├─> Reads Terraform outputs
+   ├─> Generates generated-values.keyvault.yaml
+   └─> Calls Helm with combined values
+
+4. Helm Deployment
+   ├─> Reads vanilla-values.yaml (base)
+   ├─> Reads generated-values.keyvault.yaml (overrides)
+   ├─> Renders templates
+   └─> Deploys to Kubernetes
+
+5. CSI Driver (Runtime)
+   ├─> Mounts secrets from Key Vault
+   ├─> Syncs to Kubernetes secrets
+   └─> Provides to pods
+```
+
+#### Values Precedence
+
+```
+vanilla-values.yaml (lowest priority - defaults)
+  ↓
+generated-values.keyvault.yaml (overrides from Terraform)
+  ↓
+--set flags (highest priority, if used)
+```
+
+#### Verification
+
+After deployment, verify:
+
+```bash
+# Check pods
+kubectl get pods -n default -l app.kubernetes.io/name=active-transfer
+
+# Check SecretProviderClass
+kubectl get secretproviderclass -n default
+
+# Check service account has workload identity annotation
+kubectl describe serviceaccount -n default mft-service-account
+
+# Check generated values file
+cat helm/generated-values.keyvault.yaml
+```
+
+#### Troubleshooting Automation
+
+**Script fails with "Missing Terraform output"**:
+- Ensure Terraform has been applied successfully
+- Verify you're using the correct tfvars file
+- Check Terraform outputs: `terraform output -json`
+
+**Script fails with "terraform: command not found"**:
+- Use `--tf-outputs` flag with pre-generated JSON file
+- Or install Terraform CLI in your environment
+
+**Generated values look incorrect**:
+- Use `--dry-run` to preview without deploying
+- Check Terraform outputs match expectations
+- Verify tfvars file path is correct
+
+**Pods fail to start with Key Vault errors**:
+- See "Troubleshooting" section in README-KEYVAULT.md
+- Verify workload identity is configured
+- Check CSI driver logs
+
+### Manual Deployment with Kubernetes Secrets (Legacy)
+
+This approach requires manual creation of all secrets and configuration.
+
+#### 1. Prepare Secrets
 
 Create the required secrets before installing the chart:
 
@@ -41,25 +218,45 @@ kubectl create secret generic mft-db-credentials \
 kubectl create secret generic mft-config-json \
   --from-file=mft-config.json=path/to/mft-config.json
 
-# Certificates (Admin UI, Web Client, SFTP)
-kubectl create secret generic mft-admin-ui-certs \
+# Certificates - JKS Format (Admin UI)
+kubectl create secret generic mft-admin-ui-jks-certs \
   --from-file=keystore.jks=path/to/admin-keystore.jks \
   --from-file=truststore.jks=path/to/admin-truststore.jks \
-  --from-literal=keystore-password='KeystorePassword' \
-  --from-literal=truststore-password='TruststorePassword'
+  --from-literal=jks-keystore-password='JksKeystorePassword' \
+  --from-literal=jks-truststore-password='JksTruststorePassword'
 
-kubectl create secret generic mft-web-client-certs \
+# Certificates - PKCS12 Format (Admin UI)
+kubectl create secret generic mft-admin-ui-pkcs12-certs \
+  --from-file=keystore.p12=path/to/admin-keystore.p12 \
+  --from-file=truststore.p12=path/to/admin-truststore.p12 \
+  --from-literal=pkcs12-keystore-password='Pkcs12KeystorePassword' \
+  --from-literal=pkcs12-truststore-password='Pkcs12TruststorePassword'
+
+# Certificates - JKS Format (Web Client)
+kubectl create secret generic mft-web-client-jks-certs \
   --from-file=keystore.jks=path/to/web-keystore.jks \
   --from-file=truststore.jks=path/to/web-truststore.jks \
-  --from-literal=keystore-password='KeystorePassword' \
-  --from-literal=truststore-password='TruststorePassword'
+  --from-literal=jks-keystore-password='JksKeystorePassword' \
+  --from-literal=jks-truststore-password='JksTruststorePassword'
+
+# Certificates - PKCS12 Format (Web Client)
+kubectl create secret generic mft-web-client-pkcs12-certs \
+  --from-file=keystore.p12=path/to/web-keystore.p12 \
+  --from-file=truststore.p12=path/to/web-truststore.p12 \
+  --from-literal=pkcs12-keystore-password='Pkcs12KeystorePassword' \
+  --from-literal=pkcs12-truststore-password='Pkcs12TruststorePassword'
+
+# Global Truststore Passwords
+kubectl create secret generic mft-global-truststore-certs \
+  --from-literal=jks-truststore-password='GlobalJksTruststorePassword' \
+  --from-literal=pkcs12-truststore-password='GlobalPkcs12TruststorePassword'
 
 kubectl create secret generic mft-sftp-ssh-keys \
   --from-file=ssh_host_rsa_key=path/to/ssh_host_rsa_key \
   --from-file=ssh_host_rsa_key.pub=path/to/ssh_host_rsa_key.pub
 ```
 
-### 2. Update Values
+#### 2. Update Values
 
 Edit `values.yaml` or create a custom values file:
 
@@ -94,7 +291,7 @@ ingress:
           port: 5555
 ```
 
-### 3. Install the Chart
+#### 3. Install the Chart
 
 ```bash
 # Install with default values
@@ -442,11 +639,90 @@ kubectl delete secret mft-admin-credentials mft-db-credentials \
   mft-sftp-ssh-keys -n mft-namespace
 ```
 
+## Known Limitations
+
+### Gateway Configuration Not Parameterized
+
+**Issue**: Gateway IPs in `templates/secret-mft-config.yaml.template` are hardcoded and not read from `values.yaml`
+
+**Impact**: Even when using `deploy-with-keyvault.sh`, which generates correct gateway IPs from Terraform outputs, the templates ignore these values.
+
+**Workaround**: Manually edit `templates/secret-mft-config.yaml.template` to update gateway IPs before deployment.
+
+**Resolution**: Future work to parameterize gateway configuration in templates using `{{ .Values.mftConfig.gateways }}`.
+
+### Certificate Files Not in Key Vault
+
+**Issue**: Certificate files (JKS, PKCS12) are still expected as Kubernetes secrets, not from Key Vault.
+
+**Current Approach**:
+- Certificate **passwords** are fetched from Key Vault ✅
+- Certificate **files** must be created as Kubernetes secrets manually ❌
+
+**Impact**: Partial automation - passwords automated, files require manual creation.
+
+**Workaround**: Create certificate Kubernetes secrets manually before deployment:
+```bash
+kubectl create secret generic mft-admin-ui-certs \
+  --from-file=keystore.jks=path/to/admin-keystore.jks \
+  --from-file=truststore.jks=path/to/admin-truststore.jks
+```
+
+**Resolution Options**:
+1. Store certificate files as Key Vault secrets (base64 encoded)
+2. Use Key Vault certificates feature (requires conversion)
+3. Keep current approach (passwords in KV, files in K8s secrets)
+
+### MFT Config JSON Partially Parameterized
+
+**Issue**: `templates/secret-mft-config.yaml.template` has many hardcoded values.
+
+**Current State**:
+- Database connection strings: ✅ Parameterized
+- Gateway configuration: ❌ Hardcoded
+- VFS paths: ✅ Parameterized
+- Port configuration: ❌ Hardcoded
+
+**Impact**: Limited flexibility for different environments without template editing.
+
+**Workaround**: Edit template file directly for environment-specific values.
+
+**Resolution**: Extract more values to `values.yaml` and parameterize template.
+
+### Manual Secrets Still Required
+
+Even with Key Vault automation, these secrets must be created manually:
+
+1. **Admin Password** - Store in Key Vault:
+   ```bash
+   az keyvault secret set \
+     --vault-name <kv-name> \
+     --name dev/mft/admin/password \
+     --value <secure-password>
+   ```
+
+2. **Certificate Files** - Create as Kubernetes secrets (see above)
+
+3. **MFT Config JSON** - Create as Kubernetes secret:
+   ```bash
+   kubectl create secret generic mft-config-json \
+     --from-file=mft-config.json=path/to/mft-config.json
+   ```
+
+4. **SSH Keys** - Create as Kubernetes secret:
+   ```bash
+   kubectl create secret generic mft-sftp-ssh-keys \
+     --from-file=ssh_host_rsa_key=path/to/ssh_host_rsa_key \
+     --from-file=ssh_host_rsa_key.pub=path/to/ssh_host_rsa_key.pub
+   ```
+
 ## Support
 
 For issues and questions:
 - Check logs: `kubectl logs -n mft-namespace <pod-name>`
 - Describe pod: `kubectl describe pod -n mft-namespace <pod-name>`
+- Review known limitations above
+- Check README-KEYVAULT.md for Key Vault troubleshooting
 - IBM Documentation: https://www.ibm.com/docs/en/webmethods-activetransfer/11.1.0
 
 ## License
