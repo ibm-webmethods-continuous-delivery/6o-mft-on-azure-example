@@ -557,6 +557,8 @@ spec:
 | `persistence.size` | VFS storage size | `100Gi` |
 | `resources.msrContainer.requests.memory` | Memory request | `2Gi` |
 | `resources.msrContainer.limits.memory` | Memory limit | `4Gi` |
+| `metering.enabled` | Enable metering XML mount from Azure Key Vault | `false` |
+| `metering.secretName` | Key Vault secret suffix for metering XML | `mft-metering-config-xml-file` |
 
 ### Full Configuration
 

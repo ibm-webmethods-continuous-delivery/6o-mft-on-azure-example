@@ -81,11 +81,26 @@ Secrets in Key Vault follow hierarchical naming:
 - `<env>-mft-admin-password`
 - `<env>-mft-sftp-ssh-private-key`
 - `<env>-mft-config-json`
+- `<env>-mft-metering-config-xml-file`
 
 Examples:
 - `vanilla-mft-admin-password`
 - `vanilla-mft-db-postgres-online-password`
 - `vanilla-mft-admin-ui-jks-keystore-password`
+- `vanilla-mft-metering-config-xml-file`
+
+## Metering Configuration
+
+When `metering.enabled=true`, the chart mounts the Key Vault secret
+`<env>-mft-metering-config-xml-file` into the Active Transfer container at:
+
+`{{ .Values.activeTransfer.installDir }}/common/metering/conf/meteringConfiguration.xml`
+
+You can override the target path with `metering.mountPath`, but the default behavior
+matches the documented Active Transfer metering location.
+
+The Terraform stack initializes this secret with a placeholder XML value that must be
+replaced with a valid file downloaded from https://ibm.biz/metering before production use.
 
 ## Certificate Storage Options
 

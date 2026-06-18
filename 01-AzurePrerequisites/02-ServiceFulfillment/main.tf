@@ -676,6 +676,10 @@ locals {
       value       = "{}"
       description = "MFT configuration JSON for runtime configuration management"
     }
+    "${local.environment}-mft-metering-config-xml-file" = {
+      value       = "<metering>Change this to a valid file you download from https://ibm.biz/metering</metering>"
+      description = "IBM webMethods metering configuration XML file mounted into the Active Transfer runtime when metering is enabled"
+    }
   }
 }
 
@@ -790,8 +794,6 @@ resource "azurerm_key_vault_secret" "mft_db_credentials" {
     ignore_changes = [value, expiration_date]
   }
 }
-
-
 
 # ============================================================================
 # Certificate Upload to Key Vault

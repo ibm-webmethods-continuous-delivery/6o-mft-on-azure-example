@@ -498,8 +498,12 @@ persistence:
 
 # Metering configuration (IBM webMethods license metering)
 metering:
-  # -- Enable metering (TODO: requires metering configuration file)
+  # -- Enable metering configuration mount from Azure Key Vault via CSI driver
   enabled: false
+  # -- Key Vault secret name suffix for the metering configuration XML file
+  secretName: "mft-metering-config-xml-file"
+  # -- Target file path for the metering configuration XML
+  mountPath: ""
   # -- Metering server URL
   serverUrl: "https://metering.softwareag.cloud/api/measurements"
   # -- Proxy type

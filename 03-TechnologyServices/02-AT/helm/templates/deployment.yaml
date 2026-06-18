@@ -188,6 +188,13 @@ spec:
               subPath: jgroup-properties.xml
               readOnly: true
             {{- end }}
+            {{- if and (eq .Values.secretProvider.type "azureKeyVault") .Values.metering.enabled }}
+            # Metering configuration XML from Azure Key Vault via CSI driver
+            - name: secrets-store
+              mountPath: {{ default (printf "%s/common/metering/conf/meteringConfiguration.xml" .Values.activeTransfer.installDir) .Values.metering.mountPath }}
+              subPath: meteringConfiguration.xml
+              readOnly: true
+            {{- end }}
             {{- if .Values.extraVolumeMounts }}
             # Extra volume mounts (certificates, VFS)
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
