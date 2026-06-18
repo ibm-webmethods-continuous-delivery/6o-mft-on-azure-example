@@ -12,13 +12,13 @@ statefulSet: false
 image:
   # -- Active Transfer container image from Azure Container Registry
   # This should be the enhanced image with ZzMftConfig package
-  repository: "REPLACE_WITH_ACR_LOGIN_SERVER/active-transfer-enhance"
+  repository: "<value_from_prefix_tfvar_in_service_delivery>acr.azureacr.io/active-transfer-enhance"
   pullPolicy: IfNotPresent
   # -- Image tag - use specific version in production
   tag: "latest"
   # -- Init container image with envsubst and curl pre-installed
   initContainer:
-    repository: "REPLACE_WITH_ACR_LOGIN_SERVER/alpine"
+    repository: "<value_from_prefix_tfvar_in_service_delivery>acr.azureacr.io/alpine"
     tag: "init-3.23"
 
 # -- Image pull secret for Azure Container Registry
@@ -120,24 +120,32 @@ extraEnvs:
 # Note: These are for internal testing. External traffic goes through gateways.
   # Database connection details (non-secret)
   - name: MFT_DB_POSTGRES_ONLINE_DB_NAME
-    value: "{{ .Values.database.onlineDbName }}"
+    value: "mft_online"
   - name: MFT_DB_POSTGRES_ONLINE_USER
-    value: "{{ .Values.database.onlineDbUser }}"
+    value: "mft_app_user_3"
   - name: MFT_DB_POSTGRES_ARCHIVE_DB_NAME
-    value: "{{ .Values.database.archiveDbName }}"
+    value: "mft_archive"
   - name: MFT_DB_POSTGRES_ARCHIVE_USER
-    value: "{{ .Values.database.archiveDbUser }}"
+    value: "mft_archive_user_3"
   # Gateway configuration
   - name: MFT_GATEWAY_1_IP
-    value: "{{ (index .Values.mftConfig.gateways 0).host }}"
+    value: "10.1.0.4"
   - name: MFT_GATEWAY_2_IP
-    value: "{{ (index .Values.mftConfig.gateways 1).host }}"
+    value: "10.1.1.4"
   # VFS configuration
   - name: MFT_DEFAULT_VFS_MOUNT_PATH
-    value: "{{ .Values.mftConfig.vfs.path }}"
+    value: "/mnt/default-vfs"
+  - name: MFT_DEFAULT_PRIVATE_VFS_MOUNT_PATH
+    value: "/mnt/default-private-vfs"
   # MFT configuration file location
   - name: MFT_CONFIG_JSON_FILE
     value: "/mnt/injected/config/mft-config.json"
+      # MFT online postgres DB FQDN
+  - name: MFT_DB_POSTGRES_ONLINE_FQDN
+    value: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
+  # MFT archive postgres DB FQDN
+  - name: MFT_DB_POSTGRES_ARCHIVE_FQDN
+    value: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
 
 extraPorts:
   - containerPort: 55022
@@ -306,7 +314,7 @@ activeTransfer:
 # These values MUST be injected from Terraform outputs during deployment
 database:
   # -- PostgreSQL server FQDN (from Terraform output: azurerm_postgresql_flexible_server.fqdn)
-  # Example: "mft-postgres-dev.postgres.database.azure.com"
+  # Example: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
   serverFqdn: ""
 
   # -- Online database name (from Terraform output: online_database_name)
@@ -520,6 +528,79 @@ persistence:
   # -- VFS storage size
   size: 100Gi
 
+  # ============================================================================
+  # Private Storage Configuration (NEW)
+  # ============================================================================
+  # Configuration for private Azure Files storage with private endpoint access.
+  # This provides an additional VFS option alongside the existing public storage.
+  #
+  # Prerequisites:
+  # - Storage account created via Terraform with private endpoint
+  # - Private DNS zone configured for name resolution
+  # - RBAC assignments for AKS managed identity
+  #
+  # To enable:
+  # 1. Set privateStorage.enabled = true
+  # 2. Provide storage account details from Terraform outputs
+  # 3. Provide storage account key (from Terraform or Key Vault)
+  # ============================================================================
+  privateStorage:
+    # -- Enable private storage for VFS
+    enabled: false
+
+    # -- Create custom storage class (optional, set to false if using existing)
+    createStorageClass: false
+    storageClassName: "azurefile-csi-private"
+
+    # -- Create static PV (set to false if PV already exists)
+    createPV: true
+
+    # -- Create PVC (set to false if PVC already exists)
+    createPVC: true
+
+    # -- PV name
+    pvName: "mft-vfs-private-pv"
+
+    # -- PVC name
+    pvcName: "mft-vfs-private-pvc"
+
+    # -- Storage size (must match or be less than file share quota)
+    size: 100Gi
+
+    # -- Access mode (ReadWriteMany for multi-pod access)
+    accessMode: ReadWriteMany
+
+    # -- Reclaim policy (Retain to preserve data on PVC deletion)
+    reclaimPolicy: Retain
+
+    # -- Mount path in container (different from public VFS)
+    mountPath: "/opt/IBM/MFT/vfs-private"
+
+    # -- Kubernetes secret name for storage credentials
+    secretName: "mft-vfs-private-secret"
+
+    # -------------------------------------------------------------------------
+    # Azure Storage Account Details (from Terraform outputs)
+    # -------------------------------------------------------------------------
+    # These values should be provided via:
+    # - Helm values file (for dev/test)
+    # - CI/CD pipeline variables (for production)
+    # - External secrets operator (for production)
+    # -------------------------------------------------------------------------
+
+    # -- Azure resource group name (from Terraform)
+    resourceGroup: ""
+
+    # -- Storage account name (from Terraform output: mft_vfs_private_storage_account_name)
+    storageAccountName: ""
+
+    # -- File share name (from Terraform output: mft_vfs_private_share_name)
+    shareName: "mft-vfs-private"
+
+    # -- Storage account key (from Terraform output: mft_vfs_private_storage_account_key)
+    # SECURITY: Never commit this to Git! Use CI/CD secrets or external secrets operator
+    storageAccountKey: ""
+
 # Metering configuration (IBM webMethods license metering)
 metering:
   # -- Enable metering configuration mount from Azure Key Vault via CSI driver
@@ -583,10 +664,6 @@ azureKeyVault:
 
   # -- Managed identity client ID (from Terraform output: mft_managed_identity_client_id)
   clientId: ""
-
-  # -- Environment name for hierarchical secret naming (from Terraform output: environment_name)
-  # TODO: update all dependents to use Values.envName instead of this key: azureKeyVault.environment
-  # environment: .Values.envName
 
   # -- Certificate storage options (multiple approaches for flexibility)
   certificateOptions:

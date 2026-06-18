@@ -375,3 +375,30 @@ variable "secret_expiration_date" {
   }
 }
 
+variable "mft_vfs_private_enabled" {
+  description = "Enable private storage account for MFT VFS"
+  type        = bool
+  default     = false # Disabled by default for safety
+}
+
+variable "mft_vfs_private_quota_gb" {
+  description = "Quota for MFT VFS private file share in GB"
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.mft_vfs_private_quota_gb >= 1 && var.mft_vfs_private_quota_gb <= 102400
+    error_message = "Quota must be between 1 GB and 100 TB (102400 GB)."
+  }
+}
+
+variable "mft_vfs_private_retention_days" {
+  description = "Retention days for deleted files in private storage"
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.mft_vfs_private_retention_days >= 1 && var.mft_vfs_private_retention_days <= 365
+    error_message = "Retention days must be between 1 and 365."
+  }
+}

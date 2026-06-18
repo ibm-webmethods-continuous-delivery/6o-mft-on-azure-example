@@ -1,0 +1,67 @@
+{{- if .Values.persistence.privateStorage.enabled }}
+{{- if .Values.persistence.privateStorage.createPV }}
+# ============================================================================
+# Static PersistentVolume for Private Azure Files Storage
+# ============================================================================
+# This PV uses static provisioning with the Azure Files CSI driver to mount
+# a pre-created Azure Files share from a private storage account.
+#
+# Key Features:
+# - Uses empty storageClassName for static binding
+# - References pre-created storage account and file share
+# - Configured for private endpoint access only
+# - Uses CSI driver with explicit volume handle
+# - Includes optimized mount options for performance
+#
+# The PVC will bind to this PV by specifying the volumeName explicitly.
+# ============================================================================
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.persistence.privateStorage.pvName }}
+  labels:
+    {{- include "active-transfer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+    storage-type: private
+    storage-backend: azure-files
+  annotations:
+    description: "Private Azure Files storage for MFT VFS"
+    storage-account: {{ .Values.persistence.privateStorage.storageAccountName | quote }}
+    share-name: {{ .Values.persistence.privateStorage.shareName | quote }}
+spec:
+  capacity:
+    storage: {{ .Values.persistence.privateStorage.size }}
+  accessModes:
+    - {{ .Values.persistence.privateStorage.accessMode }}
+  persistentVolumeReclaimPolicy: {{ .Values.persistence.privateStorage.reclaimPolicy }}
+  # Empty storageClassName for static binding
+  storageClassName: ""
+  # Mount options for better performance and compatibility
+  mountOptions:
+    - dir_mode=0777
+    - file_mode=0777
+    - uid=1000
+    - gid=1000
+    - mfsymlinks
+    - cache=strict
+    - nosharesock
+  # CSI driver configuration
+  csi:
+    driver: file.csi.azure.com
+    readOnly: false
+    # Unique volume handle: <storage-account>#<share-name>#<namespace>
+    volumeHandle: {{ printf "%s#%s#%s" .Values.persistence.privateStorage.storageAccountName .Values.persistence.privateStorage.shareName .Release.Namespace }}
+    volumeAttributes:
+      resourceGroup: {{ .Values.persistence.privateStorage.resourceGroup | quote }}
+      storageAccount: {{ .Values.persistence.privateStorage.storageAccountName | quote }}
+      shareName: {{ .Values.persistence.privateStorage.shareName | quote }}
+      protocol: smb
+      # FQDN will resolve to private IP via private DNS zone
+      server: {{ printf "%s.file.core.windows.net" .Values.persistence.privateStorage.storageAccountName | quote }}
+    # Reference to secret containing storage account credentials
+    nodeStageSecretRef:
+      name: {{ .Values.persistence.privateStorage.secretName }}
+      namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

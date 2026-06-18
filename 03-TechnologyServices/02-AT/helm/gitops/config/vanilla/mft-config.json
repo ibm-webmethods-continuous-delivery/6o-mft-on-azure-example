@@ -143,6 +143,26 @@
         "isTNPartner": "false",
         "isEnterprise": "true"
       }
+    },
+    {
+      "declaredVfsDetails": {
+        "vfsName": "DefaultPrivateVfs",
+        "vfsType": "Local",
+        "vfsLocation": {
+          "localPath": {
+            "filePath": "${MFT_DEFAULT_PRIVATE_VFS_MOUNT_PATH}"
+          }
+        },
+        "Encryption": {
+          "isEncryptionEnabled": "false",
+          "isDecryptionEnabled": "false"
+        }
+      },
+      "declaredPartnerInfo": {
+        "name": "ExamplePrivateInternal",
+        "isTNPartner": "false",
+        "isEnterprise": "true"
+      }
     }
   ]
 }

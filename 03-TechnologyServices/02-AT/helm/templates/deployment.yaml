@@ -195,6 +195,11 @@ spec:
               subPath: meteringConfiguration.xml
               readOnly: true
             {{- end }}
+            {{- if and .Values.persistence.privateStorage.enabled .Values.persistence.privateStorage.createPVC }}
+            # Private VFS storage mount
+            - name: vfs-private-storage
+              mountPath: {{ .Values.persistence.privateStorage.mountPath }}
+            {{- end }}
             {{- if .Values.extraVolumeMounts }}
             # Extra volume mounts (certificates, VFS)
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
@@ -245,6 +250,12 @@ spec:
             items:
               - key: jgroup-properties.xml
                 path: jgroup-properties.xml
+        {{- end }}
+        {{- if and .Values.persistence.privateStorage.enabled .Values.persistence.privateStorage.createPVC }}
+        # Private VFS storage volume
+        - name: vfs-private-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.privateStorage.pvcName }}
         {{- end }}
         {{- if .Values.extraVolumes }}
         # Extra volumes (certificates, VFS)

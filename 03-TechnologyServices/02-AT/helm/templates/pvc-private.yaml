@@ -1,0 +1,48 @@
+{{- if .Values.persistence.privateStorage.enabled }}
+{{- if .Values.persistence.privateStorage.createPVC }}
+# ============================================================================
+# PersistentVolumeClaim for Private Azure Files Storage
+# ============================================================================
+# This PVC binds to the static PV created for private storage by explicitly
+# specifying the volumeName. This ensures the PVC binds to the correct PV
+# and not to any dynamically provisioned volume.
+#
+# Key Features:
+# - Explicit binding via volumeName
+# - Empty storageClassName (matches PV)
+# - Same access mode and size as PV
+# - Used by deployment to mount private storage
+#
+# Binding Flow:
+# 1. PV is created with empty storageClassName
+# 2. PVC is created with matching volumeName and empty storageClassName
+# 3. Kubernetes binds PVC to PV based on volumeName match
+# 4. Deployment references PVC to mount the volume
+# ============================================================================
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.persistence.privateStorage.pvcName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "active-transfer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+    storage-type: private
+    storage-backend: azure-files
+  annotations:
+    description: "PVC for private Azure Files storage"
+    bound-to-pv: {{ .Values.persistence.privateStorage.pvName | quote }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.privateStorage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.privateStorage.size }}
+  # Explicit binding to the static PV
+  volumeName: {{ .Values.persistence.privateStorage.pvName }}
+  # Empty storageClassName for static binding (must match PV)
+  storageClassName: ""
+  volumeMode: Filesystem
+{{- end }}
+{{- end }}

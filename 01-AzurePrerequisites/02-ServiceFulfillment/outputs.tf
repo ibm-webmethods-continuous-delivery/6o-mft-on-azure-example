@@ -358,3 +358,42 @@ output "key_vault_access_mode" {
   value       = var.key_vault_public_access_enabled ? "public" : "private"
 }
 
+# ============================================================================
+# Outputs for Kubernetes configuration
+# ============================================================================
+
+output "mft_vfs_private_storage_account_name" {
+  description = "Name of the private storage account for MFT VFS"
+  value       = var.mft_vfs_private_enabled ? azurerm_storage_account.mft_vfs_private[0].name : null
+  sensitive   = false
+}
+
+output "mft_vfs_private_share_name" {
+  description = "Name of the Azure Files share for MFT VFS"
+  value       = var.mft_vfs_private_enabled ? azurerm_storage_share.mft_vfs_private[0].name : null
+  sensitive   = false
+}
+
+output "mft_vfs_private_storage_account_key" {
+  description = "Primary access key for private storage account"
+  value       = var.mft_vfs_private_enabled ? azurerm_storage_account.mft_vfs_private[0].primary_access_key : null
+  sensitive   = true
+}
+
+output "mft_vfs_private_endpoint_ip" {
+  description = "Private IP address of the storage endpoint"
+  value       = var.mft_vfs_private_enabled ? azurerm_private_endpoint.mft_vfs_storage[0].private_service_connection[0].private_ip_address : null
+  sensitive   = false
+}
+
+output "mft_vfs_private_fqdn" {
+  description = "FQDN for private storage account"
+  value       = var.mft_vfs_private_enabled ? "${azurerm_storage_account.mft_vfs_private[0].name}.file.core.windows.net" : null
+  sensitive   = false
+}
+
+output "mft_vfs_private_resource_group" {
+  description = "Resource group name for private storage"
+  value       = var.mft_vfs_private_enabled ? azurerm_resource_group.main.name : null
+  sensitive   = false
+}

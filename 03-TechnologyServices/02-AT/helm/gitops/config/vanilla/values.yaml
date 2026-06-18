@@ -35,6 +35,9 @@ fullnameOverride: "active-transfer"
 # -- Container name
 containerName: "mft-server"
 
+# -- Environment name
+envName: "vanilla"
+
 # -- Extra labels to add to all resources
 extraLabels:
   app.kubernetes.io/component: mft-server
@@ -134,15 +137,17 @@ extraEnvs:
   # VFS configuration
   - name: MFT_DEFAULT_VFS_MOUNT_PATH
     value: "/mnt/default-vfs"
+  - name: MFT_DEFAULT_PRIVATE_VFS_MOUNT_PATH
+    value: "/mnt/default-private-vfs"
   # MFT configuration file location
   - name: MFT_CONFIG_JSON_FILE
     value: "/mnt/injected/config/mft-config.json"
   # MFT online postgres DB FQDN
   - name: MFT_DB_POSTGRES_ONLINE_FQDN
-    value: "ibmmienip-sf-postgres.postgres.database.azure.com"
+    value: "mftaks123-postgres.postgres.database.azure.com"
   # MFT archive postgres DB FQDN
   - name: MFT_DB_POSTGRES_ARCHIVE_FQDN
-    value: "ibmmienip-sf-postgres.postgres.database.azure.com"
+    value: "mftaks123-postgres.postgres.database.azure.com"
 
 extraPorts:
   - containerPort: 55022
@@ -312,7 +317,7 @@ activeTransfer:
 database:
   # -- PostgreSQL server FQDN (from Terraform output: postgres_server_fqdn)
   # Example: your-postgres-server.postgres.database.azure.com
-  serverFqdn: "ibmmienip-sf-postgres.postgres.database.azure.com"
+  serverFqdn: "mftaks123-postgres.postgres.database.azure.com"
 
   # -- Online database name (from Terraform output: postgres_online_db_name)
   onlineDbName: "mft_online"
@@ -529,6 +534,79 @@ persistence:
   # -- VFS storage size
   size: 100Gi
 
+  # ============================================================================
+  # Private Storage Configuration (NEW)
+  # ============================================================================
+  # Configuration for private Azure Files storage with private endpoint access.
+  # This provides an additional VFS option alongside the existing public storage.
+  #
+  # Prerequisites:
+  # - Storage account created via Terraform with private endpoint
+  # - Private DNS zone configured for name resolution
+  # - RBAC assignments for AKS managed identity
+  #
+  # To enable:
+  # 1. Set privateStorage.enabled = true
+  # 2. Provide storage account details from Terraform outputs
+  # 3. Provide storage account key (from Terraform or Key Vault)
+  # ============================================================================
+  privateStorage:
+    # -- Enable private storage for VFS
+    enabled: true
+
+    # -- Create custom storage class (optional, set to false if using existing)
+    createStorageClass: false
+    storageClassName: "azurefile-csi-private"
+
+    # -- Create static PV (set to false if PV already exists)
+    createPV: true
+
+    # -- Create PVC (set to false if PVC already exists)
+    createPVC: true
+
+    # -- PV name
+    pvName: "mft-vfs-private-pv"
+
+    # -- PVC name
+    pvcName: "mft-vfs-private-pvc"
+
+    # -- Storage size (must match or be less than file share quota)
+    size: 100Gi
+
+    # -- Access mode (ReadWriteMany for multi-pod access)
+    accessMode: ReadWriteMany
+
+    # -- Reclaim policy (Retain to preserve data on PVC deletion)
+    reclaimPolicy: Retain
+
+    # -- Mount path in container (different from public VFS)
+    mountPath: "/mnt/default-private-vfs"
+
+    # -- Kubernetes secret name for storage credentials
+    secretName: "mft-vfs-private-secret"
+
+    # -------------------------------------------------------------------------
+    # Azure Storage Account Details (from Terraform outputs)
+    # -------------------------------------------------------------------------
+    # These values should be provided via:
+    # - Helm values file (for dev/test)
+    # - CI/CD pipeline variables (for production)
+    # - External secrets operator (for production)
+    # -------------------------------------------------------------------------
+
+    # -- Azure resource group name (from Terraform)
+    resourceGroup: "miun-rg-mft-demo-service-f"
+
+    # -- Storage account name (from Terraform output: mft_vfs_private_storage_account_name)
+    storageAccountName: "mftaks123mftvfspvt"
+
+    # -- File share name (from Terraform output: mft_vfs_private_share_name)
+    shareName: "mft-vfs-private"
+
+    # -- Storage account key (from Terraform output: mft_vfs_private_storage_account_key)
+    # SECURITY: Never commit this to Git! Use CI/CD secrets or external secrets operator
+    storageAccountKey: "Not_In_Git"
+
 # Metering configuration (IBM webMethods license metering)
 metering:
   # -- Enable metering (TODO: requires metering configuration file)
@@ -586,16 +664,13 @@ secretProvider:
 # Leave empty when using Kubernetes secrets mode
 azureKeyVault:
   # -- Key Vault name (from Terraform output: key_vault_name)
-  name: "ibmmienip-sf-kv"
+  name: "mftaks123-kv"
 
   # -- Azure tenant ID (from Terraform output: tenant_id)
-  tenantId: "4a9b0190-274a-4f23-8f6e-036f7a667130"
+  tenantId: "NOT_IN_GIT"
 
   # -- Managed identity client ID (from Terraform output: mft_managed_identity_client_id)
-  clientId: "bcce0918-93e6-4fe3-96dc-5d94359d9026"
-
-  # -- Environment name for hierarchical secret naming (from Terraform output: environment_name)
-  # environment: "vanilla"
+  clientId: "NOT_IN_GIT"
 
   # -- Certificate storage options (multiple approaches for flexibility)
   certificateOptions:

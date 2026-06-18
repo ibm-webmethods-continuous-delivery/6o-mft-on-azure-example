@@ -1,0 +1,66 @@
+{{- if .Values.persistence.privateStorage.enabled }}
+{{- if .Values.persistence.privateStorage.createStorageClass }}
+# ============================================================================
+# Custom Storage Class for Private Azure Files Storage (OPTIONAL)
+# ============================================================================
+# This storage class is OPTIONAL and only needed if your Kubernetes cluster
+# doesn't already have a suitable storage class for Azure Files.
+#
+# In mature environments, platform teams typically provide pre-configured
+# storage classes. Check with your platform team before creating this.
+#
+# Key Features:
+# - Uses Azure Files CSI driver
+# - References pre-created storage account
+# - Configured for SMB protocol
+# - Optimized mount options
+# - Retain reclaim policy (data preserved on PVC deletion)
+#
+# NOTE: This storage class is NOT used by the static PV/PVC created above.
+#       It's provided for flexibility if you want to use dynamic provisioning
+#       in the future or for other workloads.
+# ============================================================================
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.persistence.privateStorage.storageClassName }}
+  labels:
+    {{- include "active-transfer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+    storage-type: private
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+    description: "Storage class for private Azure Files with private endpoint"
+# Azure Files CSI driver
+provisioner: file.csi.azure.com
+parameters:
+  # Use pre-created storage account (not dynamic provisioning)
+  resourceGroup: {{ .Values.persistence.privateStorage.resourceGroup | quote }}
+  storageAccount: {{ .Values.persistence.privateStorage.storageAccountName | quote }}
+  shareName: {{ .Values.persistence.privateStorage.shareName | quote }}
+  
+  # Protocol and server
+  protocol: smb
+  server: {{ printf "%s.file.core.windows.net" .Values.persistence.privateStorage.storageAccountName | quote }}
+  
+  # Mount options for better performance and security
+  mountOptions: |
+    dir_mode=0777
+    file_mode=0777
+    uid=1000
+    gid=1000
+    mfsymlinks
+    cache=strict
+    nosharesock
+
+# Retain data when PVC is deleted
+reclaimPolicy: Retain
+
+# Immediate binding (bind as soon as PVC is created)
+volumeBindingMode: Immediate
+
+# Allow volume expansion
+allowVolumeExpansion: true
+{{- end }}
+{{- end }}
