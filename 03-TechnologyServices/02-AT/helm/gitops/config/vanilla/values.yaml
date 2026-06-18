@@ -1,0 +1,580 @@
+# Default values for active-transfer (IBM webMethods MFT)
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Number of Active Transfer replicas (2 for HA across availability zones)
+replicaCount: 2
+
+# -- Use Deployment (not StatefulSet). MFT does not support session replication.
+# Each pod is independent and connects to shared database and VFS.
+statefulSet: false
+
+image:
+  # -- Active Transfer container image from Azure Container Registry
+  # This should be the enhanced image with ZzMftConfig package
+  # NOTE: When using deploy-with-keyvault.sh, this is automatically set from Terraform output (acr_login_server)
+  # Example format: <acr-name>.azurecr.io/active-transfer-enhance
+  repository: "your-acr.azurecr.io/active-transfer-enhance"
+  pullPolicy: IfNotPresent
+  # -- Image tag - use specific version in production
+  tag: "latest"
+
+# -- Image pull secret for Azure Container Registry
+imagePullSecrets:
+  - name: acr-secret
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full workload name
+fullnameOverride: "active-transfer"
+
+# -- Container name
+containerName: "mft-server"
+
+# -- Extra labels to add to all resources
+extraLabels:
+  app.kubernetes.io/component: mft-server
+  app.kubernetes.io/part-of: mft-platform
+
+# -- Extra environment variables
+extraEnvs:
+  # Admin password for Integration Server
+  - name: SAG_IS_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-admin-credentials
+        key: admin-password
+  # Database passwords
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-db-credentials
+        key: online-db-password
+  - name: POSTGRES_ARCHIVE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-db-credentials
+        key: archive-db-password
+  # Admin UI keystore and truststore passwords - JKS format
+  - name: MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-admin-ui-jks-certs
+        key: jks-keystore-password
+  - name: MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-admin-ui-jks-certs
+        key: jks-truststore-password
+  # Admin UI keystore and truststore passwords - PKCS12 format
+  - name: MFT_ADMIN_UI_PKCS12_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-admin-ui-pkcs12-certs
+        key: pkcs12-keystore-password
+  - name: MFT_ADMIN_UI_PKCS12_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-admin-ui-pkcs12-certs
+        key: pkcs12-truststore-password
+  # Web Client keystore and truststore passwords - JKS format
+  - name: MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-jks-certs
+        key: jks-keystore-password
+  - name: MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-jks-certs
+        key: jks-truststore-password
+  # Web Client keystore and truststore passwords - PKCS12 format
+  - name: MFT_WEB_CLIENT_PKCS12_KEYSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-pkcs12-certs
+        key: pkcs12-keystore-password
+  - name: MFT_WEB_CLIENT_PKCS12_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-web-client-pkcs12-certs
+        key: pkcs12-truststore-password
+  # Global truststore passwords
+  - name: MFT_CERT_JKS_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-global-truststore-certs
+        key: jks-truststore-password
+  - name: MFT_CERT_PKCS12_TRUSTSTORE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: mft-global-truststore-certs
+        key: pkcs12-truststore-password
+
+# -- Extra ports for MFT (SFTP, HTTPS for web client)
+# Note: These are for internal testing. External traffic goes through gateways.
+extraPorts:
+  - containerPort: 55022
+    name: sftp-pwd
+    protocol: TCP
+  - containerPort: 55122
+    name: sftp-key
+    protocol: TCP
+  - containerPort: 55043
+    name: https-web
+    protocol: TCP
+
+# -- Extra volumes for certificates and VFS
+extraVolumes:
+  - name: mft-config-json
+    secret:
+      secretName: mft-config-json
+  - name: admin-ui-certs
+    secret:
+      secretName: mft-admin-ui-certs
+  - name: web-client-certs
+    secret:
+      secretName: mft-web-client-certs
+  - name: sftp-ssh-keys
+    secret:
+      secretName: mft-sftp-ssh-keys
+  - name: vfs-storage
+    persistentVolumeClaim:
+      claimName: active-transfer-vfs
+
+# -- Extra volume mounts
+extraVolumeMounts:
+  # MFT configuration JSON
+  - name: mft-config-json
+    mountPath: /mnt/injected/config
+    readOnly: true
+  # Admin UI certificates
+  - name: admin-ui-certs
+    mountPath: /mnt/certs/admin-ui
+    readOnly: true
+  # Web Client certificates
+  - name: web-client-certs
+    mountPath: /mnt/certs/web-client
+    readOnly: true
+  # SFTP SSH keys
+  - name: sftp-ssh-keys
+    mountPath: /mnt/certs/sftp
+    readOnly: true
+  # VFS storage (shared across pods)
+  - name: vfs-storage
+    mountPath: /mnt/default-vfs
+    readOnly: false
+
+# -- Extra init containers (none needed for now)
+extraInitContainers: []
+
+# -- Extra sidecar containers (none needed for now)
+extraContainers: []
+
+# -- Extra config maps (none needed - using templates)
+extraConfigMaps: []
+
+# -- Lifecycle hooks
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 15"]
+
+# -- Startup probe - MFT takes time to initialize
+# HTTP port becomes available at ~68 seconds, so we start probing at 90s
+startupProbe:
+  httpGet:
+    path: /health/liveness
+    port: http
+  failureThreshold: 60
+  periodSeconds: 10
+  initialDelaySeconds: 90
+
+# -- Liveness probe
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 30
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+# -- Readiness probe
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: http
+  initialDelaySeconds: 0
+  periodSeconds: 15
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 3
+
+# JGroups cluster synchronization for multi-node deployments
+jgroups:
+  # -- Enable JGroups clustering for configuration synchronization across nodes
+  enabled: true
+
+  # -- TCP port for JGroups communication (default: 7800)
+  tcpPort: 7800
+
+  # -- Port range for discovery (default: 1)
+  portRange: 1
+
+# Active Transfer / Integration Server configuration
+activeTransfer:
+  # -- HTTP port (admin UI)
+  httpPort: 5555
+  httpPortScheme: "HTTP"
+
+  # -- HTTPS port (runtime)
+  httpsPort: 5556
+  httpsPortScheme: "HTTPS"
+
+  # -- Diagnostic port
+  diagnosticPort: 9999
+
+  # -- Installation directory (Active Transfer uses instances/default)
+  installDir: /opt/softwareag/IntegrationServer/instances/default
+
+  # -- License configuration
+  # MFT license metering is configured separately (see metering section)
+  licenseKeyProvided: false
+
+  # -- Memory heap settings
+  memoryHeap:
+    min: "1024M"
+    max: "2048M"
+
+  # -- Java custom options
+  javaCustomOpts:
+    - "-Duser.timezone=UTC"
+    - "-Djava.security.egd=file:/dev/./urandom"
+
+  # -- Application properties (database connections, global variables)
+  # These are rendered from the ConfigMap template
+  properties: {}
+
+  # -- Application properties file content (alternative to properties map)
+  propertiesFile:
+    content: |
+      # This will be overridden by the ConfigMap template
+      # See templates/configmap-application-properties.yaml
+
+# Database configuration (used in ConfigMap templates)
+# NOTE: When using deploy-with-keyvault.sh, all values below are automatically set from Terraform outputs
+database:
+  # -- PostgreSQL server FQDN (from Terraform output: postgres_server_fqdn)
+  # Example: your-postgres-server.postgres.database.azure.com
+  serverFqdn: "your-postgres-server.postgres.database.azure.com"
+
+  # -- Online database name (from Terraform output: postgres_online_db_name)
+  onlineDbName: "mft_online"
+
+  # -- Archive database name (from Terraform output: postgres_archive_db_name)
+  archiveDbName: "mft_archive"
+
+  # -- Online database username (from Terraform output: postgres_dbc_user)
+  onlineDbUser: "mft_app_user"
+
+  # -- Archive database username (from Terraform output: postgres_dbc_archive_user)
+  archiveDbUser: "mft_archive_user"
+
+  # -- SSL mode for PostgreSQL connections
+  sslMode: "require"
+
+  # -- Connection pool settings
+  connectionPool:
+    minConns: 2
+    maxConns: 17
+
+# MFT-specific configuration (used in mft-config.json template)
+mftConfig:
+  # -- MFT Server ID (unique identifier for this MFT instance)
+  # Leave empty for auto-generation
+  serverId: ""
+
+  # -- Gateway configuration
+  # NOTE: When using deploy-with-keyvault.sh, gateway IPs are automatically set from Terraform outputs
+  # (sftp_vm_1_private_ip, sftp_vm_2_private_ip)
+  # LIMITATION: These values are generated but NOT YET consumed by templates/secret-mft-config.yaml.template
+  # Manual editing of the template is still required for gateway configuration
+  # TODO: Parameterize gateway configuration in templates to use these values
+  gateways:
+    - instanceName: "Gateway1"
+      host: "10.0.0.4"  # Example IP - will be replaced by automation
+      port: 8500
+      active: true
+      autoConnect: true
+    - instanceName: "Gateway2"
+      host: "10.0.0.5"  # Example IP - will be replaced by automation
+      port: 8500
+      active: true
+      autoConnect: true
+
+  # -- VFS configuration
+  vfs:
+    name: "DefaultVfs"
+    type: "Local"
+    path: "/mnt/default-vfs"
+    encryption:
+      enabled: false
+    partner:
+      name: "ExampleInternal"
+      isTNPartner: false
+      isEnterprise: true
+
+  # -- Port configuration (internal testing only)
+  ports:
+    sftp:
+      - name: "SFTP-Password"
+        port: 55022
+        requirePassword: true
+        requirePublicKey: false
+      - name: "SFTP-PublicKey"
+        port: 55122
+        requirePassword: false
+        requirePublicKey: true
+    https:
+      - name: "HTTPS-WebClient"
+        port: 55043
+
+serviceAccount:
+  # -- Create service account
+  create: true
+  # -- Service account annotations
+  annotations: {}
+  # -- Service account name
+  name: "mft-service-account"
+
+# -- Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "5555"
+  prometheus.io/path: "/metrics"
+
+# -- Pod security context
+podSecurityContext:
+  fsGroup: 1724
+  runAsNonRoot: true
+  runAsUser: 1724
+
+# -- Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1724
+
+service:
+  # -- Service type
+  type: ClusterIP
+
+  # -- Admin UI port
+  port: 5555
+
+  # -- Additional ports
+  ports:
+    - name: https
+      port: 5556
+      targetPort: 5556
+      protocol: TCP
+    - name: diag
+      port: 9999
+      targetPort: 9999
+      protocol: TCP
+
+# Ingress configuration for Application Gateway
+# NOTE: When using deploy-with-keyvault.sh, hostname is automatically generated from Application Gateway public IP
+# using nip.io (e.g., 20.123.45.67.nip.io) - no DNS configuration required
+ingress:
+  enabled: true
+  className: "azure-application-gateway"
+  annotations:
+    appgw.ingress.kubernetes.io/ssl-redirect: "false"  # Allow both HTTP and HTTPS
+    appgw.ingress.kubernetes.io/backend-protocol: "http"
+    appgw.ingress.kubernetes.io/cookie-based-affinity: "true"
+  hosts:
+    # HTTP ingress (port 80)
+    # Example: Replace with your actual hostname or use automation script
+    - host: "mft-admin.example.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 5555
+  tls:
+    # HTTPS listener configuration
+    - secretName: mft-admin-tls
+      hosts:
+        - mft-admin.example.com
+
+# Resource limits and requests
+resources:
+  msrContainer:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# Horizontal Pod Autoscaler (disabled by default)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Pod anti-affinity for multi-AZ distribution
+# This ensures pods are distributed across different availability zones
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - active-transfer
+        topologyKey: topology.kubernetes.io/zone
+
+# Topology spread constraints (alternative to affinity)
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: topology.kubernetes.io/zone
+  #   whenUnsatisfiable: DoNotSchedule
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: active-transfer
+
+# Priority class
+priorityClassName: ""
+
+# External load balancer (disabled - using Application Gateway)
+externalLoadBalancer: false
+
+# Persistence for VFS (Virtual File System)
+persistence:
+  enabled: true
+  # -- Storage class for Azure Files (ReadWriteMany)
+  storageClassName: "azurefile-csi"
+  annotations: {}
+  # -- Use existing PVC (if already created)
+  existingClaim: ""
+  # -- Access mode (must be ReadWriteMany for multi-pod access)
+  accessMode: ReadWriteMany
+  accessModes:
+    - ReadWriteMany
+  # -- VFS storage size
+  size: 100Gi
+
+# Metering configuration (IBM webMethods license metering)
+metering:
+  # -- Enable metering (TODO: requires metering configuration file)
+  enabled: false
+  # -- Metering server URL
+  serverUrl: "https://metering.softwareag.cloud/api/measurements"
+  # -- Proxy type
+  proxyType: "DIRECT"
+  # -- Connection timeout
+  serverConnectTimeout: "60000"
+  # -- Read timeout
+  serverReadTimeout: "300000"
+  # -- Accumulation period
+  accumulationPeriod: "1800"
+  # -- Report period
+  reportPeriod: "3600"
+  # -- Runtime alias
+  runtimeAlias: "mft-azure-aks"
+  # -- Log level
+  logLevel: "warn"
+
+# Prometheus monitoring
+prometheus:
+  path: "/metrics"
+  port: "5555"
+  scheme: "http"
+  scrape: "true"
+  interval: 30s
+  scrapeTimeout: 10s
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+
+# Graceful shutdown timeout
+terminationGracePeriodSeconds: 60
+
+# DNS configuration
+dnsConfig:
+  options:
+    - name: ndots
+      value: "2"
+    - name: edns0
+
+# Secret Provider Configuration
+secretProvider:
+  # -- Secret provider type: "kubernetes" or "azureKeyVault"
+  # Default: "kubernetes" (uses manually created Kubernetes secrets)
+  # Set to "azureKeyVault" to use Azure Key Vault with CSI driver
+  # NOTE: deploy-with-keyvault.sh automatically sets this to "azureKeyVault"
+  type: "kubernetes"
+
+# Azure Key Vault Configuration (when secretProvider.type = "azureKeyVault")
+# NOTE: When using deploy-with-keyvault.sh, all values below are automatically populated from Terraform outputs
+# Leave empty when using Kubernetes secrets mode
+azureKeyVault:
+  # -- Key Vault name (from Terraform output: key_vault_name)
+  name: ""
+
+  # -- Azure tenant ID (from Terraform output: tenant_id)
+  tenantId: ""
+
+  # -- Managed identity client ID (from Terraform output: mft_managed_identity_client_id)
+  clientId: ""
+
+  # -- Environment name for hierarchical secret naming (from Terraform output: environment_name)
+  environment: "vanilla"
+
+  # -- Certificate storage options (multiple approaches for flexibility)
+  certificateOptions:
+    # Option 1: Truststore from Key Vault as certificate (no encryption at rest in pod)
+    truststoreAsCertificate: true
+
+    # Option 2: PKCS12 from Key Vault as certificate for HTTPS (no encryption at rest in pod)
+    pkcs12AsCertificate: true
+
+    # Option 3: PKCS12 from Key Vault as secret value (encrypted at rest + env var passwords)
+    pkcs12AsSecretValue: true
+
+    # Option 4: JKS from Key Vault as secret value (encrypted at rest + env var passwords)
+    jksAsSecretValue: true
+
+  # -- Sync secrets to Kubernetes secrets (for environment variables)
+  syncToK8sSecrets: true
+
+  # -- Secret rotation configuration
+  rotation:
+    enabled: true
+    interval: "2m"
+    # Placeholder for rotation notification API
+    notificationApiUrl: "https://placeholder.example.com/api/secret-rotated"
+    # Placeholder for pod restart trigger
+    restartPodOnRotation: true

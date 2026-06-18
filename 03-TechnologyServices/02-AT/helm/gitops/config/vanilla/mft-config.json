@@ -1,0 +1,148 @@
+{
+  "declareMftCertificateList": [
+    {
+      "certificateId": "adminUiCert",
+      "certificateAlias": "adminUiCertificate",
+      "description": "Admin UI HTTPS Certificate (JKS Keystore)",
+      "location": "File",
+      "type": "Keystore",
+      "keyPassword": "${MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD}",
+      "keyStorePassword": "${MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD}",
+      "path": "/mnt/certs/admin-ui/keystore.jks",
+      "enabled": "true"
+    },
+    {
+      "certificateId": "adminUiTruststore",
+      "certificateAlias": "adminUiTruststoreCert",
+      "description": "Admin UI Truststore",
+      "location": "File",
+      "type": "Truststore",
+      "keyPassword": "${MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD}",
+      "keyStorePassword": "${MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD}",
+      "path": "/mnt/certs/admin-ui/truststore.jks",
+      "enabled": "true"
+    },
+    {
+      "certificateId": "webClientCert",
+      "certificateAlias": "webClientCertificate",
+      "description": "Web Client HTTPS Certificate (JKS Keystore)",
+      "location": "File",
+      "type": "Keystore",
+      "keyPassword": "${MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD}",
+      "keyStorePassword": "${MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD}",
+      "path": "/mnt/certs/web-client/keystore.jks",
+      "enabled": "true"
+    },
+    {
+      "certificateId": "webClientTruststore",
+      "certificateAlias": "webClientTruststoreCert",
+      "description": "Web Client Truststore",
+      "location": "File",
+      "type": "Truststore",
+      "keyPassword": "${MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD}",
+      "keyStorePassword": "${MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD}",
+      "path": "/mnt/certs/web-client/truststore.jks",
+      "enabled": "true"
+    },
+    {
+      "certificateId": "sftpRsaKey",
+      "certificateAlias": "sftpServerRsaKey",
+      "description": "SFTP Server RSA Private Key",
+      "location": "File",
+      "type": "SSH_PrivateKey",
+      "keyPassword": "",
+      "path": "/mnt/certs/sftp/id_rsa",
+      "enabled": "true"
+    }
+  ],
+  "declarePortInfoList": [
+    {
+      "portName": "SFTPPassword",
+      "host": "0.0.0.0",
+      "port": "55022",
+      "protocol": "SFTP",
+      "active": "true",
+      "sftpDetails": {
+        "enableDSA": "false",
+        "enableRSA": "true",
+        "RSACertificateId": "sftpRsaKey",
+        "requirePassword": "true",
+        "requirePublicKey": "false"
+      }
+    },
+    {
+      "portName": "SFTPPublicKey",
+      "host": "0.0.0.0",
+      "port": "55122",
+      "protocol": "SFTP",
+      "active": "true",
+      "sftpDetails": {
+        "enableDSA": "false",
+        "enableRSA": "true",
+        "RSACertificateId": "sftpRsaKey",
+        "requirePassword": "false",
+        "requirePublicKey": "true"
+      }
+    },
+    {
+      "portName": "HTTPSWebClient",
+      "host": "0.0.0.0",
+      "port": "55043",
+      "protocol": "HTTPS",
+      "active": "true",
+      "httpDetails": {
+        "httpsDetails": {
+          "keystoreCertificateId": "webClientCert",
+          "truststoreCertificateId": "webClientTruststore",
+          "sslVersions": "TLSv1.2,TLSv1.1"
+        }
+      }
+    }
+  ],
+  "declareGateways": [
+    {
+      "instanceName": "Gateway1",
+      "host": "${MFT_GATEWAY_1_IP}",
+      "port": "8500",
+      "active": true,
+      "autoConnect": true,
+      "antiVirusDetails": {
+        "isActive": false,
+        "isSSL": false
+      }
+    },
+    {
+      "instanceName": "Gateway2",
+      "host": "${MFT_GATEWAY_2_IP}",
+      "port": "8500",
+      "active": true,
+      "autoConnect": true,
+      "antiVirusDetails": {
+        "isActive": false,
+        "isSSL": false
+      }
+    }
+  ],
+  "declareVfs": [
+    {
+      "declaredVfsDetails": {
+        "vfsName": "DefaultVfs",
+        "vfsType": "Local",
+        "vfsLocation": {
+          "localPath": {
+            "filePath": "${MFT_DEFAULT_VFS_MOUNT_PATH}"
+          }
+        },
+        "Encryption": {
+          "isEncryptionEnabled": "false",
+          "isDecryptionEnabled": "false"
+        }
+      },
+      "declaredPartnerInfo": {
+        "name": "ExampleInternal",
+        "isTNPartner": "false",
+        "isEnterprise": "true"
+      }
+    }
+  ]
+}
