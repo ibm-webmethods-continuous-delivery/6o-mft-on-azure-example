@@ -1,17 +1,14 @@
 # ============================================================================
 # MFT Configuration JSON ConfigMap Template
 # ============================================================================
-# This ConfigMap contains the mft-config.json with environment variable
-# placeholders that will be substituted by the envsubst sidecar container
-# at pod startup.
+# This ConfigMap reads the mft-config.json file from the GitOps configuration
+# directory at deployment time using the .Files.Get pattern.
 #
-# Environment variables are referenced using ${VAR_NAME} syntax.
-# The envsubst sidecar will replace these with actual values from secrets.
+# The mft-config.json file contains environment variable placeholders that
+# will be substituted by the envsubst init container at pod startup.
 #
-# This is NOT a secret because:
-# - Passwords are referenced as ${ENV_VAR}, not stored as plaintext
-# - Structure (paths, IPs, ports) is deploy-time configuration
-# - Actual secret values come from Azure Key Vault via CSI driver
+# Environment variables are referenced using ${VAR_NAME} syntax in the JSON file.
+# The envsubst init container will replace these with actual values from secrets.
 # ============================================================================
 
 apiVersion: v1
@@ -23,143 +20,4 @@ metadata:
     app.kubernetes.io/component: configuration
 data:
   mft-config.json: |
-    {
-      "declareMftCertificateList": [
-        {
-          "certificateId": "adminUiCert",
-          "certificateAlias": "adminUiCertificate",
-          "description": "Admin UI HTTPS Certificate (JKS Keystore)",
-          "location": "File",
-          "type": "Keystore",
-          "keyPassword": "${MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD}",
-          "keyStorePassword": "${MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD}",
-          "path": "/mnt/certs/admin-ui/keystore.jks",
-          "enabled": "true"
-        },
-        {
-          "certificateId": "adminUiTruststore",
-          "certificateAlias": "adminUiTruststoreCert",
-          "description": "Admin UI Truststore",
-          "location": "File",
-          "type": "Truststore",
-          "keyPassword": "${MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD}",
-          "keyStorePassword": "${MFT_ADMIN_UI_JKS_TRUSTSTORE_PASSWORD}",
-          "path": "/mnt/certs/admin-ui/truststore.jks",
-          "enabled": "true"
-        },
-        {
-          "certificateId": "webClientCert",
-          "certificateAlias": "webClientCertificate",
-          "description": "Web Client HTTPS Certificate (JKS Keystore)",
-          "location": "File",
-          "type": "Keystore",
-          "keyPassword": "${MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD}",
-          "keyStorePassword": "${MFT_WEB_CLIENT_JKS_KEYSTORE_PASSWORD}",
-          "path": "/mnt/certs/web-client/keystore.jks",
-          "enabled": "true"
-        },
-        {
-          "certificateId": "webClientTruststore",
-          "certificateAlias": "webClientTruststoreCert",
-          "description": "Web Client Truststore",
-          "location": "File",
-          "type": "Truststore",
-          "keyPassword": "${MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD}",
-          "keyStorePassword": "${MFT_WEB_CLIENT_JKS_TRUSTSTORE_PASSWORD}",
-          "path": "/mnt/certs/web-client/truststore.jks",
-          "enabled": "true"
-        },
-        {
-          "certificateId": "sftpRsaKey",
-          "certificateAlias": "sftpServerRsaKey",
-          "description": "SFTP Server RSA Private Key",
-          "location": "File",
-          "type": "SSH_PrivateKey",
-          "keyPassword": "",
-          "path": "/mnt/certs/sftp/id_rsa",
-          "enabled": "true"
-        }
-      ],
-      "declarePortInfoList": [
-        {
-          "portName": "SFTPPassword",
-          "host": "0.0.0.0",
-          "port": "55022",
-          "protocol": "SFTP",
-          "active": "true",
-          "sftpDetails": {
-            "enableDSA": "false",
-            "enableRSA": "true",
-            "RSACertificateId": "sftpRsaKey",
-            "requirePassword": "true",
-            "requirePublicKey": "false"
-          }
-        },
-        {
-          "portName": "SFTPPublicKey",
-          "host": "0.0.0.0",
-          "port": "55122",
-          "protocol": "SFTP",
-          "active": "true",
-          "sftpDetails": {
-            "enableDSA": "false",
-            "enableRSA": "true",
-            "RSACertificateId": "sftpRsaKey",
-            "requirePassword": "false",
-            "requirePublicKey": "true"
-          }
-        },
-        {
-          "portName": "HTTPSWebClient",
-          "host": "0.0.0.0",
-          "port": "55043",
-          "protocol": "HTTPS",
-          "active": "true",
-          "httpDetails": {
-            "httpsDetails": {
-              "keystoreCertificateId": "webClientCert",
-              "truststoreCertificateId": "webClientTruststore",
-              "sslVersions": "TLSv1.2,TLSv1.1"
-            }
-          }
-        }
-      ],
-      "declareGateways": [
-        {{- range $index, $gateway := .Values.mftConfig.gateways }}
-        {{- if $index }},{{ end }}
-        {
-          "instanceName": {{ $gateway.instanceName | quote }},
-          "host": {{ $gateway.host | quote }},
-          "port": {{ $gateway.port | quote }},
-          "active": {{ $gateway.active }},
-          "autoConnect": {{ $gateway.autoConnect }},
-          "antiVirusDetails": {
-            "isActive": false,
-            "isSSL": false
-          }
-        }
-        {{- end }}
-      ],
-      "declareVfs": [
-        {
-          "declaredVfsDetails": {
-            "vfsName": {{ .Values.mftConfig.vfs.name | quote }},
-            "vfsType": {{ .Values.mftConfig.vfs.type | quote }},
-            "vfsLocation": {
-              "localPath": {
-                "filePath": {{ .Values.mftConfig.vfs.path | quote }}
-              }
-            },
-            "Encryption": {
-              "isEncryptionEnabled": {{ .Values.mftConfig.vfs.encryption.enabled | quote }},
-              "isDecryptionEnabled": {{ .Values.mftConfig.vfs.encryption.enabled | quote }}
-            }
-          },
-          "declaredPartnerInfo": {
-            "name": {{ .Values.mftConfig.vfs.partner.name | quote }},
-            "isTNPartner": {{ .Values.mftConfig.vfs.partner.isTNPartner | quote }},
-            "isEnterprise": {{ .Values.mftConfig.vfs.partner.isEnterprise | quote }}
-          }
-        }
-      ]
-    }
+{{ .Files.Get (printf "gitops/config/%s/mft-config.json" .Values.envName) | indent 4 }}

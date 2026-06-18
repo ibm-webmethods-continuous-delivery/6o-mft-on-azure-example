@@ -14,10 +14,14 @@ image:
   # This should be the enhanced image with ZzMftConfig package
   # NOTE: When using deploy-with-keyvault.sh, this is automatically set from Terraform output (acr_login_server)
   # Example format: <acr-name>.azurecr.io/active-transfer-enhance
-  repository: "your-acr.azurecr.io/active-transfer-enhance"
+  repository: "ibmmienipacr.azurecr.io/active-transfer-enhance"
   pullPolicy: IfNotPresent
   # -- Image tag - use specific version in production
   tag: "latest"
+  # -- Init container image with envsubst and curl pre-installed
+  initContainer:
+    repository: "ibmmienipacr.azurecr.io/alpine"
+    tag: "init-3.23"
 
 # -- Image pull secret for Azure Container Registry
 imagePullSecrets:
@@ -39,22 +43,22 @@ extraLabels:
 # -- Extra environment variables
 extraEnvs:
   # Admin password for Integration Server
-  - name: SAG_IS_ADMIN_PASSWORD
+  - name: MFT_ADMIN_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-admin-credentials
-        key: admin-password
+        key: mft-admin-password
   # Database passwords
-  - name: POSTGRES_PASSWORD
+  - name: MFT_DB_POSTGRES_ONLINE_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-db-credentials
-        key: online-db-password
-  - name: POSTGRES_ARCHIVE_PASSWORD
+        key: mft-db-postgres-online-password
+  - name: MFT_DB_POSTGRES_ARCHIVE_PASSWORD
     valueFrom:
       secretKeyRef:
         name: mft-db-credentials
-        key: archive-db-password
+        key: mft-db-postgres-archive-password
   # Admin UI keystore and truststore passwords - JKS format
   - name: MFT_ADMIN_UI_JKS_KEYSTORE_PASSWORD
     valueFrom:
@@ -113,6 +117,33 @@ extraEnvs:
 
 # -- Extra ports for MFT (SFTP, HTTPS for web client)
 # Note: These are for internal testing. External traffic goes through gateways.
+  # Database connection details (non-secret)
+  - name: MFT_DB_POSTGRES_ONLINE_DB_NAME
+    value: "mft_online"
+  - name: MFT_DB_POSTGRES_ONLINE_USER
+    value: "mft_app_user_3"
+  - name: MFT_DB_POSTGRES_ARCHIVE_DB_NAME
+    value: "mft_archive"
+  - name: MFT_DB_POSTGRES_ARCHIVE_USER
+    value: "mft_archive_user_3"
+  # Gateway configuration
+  - name: MFT_GATEWAY_1_IP
+    value: "10.1.0.4"
+  - name: MFT_GATEWAY_2_IP
+    value: "10.1.1.4"
+  # VFS configuration
+  - name: MFT_DEFAULT_VFS_MOUNT_PATH
+    value: "/mnt/default-vfs"
+  # MFT configuration file location
+  - name: MFT_CONFIG_JSON_FILE
+    value: "/mnt/injected/config/mft-config.json"
+  # MFT online postgres DB FQDN
+  - name: MFT_DB_POSTGRES_ONLINE_FQDN
+    value: "ibmmienip-sf-postgres.postgres.database.azure.com"
+  # MFT archive postgres DB FQDN
+  - name: MFT_DB_POSTGRES_ARCHIVE_FQDN
+    value: "ibmmienip-sf-postgres.postgres.database.azure.com"
+
 extraPorts:
   - containerPort: 55022
     name: sftp-pwd
@@ -126,35 +157,48 @@ extraPorts:
 
 # -- Extra volumes for certificates and VFS
 extraVolumes:
-  - name: mft-config-json
+  # Admin UI certificates - JKS format (from Azure Key Vault via CSI)
+  - name: admin-ui-certs-jks
     secret:
-      secretName: mft-config-json
-  - name: admin-ui-certs
+      secretName: mft-admin-ui-certs-jks
+  # Admin UI certificates - PKCS12 format (from Azure Key Vault via CSI)
+  - name: admin-ui-certs-pkcs12
     secret:
-      secretName: mft-admin-ui-certs
-  - name: web-client-certs
+      secretName: mft-admin-ui-certs-pkcs12
+  # Web Client certificates - JKS format (from Azure Key Vault via CSI)
+  - name: web-client-certs-jks
     secret:
-      secretName: mft-web-client-certs
+      secretName: mft-web-client-certs-jks
+  # Web Client certificates - PKCS12 format (from Azure Key Vault via CSI)
+  - name: web-client-certs-pkcs12
+    secret:
+      secretName: mft-web-client-certs-pkcs12
+  # SFTP SSH keys (from Azure Key Vault via CSI)
   - name: sftp-ssh-keys
     secret:
       secretName: mft-sftp-ssh-keys
+  # VFS storage (shared across pods)
   - name: vfs-storage
     persistentVolumeClaim:
       claimName: active-transfer-vfs
 
 # -- Extra volume mounts
 extraVolumeMounts:
-  # MFT configuration JSON
-  - name: mft-config-json
-    mountPath: /mnt/injected/config
-    readOnly: true
-  # Admin UI certificates
-  - name: admin-ui-certs
+  # Admin UI certificates - JKS format
+  - name: admin-ui-certs-jks
     mountPath: /mnt/certs/admin-ui
     readOnly: true
-  # Web Client certificates
-  - name: web-client-certs
+  # Admin UI certificates - PKCS12 format
+  - name: admin-ui-certs-pkcs12
+    mountPath: /mnt/certs/admin-ui-pkcs12
+    readOnly: true
+  # Web Client certificates - JKS format
+  - name: web-client-certs-jks
     mountPath: /mnt/certs/web-client
+    readOnly: true
+  # Web Client certificates - PKCS12 format
+  - name: web-client-certs-pkcs12
+    mountPath: /mnt/certs/web-client-pkcs12
     readOnly: true
   # SFTP SSH keys
   - name: sftp-ssh-keys
@@ -264,11 +308,11 @@ activeTransfer:
       # See templates/configmap-application-properties.yaml
 
 # Database configuration (used in ConfigMap templates)
-# NOTE: When using deploy-with-keyvault.sh, all values below are automatically set from Terraform outputs
+# These values MUST be injected from prerequisites (e.g. Terraform outputs for vanilla) during deployment
 database:
   # -- PostgreSQL server FQDN (from Terraform output: postgres_server_fqdn)
   # Example: your-postgres-server.postgres.database.azure.com
-  serverFqdn: "your-postgres-server.postgres.database.azure.com"
+  serverFqdn: "ibmmienip-sf-postgres.postgres.database.azure.com"
 
   # -- Online database name (from Terraform output: postgres_online_db_name)
   onlineDbName: "mft_online"
@@ -277,10 +321,10 @@ database:
   archiveDbName: "mft_archive"
 
   # -- Online database username (from Terraform output: postgres_dbc_user)
-  onlineDbUser: "mft_app_user"
+  onlineDbUser: "mft_app_user_3"
 
   # -- Archive database username (from Terraform output: postgres_dbc_archive_user)
-  archiveDbUser: "mft_archive_user"
+  archiveDbUser: "mft_archive_user_3"
 
   # -- SSL mode for PostgreSQL connections
   sslMode: "require"
@@ -304,12 +348,12 @@ mftConfig:
   # TODO: Parameterize gateway configuration in templates to use these values
   gateways:
     - instanceName: "Gateway1"
-      host: "10.0.0.4"  # Example IP - will be replaced by automation
+      host: "10.1.0.4"
       port: 8500
       active: true
       autoConnect: true
     - instanceName: "Gateway2"
-      host: "10.0.0.5"  # Example IP - will be replaced by automation
+      host: "10.1.1.4"
       port: 8500
       active: true
       autoConnect: true
@@ -535,23 +579,23 @@ secretProvider:
   # Default: "kubernetes" (uses manually created Kubernetes secrets)
   # Set to "azureKeyVault" to use Azure Key Vault with CSI driver
   # NOTE: deploy-with-keyvault.sh automatically sets this to "azureKeyVault"
-  type: "kubernetes"
+  type: "azureKeyVault"
 
 # Azure Key Vault Configuration (when secretProvider.type = "azureKeyVault")
 # NOTE: When using deploy-with-keyvault.sh, all values below are automatically populated from Terraform outputs
 # Leave empty when using Kubernetes secrets mode
 azureKeyVault:
   # -- Key Vault name (from Terraform output: key_vault_name)
-  name: ""
+  name: "ibmmienip-sf-kv"
 
   # -- Azure tenant ID (from Terraform output: tenant_id)
-  tenantId: ""
+  tenantId: "4a9b0190-274a-4f23-8f6e-036f7a667130"
 
   # -- Managed identity client ID (from Terraform output: mft_managed_identity_client_id)
-  clientId: ""
+  clientId: "bcce0918-93e6-4fe3-96dc-5d94359d9026"
 
   # -- Environment name for hierarchical secret naming (from Terraform output: environment_name)
-  environment: "vanilla"
+  # environment: "vanilla"
 
   # -- Certificate storage options (multiple approaches for flexibility)
   certificateOptions:
