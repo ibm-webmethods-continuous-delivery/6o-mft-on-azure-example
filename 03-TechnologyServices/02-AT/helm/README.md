@@ -214,10 +214,6 @@ kubectl create secret generic mft-db-credentials \
   --from-literal=online-db-password='OnlineDbPassword' \
   --from-literal=archive-db-password='ArchiveDbPassword'
 
-# MFT configuration JSON
-kubectl create secret generic mft-config-json \
-  --from-file=mft-config.json=path/to/mft-config.json
-
 # Certificates - JKS Format (Admin UI)
 kubectl create secret generic mft-admin-ui-jks-certs \
   --from-file=keystore.jks=path/to/admin-keystore.jks \
@@ -637,9 +633,11 @@ kubectl delete pvc active-transfer-vfs -n mft-namespace
 
 # Delete secrets (if needed)
 kubectl delete secret mft-admin-credentials mft-db-credentials \
-  mft-config-json mft-admin-ui-certs mft-web-client-certs \
+  mft-admin-ui-certs mft-web-client-certs \
   mft-sftp-ssh-keys -n mft-namespace
 ```
+
+**Note:** The `mft-config-json` secret is no longer used. MFT runtime configuration is now managed as a ConfigMap in the gitops folder.
 
 ## Known Limitations
 
@@ -705,13 +703,7 @@ Even with Key Vault automation, these secrets must be created manually:
 
 2. **Certificate Files** - Create as Kubernetes secrets (see above)
 
-3. **MFT Config JSON** - Create as Kubernetes secret:
-   ```bash
-   kubectl create secret generic mft-config-json \
-     --from-file=mft-config.json=path/to/mft-config.json
-   ```
-
-4. **SSH Keys** - Create as Kubernetes secret:
+3. **SSH Keys** - Create as Kubernetes secret:
    ```bash
    kubectl create secret generic mft-sftp-ssh-keys \
      --from-file=ssh_host_rsa_key=path/to/ssh_host_rsa_key \

@@ -672,10 +672,6 @@ locals {
       value       = "placeholder-ssh-key"
       description = "SSH private key for SFTP server authentication (placeholder, replace with actual key)"
     }
-    "${local.environment}-mft-config-json" = {
-      value       = "{}"
-      description = "MFT configuration JSON for runtime configuration management"
-    }
     "${local.environment}-mft-metering-config-xml-file" = {
       value       = "<metering>Change this to a valid file you download from https://ibm.biz/metering</metering>"
       description = "IBM webMethods metering configuration XML file mounted into the Active Transfer runtime when metering is enabled"

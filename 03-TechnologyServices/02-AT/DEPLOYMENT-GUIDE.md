@@ -81,12 +81,7 @@ az keyvault secret set \
 
 ### 4. MFT Config JSON Secret
 
-```bash
-# Create mft-config.json file first (see templates/secret-mft-config.yaml.template for structure)
-kubectl create secret generic mft-config-json \
-  --from-file=mft-config.json=/path/to/mft-config.json \
-  -n default
-```
+**Note:** The `mft-config-json` secret is no longer required. MFT runtime configuration is now managed as a ConfigMap in the Helm chart's gitops folder (`helm/gitops/config/<env>/mft-config.json`).
 
 ### 5. SFTP SSH Private Key in Key Vault
 
@@ -342,8 +337,10 @@ kubectl delete pvc active-transfer-vfs -n default
 
 # Delete secrets (if needed)
 kubectl delete secret mft-admin-ui-certs mft-web-client-certs \
-  mft-sftp-ssh-keys mft-config-json -n default
+  mft-sftp-ssh-keys -n default
 ```
+
+**Note:** The `mft-config-json` secret is no longer used.
 
 ### Clean Key Vault Secrets
 

@@ -140,7 +140,7 @@ extraEnvs:
   # MFT configuration file location
   - name: MFT_CONFIG_JSON_FILE
     value: "/mnt/injected/config/mft-config.json"
-      # MFT online postgres DB FQDN
+  # MFT online postgres DB FQDN
   - name: MFT_DB_POSTGRES_ONLINE_FQDN
     value: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
   # MFT archive postgres DB FQDN
@@ -315,23 +315,23 @@ activeTransfer:
 database:
   # -- PostgreSQL server FQDN (from Terraform output: azurerm_postgresql_flexible_server.fqdn)
   # Example: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
-  serverFqdn: ""
+  serverFqdn: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
 
   # -- Online database name (from Terraform output: online_database_name)
   # Example: "mft_online"
-  onlineDbName: ""
+  onlineDbName: "mft_online"
 
   # -- Archive database name (from Terraform output: archive_database_name)
   # Example: "mft_archive"
-  archiveDbName: ""
+  archiveDbName: "mft_archive"
 
   # -- Online database username (from 00-DatabaseUserInit Terraform output)
   # Example: "mft_online_user"
-  onlineDbUser: ""
+  onlineDbUser: "mft_app_user"
 
   # -- Archive database username (from 00-DatabaseUserInit Terraform output)
   # Example: "mft_archive_user"
-  archiveDbUser: ""
+  archiveDbUser: "mft_archive_user"
 
   # -- SSL mode for PostgreSQL connections
   sslMode: "require"
@@ -442,11 +442,11 @@ ingress:
   enabled: true
   className: "azure-application-gateway"
   annotations:
-    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/ssl-redirect: "false"
     appgw.ingress.kubernetes.io/backend-protocol: "http"
     appgw.ingress.kubernetes.io/cookie-based-affinity: "true"
   hosts:
-    - host: "mft-admin.local"
+    - host: "mft-admin.example.com"
       paths:
         - path: /
           pathType: Prefix
@@ -454,7 +454,7 @@ ingress:
   tls:
     - secretName: mft-admin-tls
       hosts:
-        - mft-admin.local
+        - mft-admin.example.com
 
 # Resource limits and requests
 resources:
@@ -574,7 +574,7 @@ persistence:
     reclaimPolicy: Retain
 
     # -- Mount path in container (different from public VFS)
-    mountPath: "/opt/IBM/MFT/vfs-private"
+    mountPath: "/mnt/default-private-vfs"
 
     # -- Kubernetes secret name for storage credentials
     secretName: "mft-vfs-private-secret"

@@ -229,7 +229,6 @@ elif [[ "$SECRET_PROVIDER_TYPE" == "kubernetes" ]]; then
         "mft-web-client-pkcs12-certs"
         "mft-sftp-ssh-keys"
         "mft-admin-credentials"
-        "mft-config-json"
     )
     
     MISSING_SECRETS=()

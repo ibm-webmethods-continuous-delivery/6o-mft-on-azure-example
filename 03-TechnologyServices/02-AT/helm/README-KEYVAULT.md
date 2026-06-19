@@ -80,8 +80,9 @@ Secrets in Key Vault follow hierarchical naming:
 ### Other Secrets
 - `<env>-mft-admin-password`
 - `<env>-mft-sftp-ssh-private-key`
-- `<env>-mft-config-json`
 - `<env>-mft-metering-config-xml-file`
+
+**Note:** The `<env>-mft-config-json` secret has been removed. MFT runtime configuration is now managed as a ConfigMap in the gitops folder (`helm/gitops/config/<env>/mft-config.json`).
 
 Examples:
 - `vanilla-mft-admin-password`

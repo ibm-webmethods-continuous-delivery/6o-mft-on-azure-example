@@ -12,15 +12,13 @@ statefulSet: false
 image:
   # -- Active Transfer container image from Azure Container Registry
   # This should be the enhanced image with ZzMftConfig package
-  # NOTE: When using deploy-with-keyvault.sh, this is automatically set from Terraform output (acr_login_server)
-  # Example format: <acr-name>.azurecr.io/active-transfer-enhance
-  repository: "ibmmienipacr.azurecr.io/active-transfer-enhance"
+  repository: "<value_from_prefix_tfvar_in_service_delivery>acr.azureacr.io/active-transfer-enhance"
   pullPolicy: IfNotPresent
   # -- Image tag - use specific version in production
   tag: "latest"
   # -- Init container image with envsubst and curl pre-installed
   initContainer:
-    repository: "ibmmienipacr.azurecr.io/alpine"
+    repository: "<value_from_prefix_tfvar_in_service_delivery>acr.azureacr.io/alpine"
     tag: "init-3.23"
 
 # -- Image pull secret for Azure Container Registry
@@ -144,10 +142,10 @@ extraEnvs:
     value: "/mnt/injected/config/mft-config.json"
   # MFT online postgres DB FQDN
   - name: MFT_DB_POSTGRES_ONLINE_FQDN
-    value: "mftaks123-postgres.postgres.database.azure.com"
+    value: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
   # MFT archive postgres DB FQDN
   - name: MFT_DB_POSTGRES_ARCHIVE_FQDN
-    value: "mftaks123-postgres.postgres.database.azure.com"
+    value: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
 
 extraPorts:
   - containerPort: 55022
@@ -315,9 +313,9 @@ activeTransfer:
 # Database configuration (used in ConfigMap templates)
 # These values MUST be injected from prerequisites (e.g. Terraform outputs for vanilla) during deployment
 database:
-  # -- PostgreSQL server FQDN (from Terraform output: postgres_server_fqdn)
-  # Example: your-postgres-server.postgres.database.azure.com
-  serverFqdn: "mftaks123-postgres.postgres.database.azure.com"
+  # -- PostgreSQL server FQDN (from Terraform output: azurerm_postgresql_flexible_server.fqdn)
+  # Example: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
+  serverFqdn: "<value_from_prefix_tfvar>-postgres.postgres.database.azure.com"
 
   # -- Online database name (from Terraform output: postgres_online_db_name)
   onlineDbName: "mft_online"
@@ -325,11 +323,13 @@ database:
   # -- Archive database name (from Terraform output: postgres_archive_db_name)
   archiveDbName: "mft_archive"
 
-  # -- Online database username (from Terraform output: postgres_dbc_user)
-  onlineDbUser: "mft_app_user_3"
+  # -- Online database username (from 00-DatabaseUserInit Terraform output)
+  # Example: "mft_online_user"
+  onlineDbUser: "mft_app_user"
 
-  # -- Archive database username (from Terraform output: postgres_dbc_archive_user)
-  archiveDbUser: "mft_archive_user_3"
+  # -- Archive database username (from 00-DatabaseUserInit Terraform output)
+  # Example: "mft_archive_user"
+  archiveDbUser: "mft_archive_user"
 
   # -- SSL mode for PostgreSQL connections
   sslMode: "require"
@@ -595,10 +595,10 @@ persistence:
     # -------------------------------------------------------------------------
 
     # -- Azure resource group name (from Terraform)
-    resourceGroup: "miun-rg-mft-demo-service-f"
+    resourceGroup: "vanilla-mft-aks"
 
     # -- Storage account name (from Terraform output: mft_vfs_private_storage_account_name)
-    storageAccountName: "mftaks123mftvfspvt"
+    storageAccountName: "mftaksvanilla"
 
     # -- File share name (from Terraform output: mft_vfs_private_share_name)
     shareName: "mft-vfs-private"
@@ -609,8 +609,12 @@ persistence:
 
 # Metering configuration (IBM webMethods license metering)
 metering:
-  # -- Enable metering (TODO: requires metering configuration file)
+  # -- Enable metering configuration mount from Azure Key Vault via CSI driver
   enabled: false
+  # -- Key Vault secret name suffix for the metering configuration XML file
+  secretName: "mft-metering-config-xml-file"
+  # -- Target file path for the metering configuration XML
+  mountPath: ""
   # -- Metering server URL
   serverUrl: "https://metering.softwareag.cloud/api/measurements"
   # -- Proxy type
@@ -653,18 +657,15 @@ dnsConfig:
 
 # Secret Provider Configuration
 secretProvider:
-  # -- Secret provider type: "kubernetes" or "azureKeyVault"
-  # Default: "kubernetes" (uses manually created Kubernetes secrets)
-  # Set to "azureKeyVault" to use Azure Key Vault with CSI driver
-  # NOTE: deploy-with-keyvault.sh automatically sets this to "azureKeyVault"
-  type: "azureKeyVault"
+  # -- Secret provider type: "kubernetes" or "azureKeyVault". Tested with azureKeyVault
+  type: "azureKeyVault"  # Default to existing behavior
 
 # Azure Key Vault Configuration (when secretProvider.type = "azureKeyVault")
 # NOTE: When using deploy-with-keyvault.sh, all values below are automatically populated from Terraform outputs
 # Leave empty when using Kubernetes secrets mode
 azureKeyVault:
   # -- Key Vault name (from Terraform output: key_vault_name)
-  name: "mftaks123-kv"
+  name: "<value_from_prefix_tfvar_in_service_delivery>-kv"
 
   # -- Azure tenant ID (from Terraform output: tenant_id)
   tenantId: "NOT_IN_GIT"

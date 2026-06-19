@@ -287,7 +287,8 @@ Default placeholder secrets for MFT components (should be updated after deployme
 - `${environment}-mft-cert-jks-truststore-password`
 - `${environment}-mft-cert-pkcs12-truststore-password`
 - `${environment}-mft-sftp-ssh-private-key`
-- `${environment}-mft-config-json`
+
+**Note:** The `${environment}-mft-config-json` secret has been removed. MFT runtime configuration is now managed as a ConfigMap in the Helm chart's gitops folder, not as a Key Vault secret.
 
 **⚠️ WARNING**: These default secrets have placeholder values and expire in 90 days. Update them immediately after deployment.
 
