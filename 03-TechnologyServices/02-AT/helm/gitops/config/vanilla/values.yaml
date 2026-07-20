@@ -427,6 +427,15 @@ service:
   # -- Admin UI port
   port: 5555
 
+  # -- Session affinity: "ClientIP" pins kube-proxy routing to the same pod based on client IP.
+  # Required alongside the AGIC cookie annotation so that traffic reaching the Service ClusterIP
+  # is not re-distributed to a different pod by kube-proxy.
+  # Set to "None" to disable (default Kubernetes behaviour).
+  sessionAffinity: "ClientIP"
+
+  # -- Timeout in seconds for ClientIP session affinity (default: 10800 = 3 hours).
+  sessionAffinityTimeoutSeconds: 10800
+
   # -- Additional ports
   ports:
     - name: https

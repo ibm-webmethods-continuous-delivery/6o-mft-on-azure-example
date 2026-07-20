@@ -13,6 +13,7 @@ terraform {
   }
 }
 
+# Azure Hyperscaler Resources
 provider "azurerm" {
   features {
     key_vault {
@@ -21,6 +22,7 @@ provider "azurerm" {
   }
 }
 
+# Azure DevOps Resources
 provider "azuredevops" {
   # Authentication via AZDO_PERSONAL_ACCESS_TOKEN environment variable
   # Set before running terraform: export AZDO_PERSONAL_ACCESS_TOKEN="your-pat"

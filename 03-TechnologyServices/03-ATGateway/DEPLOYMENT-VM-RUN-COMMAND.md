@@ -20,6 +20,8 @@ This guide explains how to deploy ActiveTransfer Gateways using **Azure VM Run C
 - Quick deployments
 - Environments without bastion hosts
 
+**Important:** This deployment assumes the `acr-login.service` is already present on the VMs. If not, see [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md) to install it first.
+
 ## Prerequisites
 
 ### 1. Azure CLI
@@ -307,7 +309,7 @@ az vm run-command invoke \
     --scripts "
         # Edit configuration
         sed -i 's/mft.server.log.level=INFO/mft.server.log.level=DEBUG/' /opt/at-gateway/config/properties.cnf
-        
+
         # Restart service to apply changes
         systemctl restart at-gateway.service
     " \
@@ -392,22 +394,34 @@ Error response from daemon: pull access denied
 
 **Solutions:**
 
-1. Verify ACR role assignment is enabled in Terraform:
+1. **Check if acr-login.service exists:**
+   ```bash
+   az vm run-command invoke \
+       -g "${RESOURCE_GROUP}" \
+       -n "${GATEWAY1_VM_NAME}" \
+       --command-id RunShellScript \
+       --scripts "systemctl status acr-login.service" \
+       --output table
+   ```
+
+   **If service doesn't exist**, install it first using the [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md).
+
+2. Verify ACR role assignment is enabled in Terraform:
    ```bash
    cd /aio/work/c/iwcd/6o-mft-on-azure-example/01-AzurePrerequisites/02-ServiceFulfillment
    terraform output enable_sftp_vm_acr_role
    ```
 
-2. If false, enable it:
+3. If false, enable it:
    ```bash
    # Edit terraform.tfvars
    echo 'enable_sftp_vm_acr_role = true' >> terraform.tfvars
-   
+
    # Apply changes
    terraform apply
    ```
 
-3. Manually trigger ACR login on VM:
+4. Manually trigger ACR login on VM:
    ```bash
    az vm run-command invoke \
        -g "${RESOURCE_GROUP}" \
@@ -455,7 +469,7 @@ nc: connect to 10.1.0.4 port 8500 (tcp) failed: Connection refused
 1. Verify NSG rules allow traffic from AKS:
    ```bash
    cd /aio/work/c/iwcd/6o-mft-on-azure-example/01-AzurePrerequisites/02-ServiceFulfillment
-   
+
    # Check NSG rules
    terraform show | grep -A 20 "azurerm_network_security_rule"
    ```
@@ -500,6 +514,7 @@ After successful deployment:
 
 ## Related Documentation
 
+- [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md) - **Required if acr-login.service is missing**
 - [Main README](./README.md) - Overview and all deployment methods
 - [Troubleshooting Guide](./TROUBLESHOOTING.md) - Detailed troubleshooting
 - [Azure Pipeline Setup](../../02-ContainerImages/PIPELINE-SETUP.md) - Production deployment

@@ -148,6 +148,7 @@ External Clients
 3. **ACR Access**:
    - VMs have AcrPull role assignment (set `enable_sftp_vm_acr_role = true` in Terraform)
    - ACR login service configured on VMs
+   - **Important:** If `acr-login.service` is not present, see [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md)
 
 4. **Container Image**:
    - `active-transfer-enhance:latest` available in ACR
@@ -889,6 +890,9 @@ Consider setting up:
 
 ## Related Documentation
 
+- [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md) - **Required if acr-login.service is missing**
+- [VM Run Command Deployment Guide](./DEPLOYMENT-VM-RUN-COMMAND.md)
+- [Troubleshooting Guide](./TROUBLESHOOTING.md)
 - [Infrastructure Analysis](/.ai-assist/sessions/2026/05/22/03_add_gateways/agent/infrastructure_analysis.md)
 - [Azure Pipeline Setup](../../pipelines/azure/GATEWAYS-PIPELINE-SETUP.md)
 - [Helm Upgrade Procedure](../02-AT/HELM-UPGRADE.md)

@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archimate:model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:archimate="http://www.archimatetool.com/archimate" name="Active-Transfer-On-AKS-Example" id="id-241fb1177e824b9ea5b37a00bb96a79a" version="5.0.0">
+  <folder name="Strategy" id="id-f1fd7f92dde24047a7345c8e5a8aed88" type="strategy"/>
+  <folder name="Business" id="id-c88535a3afee4bfeb5f1bc7bc2e0dc77" type="business"/>
+  <folder name="Application" id="id-6cf34d5ac80445418c2df7336cb8f392" type="application">
+    <folder name="ServiceFulfillment" id="id-b094e814ab4d4eeaa44d72ad864b6eed">
+      <element xsi:type="archimate:ApplicationService" name="MFT" id="id-396ebd509b99408e8a0452ff0687d361">
+        <documentation>Managed File Transfer Service
+Based on webMethods Active Transfer Technology
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT AKS" id="id-app-sf-aks-000000000006">
+        <documentation>Azure Kubernetes Service cluster hosting the MFT workloads.
+Provides container orchestration, workload identity (OIDC), Key Vault CSI driver and AGIC integration.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT AppGateway" id="id-app-sf-appgw-00000000007">
+        <documentation>Azure Application Gateway acting as the ingress endpoint for the MFT solution.
+Managed by AGIC (Application Gateway Ingress Controller) running inside AKS.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT Database" id="id-app-sf-postgres-0000008">
+        <documentation>Azure PostgreSQL Flexible Server providing the MFT transactional (mft_online) and archival (mft_archive) databases.
+Deployed in a private subnet with no public network access.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT KeyVault SF" id="id-app-sf-keyvault-000000009">
+        <documentation>Azure Key Vault holding runtime secrets for the MFT solution: certificates, database credentials, SFTP SSH keys and metering config.
+Accessed by AKS pods via workload identity and the Key Vault CSI driver.
+
+The security team is owning the vault, the application team mandated presence of keys. Operations and security team may alter values of the keys as needed.
+</documentation>
+        <property key="stability" value="medium-long term"/>
+        <property key="owning team" value="security"/>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT SFTP LB" id="id-app-sf-lb-00000000000010">
+        <documentation>Azure Standard Load Balancer providing a single public SFTP endpoint (port 55022) fronting the two SFTP gateway VMs.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT ATG VMs" id="id-app-sf-sftpvms-000000011">
+        <documentation>Pair of Azure Linux Virtual Machines (sftp-vm-1, sftp-vm-2) acting as Active Transfer Gateway nodes.
+Pull container images from ACR; expose service defined ports such as FTP, SFTP, FTPS and HTTP / HTTPS driven by the internal Active Transfer service and gateway ports to the AKS cluster so that the Active Transfer service can connect.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT VFS Storage" id="id-app-sf-storage-00000012">
+        <documentation>Azure Storage Account (Azure Files, private endpoint only) providing the MFT Virtual File System (VFS) persistent volume.
+Optional — enabled by the mft_vfs_private_enabled variable.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT Network SF" id="id-app-sf-network-0000000013">
+        <documentation>Azure Virtual Network for the runtime platform: public subnets for SFTP VMs, private subnets for AKS and PostgreSQL, Application Gateway subnet.
+Secured by NSGs per subnet.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT WorkloadIdentity" id="id-app-sf-identity-000000014">
+        <documentation>Azure User-Assigned Managed Identity with federated credentials (OIDC) for the MFT Kubernetes service accounts.
+Grants Key Vault access to MFT pods without storing credentials in the cluster.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT PrivateLink SF" id="id-app-sf-privatelink-00015">
+        <documentation>Azure Private Endpoints and Private DNS Zones providing private network access to Key Vault and the MFT VFS Storage Account from within the AKS subnet.
+</documentation>
+      </element>
+    </folder>
+    <folder name="ServiceDelivery" id="id-5f5f53147e044e50b1c6020112f2e094">
+      <element xsi:type="archimate:ApplicationService" name="MFT ACR" id="id-36f2bd3e10224074b745a791efbdbce9">
+        <documentation>The example provides an Azure Container Registry to showcase the container images transport
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT KeyVault SD" id="id-app-sd-keyvault-000000000001">
+        <documentation>Azure Key Vault used during the build and delivery phase to store secrets required by Azure DevOps pipelines and build agents.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT AgentPool Storage" id="id-app-sd-storage-000000000002">
+        <documentation>Azure Storage Account with a large file share used by Azure DevOps self-hosted build agents for storing build artefacts and shared data.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT AgentPool" id="id-app-sd-vmss-0000000000003">
+        <documentation>Azure VM Scale Set (uniform, 0 initial instances) providing self-hosted Azure DevOps build agents.
+Scaled on demand by Azure DevOps to build and push container images to ACR.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT AzDO" id="id-app-sd-azdo-0000000000004">
+        <documentation>Azure DevOps project hosting the CI/CD pipelines, GitHub service connection, agent pool, and pipeline variable groups for the MFT build and deployment automation.
+</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationService" name="MFT Network SD" id="id-app-sd-network-00000000005">
+        <documentation>Azure Virtual Network, Subnet and NSG dedicated to the build agent VMSS.
+Isolates agent traffic from the runtime platform network.
+</documentation>
+      </element>
+    </folder>
+  </folder>
+  <folder name="Technology &amp; Physical" id="id-cdf36429f3104aa2866ab552e5bf52bc" type="technology">
+    <element xsi:type="archimate:TechnologyService" name="Azure Container Registry" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
+      <documentation>Microsoft Azure managed container registry service.
+Provides storage, management and distribution of container images and OCI artefacts.
+This is the generic platform-level capability; specific instances are modelled at the application layer.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Key Vault" id="id-tech-keyvault-000000000001">
+      <documentation>Microsoft Azure managed secrets, keys and certificates vault.
+Used generically by both the ServiceDelivery (build-time) and ServiceFulfillment (runtime) modules — each has its own ApplicationService instance.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Storage Account" id="id-tech-storage-000000000002">
+      <documentation>Microsoft Azure managed object and file storage service (StorageV2 / Azure Files).
+Used generically by both the build agent file share (ServiceDelivery) and the MFT VFS private share (ServiceFulfillment).
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure VM Scale Set" id="id-tech-vmss-0000000000003">
+      <documentation>Microsoft Azure managed Virtual Machine Scale Set (uniform orchestration).
+Used as the compute substrate for self-hosted Azure DevOps build agents.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure DevOps" id="id-tech-azdo-0000000000004">
+      <documentation>Microsoft Azure DevOps SaaS platform providing source control, CI/CD pipelines, agent pools and artefact management.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Virtual Network" id="id-tech-vnet-0000000000005">
+      <documentation>Microsoft Azure managed Virtual Network service (VNet, Subnets, NSGs, subnet associations).
+Used generically by both the ServiceDelivery agents network and the ServiceFulfillment runtime network.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Kubernetes Service" id="id-tech-aks-00000000000006">
+      <documentation>Microsoft Azure managed Kubernetes cluster service.
+Provides container orchestration, OIDC issuer for workload identity, Key Vault CSI driver and Azure CNI networking.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Application Gateway" id="id-tech-appgw-0000000000007">
+      <documentation>Microsoft Azure managed layer-7 load balancer and ingress service.
+Configured as the AGIC-managed ingress for the AKS cluster.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure PostgreSQL Flexible Server" id="id-tech-postgres-000000008">
+      <documentation>Microsoft Azure managed PostgreSQL Flexible Server database service.
+Provides the relational database backend for the MFT solution, deployed in a private delegated subnet.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Load Balancer" id="id-tech-lb-000000000000009">
+      <documentation>Microsoft Azure managed Standard Load Balancer (layer-4).
+Used to distribute inbound SFTP traffic across the two SFTP gateway VMs.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Linux Virtual Machine" id="id-tech-vm-000000000000010">
+      <documentation>Microsoft Azure managed Linux Virtual Machine compute service.
+Used as the underlying infrastructure for SFTP gateway nodes.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Managed Identity" id="id-tech-identity-000000011">
+      <documentation>Microsoft Azure managed identity service (User-Assigned Managed Identity with federated OIDC credentials).
+Provides credential-free authentication from Kubernetes workloads to Azure services.
+</documentation>
+    </element>
+    <element xsi:type="archimate:TechnologyService" name="Azure Private Link" id="id-tech-privatelink-000012">
+      <documentation>Microsoft Azure Private Endpoints and Private DNS Zones service.
+Provides private network connectivity to PaaS services (Key Vault, Storage) without traversing the public internet.
+</documentation>
+    </element>
+    <element xsi:type="archimate:Artifact" name="MFT KeyVault SF Artifact" id="id-05a5637827ba41c6bafc569808cd0174"/>
+  </folder>
+  <folder name="Motivation" id="id-74ebde5715144b66acb1c22b38b30759" type="motivation">
+    <element xsi:type="archimate:Principle" name="Least Privilege" id="id-89d6fcff3f7443cfad966cffa1d8d862"/>
+    <element xsi:type="archimate:Requirement" name="Azure Kubernetes Service Deployment" id="id-aecdac2fa40c4a678538beef5eb9d1da"/>
+    <element xsi:type="archimate:Constraint" name="NIS2 Compliance" id="id-b5dc9474f15d4021b917341430ef5be4"/>
+    <element xsi:type="archimate:Constraint" name="TLS 1.2+ Transport" id="id-bc0790da23d04777984ad36f7e417853">
+      <documentation>This includes transport between the Integration Server and the product database
+</documentation>
+    </element>
+    <element xsi:type="archimate:Requirement" name="Use Azure Managed Identities" id="id-911694e1c3fa412fb9d8acba67e06bc8">
+      <documentation>Prefer utilization of Azure Managed Identities as credentials are not distributed when these are used
+</documentation>
+    </element>
+    <element xsi:type="archimate:Requirement" name="Use Key Vault Secrets and Implement Rotation" id="id-e679d79780994dd1b09f1f2e1d3ef3a0"/>
+    <element xsi:type="archimate:Requirement" name="Use Service Principals" id="id-72aff90e280748aa97a74116f29b3c3e"/>
+  </folder>
+  <folder name="Implementation &amp; Migration" id="id-20df8308209248639d1eb30557f93f70" type="implementation_migration">
+    <element xsi:type="archimate:Gap" name="When Azure Managed Identities Cannot be used fall back to Service Principals" id="id-2c584ec2481a4b39882308f2adad6996">
+      <documentation>When Azure Managed Identities Cannot be used, use Service Principals</documentation>
+    </element>
+    <element xsi:type="archimate:Gap" name="When neither Managed Identities Nor Service Principals can be used, use specific identities" id="id-7531efe3881f4bb3bedb8bb59dcb72f6">
+      <documentation>Use specific users according to the technology used, but keep the secrets in the keyvault</documentation>
+    </element>
+  </folder>
+  <folder name="Other" id="id-c4bc1b32ed2046adb6f3734e12f7e989" type="other">
+    <element xsi:type="archimate:Grouping" name="Fulfillment - Security Related Long Term Stack" id="id-d48e23ee6d1f454f9eb19549fa7cd7e4">
+      <property key="stability" value="medium-long term"/>
+    </element>
+  </folder>
+  <folder name="Relations" id="id-934a0ed1368b44cba3f05914635bb933" type="relations">
+    <element xsi:type="archimate:RealizationRelationship" id="id-b5c6d7e8f9a04b1c2d3e4f5a6b7c8d9e" source="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d" target="id-36f2bd3e10224074b745a791efbdbce9"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-keyvault-00000000001" source="id-tech-keyvault-000000000001" target="id-app-sd-keyvault-000000000001"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-storage-000000000002" source="id-tech-storage-000000000002" target="id-app-sd-storage-000000000002"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-vmss-0000000000003" source="id-tech-vmss-0000000000003" target="id-app-sd-vmss-0000000000003"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-azdo-0000000000004" source="id-tech-azdo-0000000000004" target="id-app-sd-azdo-0000000000004"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-network-00000000005" source="id-tech-vnet-0000000000005" target="id-app-sd-network-00000000005"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-aks-000000000006" source="id-tech-aks-00000000000006" target="id-app-sf-aks-000000000006"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-appgw-00000000007" source="id-tech-appgw-0000000000007" target="id-app-sf-appgw-00000000007"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-postgres-0000008" source="id-tech-postgres-000000008" target="id-app-sf-postgres-0000008"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-keyvault-000000009" source="id-tech-keyvault-000000000001" target="id-app-sf-keyvault-000000009"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-lb-00000000000010" source="id-tech-lb-000000000000009" target="id-app-sf-lb-00000000000010"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-sftpvms-000000011" source="id-tech-vm-000000000000010" target="id-app-sf-sftpvms-000000011"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-storage-00000012" source="id-tech-storage-000000000002" target="id-app-sf-storage-00000012"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-network-0000000013" source="id-tech-vnet-0000000000005" target="id-app-sf-network-0000000013"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-identity-000000014" source="id-tech-identity-000000011" target="id-app-sf-identity-000000014"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-privatelink-00015" source="id-tech-privatelink-000012" target="id-app-sf-privatelink-00015"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-78a206e583004516b070010db4265988" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-bc0790da23d04777984ad36f7e417853"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-b0d438ff50854e58b5772bbd11c23d53" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-911694e1c3fa412fb9d8acba67e06bc8"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-81ac2d39b2534aca9fce728751e2027d" source="id-2c584ec2481a4b39882308f2adad6996" target="id-7ebd87384e8e4817b2dd84553cb46a4b"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-e7cc449280a544ae80ae003c7edb09c8" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-e679d79780994dd1b09f1f2e1d3ef3a0"/>
+    <element xsi:type="archimate:AggregationRelationship" id="id-bcdefdbd5c984cb8954aefb582a9decf" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-72aff90e280748aa97a74116f29b3c3e"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-7ebd87384e8e4817b2dd84553cb46a4b" source="id-911694e1c3fa412fb9d8acba67e06bc8" target="id-72aff90e280748aa97a74116f29b3c3e"/>
+    <element xsi:type="archimate:InfluenceRelationship" id="id-67e77531be83492b915b9f75626a31d0" source="id-72aff90e280748aa97a74116f29b3c3e" target="id-e679d79780994dd1b09f1f2e1d3ef3a0"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-69b26ab90283457dad59587fcd6eecae" source="id-7531efe3881f4bb3bedb8bb59dcb72f6" target="id-67e77531be83492b915b9f75626a31d0"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-95ac8347af0c4b628eeaf9e5679491a9" source="id-d48e23ee6d1f454f9eb19549fa7cd7e4" target="id-app-sf-keyvault-000000009"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-f010a1769d2c404782ca701aee3485af" source="id-d48e23ee6d1f454f9eb19549fa7cd7e4" target="id-05a5637827ba41c6bafc569808cd0174"/>
+    <element xsi:type="archimate:AccessRelationship" id="id-e4b07a1594af4e71b0ab170cb32c577a" source="id-app-sf-keyvault-000000009" target="id-05a5637827ba41c6bafc569808cd0174"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-3f6ee55a4e694d9cac9fbc2137d2b559" source="id-05a5637827ba41c6bafc569808cd0174" target="id-app-sf-keyvault-000000009"/>
+  </folder>
+  <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
+    <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
+      <folder name="Delivery" id="id-93a3c3b3833f424b9ce05d2e30addabf">
+        <element xsi:type="archimate:ArchimateDiagramModel" name="Realizations" id="id-fa6f3e3ac7224261b4115a6607004874">
+          <child xsi:type="archimate:DiagramObject" id="id-6ace44239e2c4472a1232c0d5fc08cc5" textPosition="1" archimateElement="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
+            <bounds x="12" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-3eb356ca4cb04edf8d35e59b0be43074" source="id-6ace44239e2c4472a1232c0d5fc08cc5" target="id-72b238d8145d40e7ab45a25587a77b23" archimateRelationship="id-b5c6d7e8f9a04b1c2d3e4f5a6b7c8d9e"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-72b238d8145d40e7ab45a25587a77b23" targetConnections="id-3eb356ca4cb04edf8d35e59b0be43074" textPosition="1" archimateElement="id-36f2bd3e10224074b745a791efbdbce9">
+            <bounds x="12" y="12" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-2389b1955d9e4739bbcad5c6400a4742" textPosition="1" archimateElement="id-tech-storage-000000000002">
+            <bounds x="552" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-3ff0729e051a45c29489e9283014fd3c" source="id-2389b1955d9e4739bbcad5c6400a4742" target="id-4efb326bdcfc400a8735da1be50251fb" archimateRelationship="id-rel-sd-storage-000000000002"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-4efb326bdcfc400a8735da1be50251fb" targetConnections="id-3ff0729e051a45c29489e9283014fd3c" textPosition="1" archimateElement="id-app-sd-storage-000000000002">
+            <bounds x="552" y="12" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-bb90d1ab0e3c45d4b1b3c2a077683478" textPosition="1" archimateElement="id-tech-keyvault-000000000001">
+            <bounds x="732" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-8afce46001b74620bca339ac0607b52d" source="id-bb90d1ab0e3c45d4b1b3c2a077683478" target="id-28288144ede0449dbaa166ad8dc40125" archimateRelationship="id-rel-sd-keyvault-00000000001"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-28288144ede0449dbaa166ad8dc40125" targetConnections="id-8afce46001b74620bca339ac0607b52d" textPosition="1" archimateElement="id-app-sd-keyvault-000000000001">
+            <bounds x="732" y="12" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-b48b36a3b94e4750a5eb99d8ca090780" textPosition="1" archimateElement="id-tech-vmss-0000000000003">
+            <bounds x="372" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-1079b6e1c1284c6f86da6fa31e1a9e09" source="id-b48b36a3b94e4750a5eb99d8ca090780" target="id-8ba22f9b450f41a0bd8e584e036011f1" archimateRelationship="id-rel-sd-vmss-0000000000003"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-8ba22f9b450f41a0bd8e584e036011f1" targetConnections="id-1079b6e1c1284c6f86da6fa31e1a9e09" textPosition="1" archimateElement="id-app-sd-vmss-0000000000003">
+            <bounds x="372" y="12" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-41d605e620f848ce9be06c70b31949f6" textPosition="1" archimateElement="id-tech-azdo-0000000000004">
+            <bounds x="192" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-7c5c338ab27e47c29a7f3a1f8c9e3c5d" source="id-41d605e620f848ce9be06c70b31949f6" target="id-17063f9263ab4c07a55aaf583b0fff9c" archimateRelationship="id-rel-sd-azdo-0000000000004"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-17063f9263ab4c07a55aaf583b0fff9c" targetConnections="id-7c5c338ab27e47c29a7f3a1f8c9e3c5d" textPosition="1" archimateElement="id-app-sd-azdo-0000000000004">
+            <bounds x="192" y="12" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-f91c9bd198f1442bab4ffbaefee1979d" textPosition="1" archimateElement="id-tech-vnet-0000000000005">
+            <bounds x="912" y="96" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-2527bd154c444358b8c85d9f5f0d1e0b" source="id-f91c9bd198f1442bab4ffbaefee1979d" target="id-2d2cb510a24740d1800737acc6ebcd06" archimateRelationship="id-rel-sd-network-00000000005"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-2d2cb510a24740d1800737acc6ebcd06" targetConnections="id-2527bd154c444358b8c85d9f5f0d1e0b" textPosition="1" archimateElement="id-app-sd-network-00000000005">
+            <bounds x="912" y="12" width="169" height="55"/>
+          </child>
+        </element>
+      </folder>
+      <folder name="Fulfillment" id="id-59f29965800846fea3c91f7c2723f5e0">
+        <element xsi:type="archimate:ArchimateDiagramModel" name="Realizations" id="id-2d3e14bc5f3d42429e5800ea838a1f96">
+          <child xsi:type="archimate:DiagramObject" id="id-364cd2c2f86d40d2a9a6888b256ae766" archimateElement="id-tech-storage-000000000002">
+            <bounds x="432" y="348" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-80bbfde0d81945d9a2d47d0d5a8bd275" source="id-364cd2c2f86d40d2a9a6888b256ae766" target="id-e701a23c36554a29b825cf2d14a9e6bc" archimateRelationship="id-rel-sf-storage-00000012"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-22f950d4397c45babc2cb35295402088" archimateElement="id-tech-keyvault-000000000001">
+            <bounds x="228" y="516" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-257f13f4fe9743469b5067f01ab30648" source="id-22f950d4397c45babc2cb35295402088" target="id-583cd2a06edd44a484ad32b3a121d6c5" archimateRelationship="id-rel-sf-keyvault-000000009"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-beee2e3e2bd34de48c2b7c411c8c2c7b" archimateElement="id-tech-vnet-0000000000005">
+            <bounds x="12" y="516" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-54b8f47aab86483db044e5b24c31b04a" source="id-beee2e3e2bd34de48c2b7c411c8c2c7b" target="id-c7b7b80eb835475c8f012d5430e31b6c" archimateRelationship="id-rel-sf-network-0000000013"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-9cbd8fd6063149299189dcf5678ffc17" archimateElement="id-tech-aks-00000000000006">
+            <bounds x="12" y="348" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-714905f3f2d649edbdcad39f0621876e" source="id-9cbd8fd6063149299189dcf5678ffc17" target="id-f87c92758450441985e8d14a5739a7d3" archimateRelationship="id-rel-sf-aks-000000000006"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-f87c92758450441985e8d14a5739a7d3" targetConnections="id-714905f3f2d649edbdcad39f0621876e" archimateElement="id-app-sf-aks-000000000006">
+            <bounds x="12" y="264" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-f27e0e2f298c487284c7dfa1dbc57545" archimateElement="id-tech-appgw-0000000000007">
+            <bounds x="228" y="96" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-c1a769b1d24741318fa1359d938cf0b8" source="id-f27e0e2f298c487284c7dfa1dbc57545" target="id-aa993b9851194ff7a03e3e939fc784d7" archimateRelationship="id-rel-sf-appgw-00000000007"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-aa993b9851194ff7a03e3e939fc784d7" targetConnections="id-c1a769b1d24741318fa1359d938cf0b8" archimateElement="id-app-sf-appgw-00000000007">
+            <bounds x="228" y="12" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-f7df48496457415182c0d454ea39c680" archimateElement="id-tech-postgres-000000008">
+            <bounds x="432" y="516" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-166081a9466c43ebb096298b3e6cb6de" source="id-f7df48496457415182c0d454ea39c680" target="id-44a11cd9484942aab1fe36a3cbac8bca" archimateRelationship="id-rel-sf-postgres-0000008"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-44a11cd9484942aab1fe36a3cbac8bca" targetConnections="id-166081a9466c43ebb096298b3e6cb6de" archimateElement="id-app-sf-postgres-0000008">
+            <bounds x="432" y="432" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-583cd2a06edd44a484ad32b3a121d6c5" targetConnections="id-257f13f4fe9743469b5067f01ab30648" archimateElement="id-app-sf-keyvault-000000009">
+            <bounds x="228" y="432" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-a5d52d5bf4b2439d9c3dc02c2a0a85e0" archimateElement="id-tech-lb-000000000000009">
+            <bounds x="12" y="96" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-0a8968ca967a4756b06c2431c8b6f2bc" source="id-a5d52d5bf4b2439d9c3dc02c2a0a85e0" target="id-47b5a56266fe43e7822fe535450da1f3" archimateRelationship="id-rel-sf-lb-00000000000010"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-47b5a56266fe43e7822fe535450da1f3" targetConnections="id-0a8968ca967a4756b06c2431c8b6f2bc" archimateElement="id-app-sf-lb-00000000000010">
+            <bounds x="12" y="12" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-15e9014b4b754590b0abc5588fb77ffb" archimateElement="id-tech-vm-000000000000010">
+            <bounds x="444" y="96" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-eb11cc04869e4111a8da5f7c8dda9cbf" source="id-15e9014b4b754590b0abc5588fb77ffb" target="id-08c4e854bbe5418db1f9cea8db93be5b" archimateRelationship="id-rel-sf-sftpvms-000000011"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-08c4e854bbe5418db1f9cea8db93be5b" targetConnections="id-eb11cc04869e4111a8da5f7c8dda9cbf" archimateElement="id-app-sf-sftpvms-000000011">
+            <bounds x="444" y="12" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-e701a23c36554a29b825cf2d14a9e6bc" targetConnections="id-80bbfde0d81945d9a2d47d0d5a8bd275" archimateElement="id-app-sf-storage-00000012">
+            <bounds x="432" y="264" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-c7b7b80eb835475c8f012d5430e31b6c" targetConnections="id-54b8f47aab86483db044e5b24c31b04a" archimateElement="id-app-sf-network-0000000013">
+            <bounds x="12" y="432" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-3b8faf64347c42659970da54aa3f8b97" archimateElement="id-tech-identity-000000011">
+            <bounds x="660" y="432" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-0f90692f6a33428f8af39d80e90e1476" source="id-3b8faf64347c42659970da54aa3f8b97" target="id-a3af35bb0d3942f9bb699b50b1ddb9e0" archimateRelationship="id-rel-sf-identity-000000014"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-a3af35bb0d3942f9bb699b50b1ddb9e0" targetConnections="id-0f90692f6a33428f8af39d80e90e1476" archimateElement="id-app-sf-identity-000000014">
+            <bounds x="660" y="348" width="187" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-1303b76aae0b43afbf111944c92b36e8" archimateElement="id-tech-privatelink-000012">
+            <bounds x="228" y="348" width="187" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-fdb0db04bae5441984ce2bf045e8198f" source="id-1303b76aae0b43afbf111944c92b36e8" target="id-1296a16ff8d84716bb0fba178d778811" archimateRelationship="id-rel-sf-privatelink-00015"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-1296a16ff8d84716bb0fba178d778811" targetConnections="id-fdb0db04bae5441984ce2bf045e8198f" archimateElement="id-app-sf-privatelink-00015">
+            <bounds x="228" y="264" width="187" height="55"/>
+          </child>
+        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="Stacks" id="id-51c9b66872b54333a3c92fbab135015b">
+          <child xsi:type="archimate:DiagramObject" id="id-2692c954f75349c2986d46a2da464d71" textAlignment="1" archimateElement="id-d48e23ee6d1f454f9eb19549fa7cd7e4">
+            <bounds x="12" y="288" width="541" height="157"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-b4e6d3b1d62b4ea7b1192e9b6e4295cb" source="id-2692c954f75349c2986d46a2da464d71" target="id-60614ffcadc046a6aed024a7a9e86163" archimateRelationship="id-95ac8347af0c4b628eeaf9e5679491a9"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-5c04bcfbf64145c7aca499e2ade59f03" source="id-2692c954f75349c2986d46a2da464d71" target="id-cf165e42be2a48079c6e83ca8e340373" archimateRelationship="id-f010a1769d2c404782ca701aee3485af"/>
+            <child xsi:type="archimate:DiagramObject" id="id-60614ffcadc046a6aed024a7a9e86163" targetConnections="id-b4e6d3b1d62b4ea7b1192e9b6e4295cb id-58bbfcd564a842b198267a4cbd167e37" archimateElement="id-app-sf-keyvault-000000009">
+              <bounds x="24" y="30" width="120" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-cf165e42be2a48079c6e83ca8e340373" targetConnections="id-5c04bcfbf64145c7aca499e2ade59f03" archimateElement="id-05a5637827ba41c6bafc569808cd0174">
+              <bounds x="192" y="72" width="120" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-58bbfcd564a842b198267a4cbd167e37" source="id-cf165e42be2a48079c6e83ca8e340373" target="id-60614ffcadc046a6aed024a7a9e86163" archimateRelationship="id-3f6ee55a4e694d9cac9fbc2137d2b559"/>
+            </child>
+          </child>
+        </element>
+      </folder>
+    </folder>
+    <element xsi:type="archimate:ArchimateDiagramModel" name="Requirements" id="id-a0e642f5c59f4ee2b11f3833267838a7">
+      <child xsi:type="archimate:DiagramObject" id="id-164db30f7e75407f92e203e3fbdd046b" archimateElement="id-89d6fcff3f7443cfad966cffa1d8d862">
+        <bounds x="24" y="24" width="120" height="55"/>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-fafc703e497f4bd3931f56ad284264f7" archimateElement="id-aecdac2fa40c4a678538beef5eb9d1da">
+        <bounds x="552" y="24" width="172" height="55"/>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-c382dcb586764985b915c7ac44dc8c1b" archimateElement="id-b5dc9474f15d4021b917341430ef5be4">
+        <bounds x="24" y="108" width="1009" height="205"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-a742786cec484d64b4cd017812772131" source="id-c382dcb586764985b915c7ac44dc8c1b" target="id-9f97bb542ef744ec8c51091bc6ffb6ab" archimateRelationship="id-78a206e583004516b070010db4265988"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-43a756f35aed4f7eaee5a1e01076bbc6" source="id-c382dcb586764985b915c7ac44dc8c1b" target="id-fd09652346f74c4fb688e4bcf9286a41" archimateRelationship="id-b0d438ff50854e58b5772bbd11c23d53"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-769c0096dd7946f195d26a2525195fef" source="id-c382dcb586764985b915c7ac44dc8c1b" target="id-832499239ce34969a1de06f4590c0498" archimateRelationship="id-e7cc449280a544ae80ae003c7edb09c8"/>
+        <sourceConnection xsi:type="archimate:Connection" id="id-533c52afdbc341318892f600e4ad8270" source="id-c382dcb586764985b915c7ac44dc8c1b" target="id-f7f89bfd8ac24972b20e1e4ebc855783" archimateRelationship="id-bcdefdbd5c984cb8954aefb582a9decf"/>
+        <child xsi:type="archimate:DiagramObject" id="id-9f97bb542ef744ec8c51091bc6ffb6ab" targetConnections="id-a742786cec484d64b4cd017812772131" textPosition="2" archimateElement="id-bc0790da23d04777984ad36f7e417853">
+          <bounds x="24" y="48" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-fd09652346f74c4fb688e4bcf9286a41" targetConnections="id-43a756f35aed4f7eaee5a1e01076bbc6" textPosition="2" archimateElement="id-911694e1c3fa412fb9d8acba67e06bc8">
+          <bounds x="180" y="48" width="132" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-e38d3eb81b21438297d47bff1264fc2d" targetConnections="id-b10a2b2de66a47a0b0212af28995b96c" source="id-fd09652346f74c4fb688e4bcf9286a41" target="id-f7f89bfd8ac24972b20e1e4ebc855783" archimateRelationship="id-7ebd87384e8e4817b2dd84553cb46a4b"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-f7f89bfd8ac24972b20e1e4ebc855783" targetConnections="id-533c52afdbc341318892f600e4ad8270 id-e38d3eb81b21438297d47bff1264fc2d" textPosition="2" archimateElement="id-72aff90e280748aa97a74116f29b3c3e">
+          <bounds x="384" y="48" width="132" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-4221f9ad1bad402c97c0aadaef5773e8" targetConnections="id-b13e5888f0754d4daa35e1584e515cf8" source="id-f7f89bfd8ac24972b20e1e4ebc855783" target="id-832499239ce34969a1de06f4590c0498" archimateRelationship="id-67e77531be83492b915b9f75626a31d0"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-832499239ce34969a1de06f4590c0498" targetConnections="id-769c0096dd7946f195d26a2525195fef id-4221f9ad1bad402c97c0aadaef5773e8" textPosition="2" archimateElement="id-e679d79780994dd1b09f1f2e1d3ef3a0">
+          <bounds x="576" y="48" width="132" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-08c75686f1cb422c9b6b467ef1d0bd21" textPosition="2" archimateElement="id-7531efe3881f4bb3bedb8bb59dcb72f6">
+          <bounds x="467" y="120" width="326" height="61"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-b13e5888f0754d4daa35e1584e515cf8" source="id-08c75686f1cb422c9b6b467ef1d0bd21" target="id-4221f9ad1bad402c97c0aadaef5773e8" archimateRelationship="id-69b26ab90283457dad59587fcd6eecae"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-2ab31663c8e7425aa2ef1b58203ee818" textPosition="2" archimateElement="id-2c584ec2481a4b39882308f2adad6996">
+          <bounds x="204" y="120" width="229" height="61"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-b10a2b2de66a47a0b0212af28995b96c" source="id-2ab31663c8e7425aa2ef1b58203ee818" target="id-e38d3eb81b21438297d47bff1264fc2d" archimateRelationship="id-81ac2d39b2534aca9fce728751e2027d"/>
+        </child>
+      </child>
+    </element>
+  </folder>
+</archimate:model>

@@ -14,6 +14,7 @@ resource "azurerm_storage_account" "mft_vfs_private" {
 
   # Enable private access only
   ## put temporarily on true when creating, then switch on false
+  ## put temporarily on true when destroying too
   public_network_access_enabled = false
 
   # Required for Azure Files
@@ -24,6 +25,7 @@ resource "azurerm_storage_account" "mft_vfs_private" {
   # Network rules - deny all public access
   network_rules {
     ## put temporarily on Allow when creating, then switch on Deny
+    ## put temporarily on Allow when destroying too
     default_action             = "Deny"
     bypass                     = ["AzureServices"]
     virtual_network_subnet_ids = [] # No service endpoints, only private endpoint

@@ -1,6 +1,124 @@
 # ActiveTransfer Gateway Troubleshooting Guide
 
+## Quick Links
+
+- [ACR Login Service Issues](#acr-login-service-issues) - **Start here if acr-login.service is missing**
+- [ACR Authentication Failures](#acr-authentication-failures)
+- [Container Won't Start](#container-wont-start)
+- [Network Connectivity Problems](#network-connectivity-problems)
+- [Gateway Not Connecting to ActiveTransfer Server](#gateway-not-connecting-to-activetransfer-server)
+
+---
+
 ## Common Issues and Solutions
+## ACR Login Service Issues
+
+### Issue: acr-login.service Not Found
+
+**Symptom:**
+```
+Unit acr-login.service could not be found.
+```
+
+**Impact:**
+- Gateway deployment will fail
+- Docker cannot pull container images from ACR
+- `at-gateway.service` will fail to start
+
+**Solution:**
+
+The `acr-login.service` is a required dependency that authenticates the VM with Azure Container Registry. If it's missing, you need to install it manually.
+
+**Quick Check:**
+```bash
+az vm run-command invoke \
+    -g "${RESOURCE_GROUP}" \
+    -n "${VM_NAME}" \
+    --command-id RunShellScript \
+    --scripts "systemctl status acr-login.service" \
+    --output table
+```
+
+**Installation:**
+
+See the comprehensive [ACR Login Service Setup Guide](./ACR-LOGIN-SERVICE-SETUP.md) for detailed installation instructions.
+
+**Quick Install (via Azure VM Run Command):**
+
+```bash
+# Set your variables
+export RESOURCE_GROUP="rg-mft-dev"
+export VM_NAME="vm-mft-gateway1"
+export ACR_NAME="acrmftdev"  # Without .azurecr.io
+
+# Run installation script
+az vm run-command invoke \
+    --resource-group "${RESOURCE_GROUP}" \
+    --name "${VM_NAME}" \
+    --command-id RunShellScript \
+    --scripts "
+        # Install Azure CLI
+        curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+        # Install jq
+        apt-get update && apt-get install -y jq
+
+        # Create ACR login script
+        cat > /usr/local/bin/acr-login.sh << 'EOF'
+#!/bin/bash
+sleep 30
+TOKEN=\$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/' -H Metadata:true | jq -r .access_token)
+if [ -n \"\$TOKEN\" ]; then
+    az login --identity
+    az acr login --name ${ACR_NAME}
+    echo \"Successfully logged in to ACR: ${ACR_NAME}\"
+else
+    echo \"Failed to obtain managed identity token\"
+    exit 1
+fi
+EOF
+        chmod +x /usr/local/bin/acr-login.sh
+
+        # Create systemd service
+        cat > /etc/systemd/system/acr-login.service << 'EOF'
+[Unit]
+Description=Login to Azure Container Registry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/acr-login.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        # Enable and start service
+        systemctl daemon-reload
+        systemctl enable acr-login.service
+        systemctl start acr-login.service
+        systemctl status acr-login.service
+    " \
+    --output table
+```
+
+**Verification:**
+```bash
+# Check service is running
+az vm run-command invoke \
+    -g "${RESOURCE_GROUP}" \
+    -n "${VM_NAME}" \
+    --command-id RunShellScript \
+    --scripts "systemctl status acr-login.service && journalctl -u acr-login.service -n 20" \
+    --output table
+```
+
+---
+
 
 ### 1. ACR Authentication Failures
 

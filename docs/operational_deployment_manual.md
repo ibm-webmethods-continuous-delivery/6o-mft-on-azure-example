@@ -1150,14 +1150,15 @@ az vm run-command invoke \
 
 **Solution:**
 ```bash
-# Verify gateway configuration in secret
-kubectl get secret mft-config-json -n mft -o yaml | grep -A 10 "declareGateways"
+# Verify gateway configuration in ConfigMap
+kubectl get configmap active-transfer-mft-config -n mft -o yaml | grep -A 10 "declareGateways"
 
 # Should show:
-# - Gateway1: 10.1.0.4:8500
-# - Gateway2: 10.1.1.4:8500
+# - Gateway1: ${MFT_GATEWAY_1_IP}:8500
+# - Gateway2: ${MFT_GATEWAY_2_IP}:8500
 
-# If incorrect, regenerate secrets and upgrade helm chart
+# Note: Gateway IPs are now configured in helm/gitops/config/<env>/mft-config.json
+# and substituted at runtime via environment variables
 cd 6o-mft-on-azure-example/03-TechnologyServices/02-AT
 ./scripts/generate-secrets.sh --apply
 helm upgrade active-transfer ./helm --namespace mft --values ./helm/values.yaml
@@ -1434,14 +1435,14 @@ az vm run-command invoke \
 
 2. **Gateway Configuration**
    ```bash
-   # Verify gateway IPs in secret
-   kubectl get secret mft-config-json -n mft -o yaml | grep -A 10 "declareGateways"
+   # Verify gateway IPs in ConfigMap
+   kubectl get configmap active-transfer-mft-config -n mft -o yaml | grep -A 10 "declareGateways"
 
    # Should show:
-   # Gateway1: 10.1.0.4:8500
-   # Gateway2: 10.1.1.4:8500
+   # Gateway1: ${MFT_GATEWAY_1_IP}:8500
+   # Gateway2: ${MFT_GATEWAY_2_IP}:8500
 
-   # If incorrect, regenerate secrets
+   # Note: Gateway IPs are configured in helm/gitops/config/<env>/mft-config.json
    cd 6o-mft-on-azure-example/03-TechnologyServices/02-AT/scripts
    ./generate-secrets.sh --apply
    helm upgrade active-transfer ../helm --namespace mft
