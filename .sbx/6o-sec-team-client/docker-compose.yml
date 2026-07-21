@@ -1,21 +1,19 @@
 services:
   terraform:
     # obtain this image using
-    #  https://github.com/ibm-webmethods-continuous-delivery/7u-container-images/tree/main/images/u/alpine/terraform
+    #  https://github.com/ibm-webmethods-continuous-delivery/7u-container-images/tree/main/images/u/azure/az-cli-dev
     image: iwcd-az-cli-dev-u:azure-linux
-    container_name: iwcd-sbx-mft-azure-cli
-    hostname: iwcd-sbx-mft-azure-cli
+    container_name: 6o-sec-team-client
+    hostname: 6o-sec-team-client
     read_only: true
     environment:
-      #- ARM_CLIENT_ID
-      #- ARM_CLIENT_SECRET
       - ARM_TENANT_ID
       - ARM_SUBSCRIPTION_ID
       # Default position for the kubeconfig
       - KUBECONFIG=/azcli/config/.kube/config-mft
     volumes:
       - ../..:/azcli
-      - iwcd-mft-az-cli-home:/home/iwcd-az-cli-dev/ # iwcd-tf fixed in the prerequisite image
+      - user-home:/home/iwcd-az-cli-dev/ # iwcd-tf fixed in the prerequisite image
       - tmp:/tmp/
     # Ports - in case proxying with kubectl
     # Default IS ports
@@ -37,5 +35,6 @@ services:
     entrypoint: sleep infinity
 
 volumes:
-  iwcd-mft-az-cli-home:
+  user-home:
+    name: 6o-sec-team-client-user-home
   tmp:
