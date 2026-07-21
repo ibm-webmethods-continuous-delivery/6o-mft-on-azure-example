@@ -71,3 +71,19 @@ variable "key_vault_purge_protection_enabled" {
   type        = bool
   default     = false
 }
+
+# ============================================================================
+# Key Vault RBAC
+# ============================================================================
+
+variable "key_vault_admin_object_ids" {
+  description = <<-EOT
+    Additional AAD object IDs (users, groups, service principals) to grant the
+    'Key Vault Secrets Officer' role on this vault. The identity running
+    terraform apply is always granted this role automatically via
+    data.azurerm_client_config.current.object_id — use this variable to add
+    extra identities (e.g. other admins, CI/CD service principals).
+  EOT
+  type        = list(string)
+  default     = []
+}

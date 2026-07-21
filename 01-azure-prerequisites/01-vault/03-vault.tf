@@ -21,3 +21,29 @@ resource "azurerm_key_vault" "main" {
 
   tags = var.tags
 }
+
+# ============================================================================
+# Key Vault RBAC — data-plane role assignments
+#
+# rbac_authorization_enabled = true means subscription-level Owner/Contributor
+# has NO implicit data-plane access. Every identity that needs to read or write
+# secrets/keys/certificates must have an explicit role assignment scoped to this
+# vault (or a parent scope that includes it).
+# ============================================================================
+
+locals {
+  # Merge the deployer identity with any extra IDs supplied via variable.
+  # toset deduplicates in case the deployer OID is also listed explicitly.
+  _kv_secrets_officer_ids = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.key_vault_admin_object_ids
+  ))
+}
+
+resource "azurerm_role_assignment" "kv_secrets_officer" {
+  for_each = local._kv_secrets_officer_ids
+
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = each.value
+}
