@@ -164,6 +164,34 @@ Created By: Security Team (Stage A)
       <property key="created-by" value="Security Team (Stage A)"/>
       <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
     </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Service Principal" id="id-tech-sp-azdosp-00009">
+      <documentation>Service Principal used by the DevOps/Application team for Stage C Azure DevOps service delivery provisioning.
+Azure Resource Type: Microsoft.AzureActiveDirectory/servicePrincipals
+Authentication Type: Client Secret
+Secret Validity: 1 year
+Created By: Security Team (Stage A)
+Purpose: Azure DevOps service connection authentication against Azure
+Optional: Can be disabled via create_azdo_sp variable.
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
+      <property key="authentication-type" value="Client Secret"/>
+      <property key="secret-validity" value="1 year"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
+      <property key="secret-rotation-required" value="yes"/>
+    </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Azure AD Application" id="id-tech-app-azdoapp-00010">
+      <documentation>Azure AD Application backing the Azure DevOps Stage C Service Principal.
+Azure Resource Type: Microsoft.AzureActiveDirectory/applications
+Created By: Security Team (Stage A)
+Optional: Can be disabled via create_azdo_sp variable.
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
+    </element>
     <element xsi:type="archimate:SystemSoftware" name="${prefix}-mft-identity Managed Identity" id="id-tech-uami-mftidentity-00005">
       <documentation>User-Assigned Managed Identity for MFT workloads running in AKS to access Key Vault.
 Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
@@ -176,6 +204,19 @@ Optional: Can be disabled via create_mft_identity variable.
       <property key="created-by" value="Security Team (Stage A)"/>
       <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
       <property key="optional" value="yes — controlled by create_mft_identity variable"/>
+    </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-agic-identity Managed Identity" id="id-tech-uami-agicidentity-00008">
+      <documentation>User-Assigned Managed Identity for AGIC workloads running in AKS to manage Azure Application Gateway.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
+Resource Group: ${prefix}-s-fulfillment
+Created By: Security Team (Stage A)
+Optional: Can be disabled via create_agic_identity variable.
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
+      <property key="resource-group" value="${prefix}-s-fulfillment"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="optional" value="yes — controlled by create_agic_identity variable"/>
     </element>
     <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG" id="id-tech-rbac-delivery-000006">
       <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Delivery Resource Group.
@@ -206,6 +247,23 @@ Created By: Security Team (Stage A)
       <property key="principal" value="${prefix}-infra-sp"/>
       <property key="created-by" value="Security Team (Stage A)"/>
       <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
+    <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG for Azure DevOps" id="id-tech-rbac-azdo-delivery-00011">
+      <documentation>Role Assignment granting Azure DevOps Service Principal Contributor permissions on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Contributor
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-azdo-sp
+Created By: Security Team (Stage A)
+Optional: Can be disabled via create_azdo_sp variable.
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+      <property key="role" value="Contributor"/>
+      <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+      <property key="principal" value="${prefix}-azdo-sp"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
     </element>
     <element xsi:type="archimate:TechnologyService" name="Azure Container Registry" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
       <documentation>Microsoft Azure managed container registry service.
@@ -349,6 +407,14 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:AccessRelationship" id="id-rel-sA-sp-access-rg-ful" source="id-tech-sp-infrasp-0000003" target="id-tech-rg-fulfillment-000002"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-secteam-performs-tf" source="id-biz-actor-secteam-00001" target="id-app-secstageA-tf-000001"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-infrateam-uses-sp" source="id-biz-actor-infrateam-0002" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-rg-fulfillment-agic-uami" source="id-tech-rg-fulfillment-000002" target="id-tech-uami-agicidentity-00008"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-azdo-app-contains-sp" source="id-tech-app-azdoapp-00010" target="id-tech-sp-azdosp-00009"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-azdo-del-to-sp" source="id-tech-rbac-azdo-delivery-00011" target="id-tech-sp-azdosp-00009"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-azdo-del-to-rg" source="id-tech-rbac-azdo-delivery-00011" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-azdo-app" source="id-app-secstageA-tf-000001" target="id-tech-app-azdoapp-00010"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-azdo-sp" source="id-app-secstageA-tf-000001" target="id-tech-sp-azdosp-00009"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-azdo-rbac-del" source="id-app-secstageA-tf-000001" target="id-tech-rbac-azdo-delivery-00011"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-agic-uami" source="id-app-secstageA-tf-000001" target="id-tech-uami-agicidentity-00008"/>
   </folder>
   <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
     <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
@@ -490,50 +556,76 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <folder name="Stacks" id="id-ea64ada5fc814b709d2715829e80d66e">
       <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A" id="id-8c53511f151d48bcb2ab576079b0063d">
         <child xsi:type="archimate:DiagramObject" id="id-dv-sA-tf" textPosition="1" archimateElement="id-app-secstageA-tf-000001">
-          <bounds x="12" y="12" width="937" height="55"/>
+          <bounds x="12" y="12" width="1033" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-del" source="id-dv-sA-tf" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-tf-to-rg-del"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-ful" source="id-dv-sA-tf" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-tf-to-rg-ful"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-app" source="id-dv-sA-tf" target="id-dv-sA-app" archimateRelationship="id-rel-sA-tf-to-app"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-sp" source="id-dv-sA-tf" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-tf-to-sp"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-uami" source="id-dv-sA-tf" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-tf-to-uami"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-del" source="id-dv-sA-tf" target="id-dv-sA-rbac-del" archimateRelationship="id-rel-sA-tf-to-rbac-del"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-ful" source="id-dv-sA-tf" target="id-dv-sA-rbac-ful" archimateRelationship="id-rel-sA-tf-to-rbac-ful">
-            <bendpoint startX="150" startY="213" endX="-20" endY="-207"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-ful" source="id-dv-sA-tf" target="id-dv-sA-rbac-ful" archimateRelationship="id-rel-sA-tf-to-rbac-ful"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-app" source="id-dv-sA-tf" target="id-dv-sA-azdo-app" archimateRelationship="id-rel-sA-tf-to-azdo-app"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-sp" source="id-dv-sA-tf" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-tf-to-azdo-sp">
+            <bendpoint startX="492" startY="129" endX="48" endY="-123"/>
           </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-rbac-del" source="id-dv-sA-tf" target="id-dv-sA-azdo-rbac-del" archimateRelationship="id-rel-sA-tf-to-azdo-rbac-del">
+            <bendpoint startX="-510" startY="261" endX="-540" endY="9"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-agic-uami" source="id-dv-sA-tf" target="id-dv-sA-agic-uami" archimateRelationship="id-rel-sA-tf-to-agic-uami"/>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-del" targetConnections="id-dv-sA-tf-to-rg-del id-dv-sA-rbac-del-to-rg id-dv-sA-sp-to-rg-del" textPosition="1" archimateElement="id-tech-rg-delivery-00000001">
-          <bounds x="96" y="184" width="169" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-del" targetConnections="id-dv-sA-tf-to-rg-del id-dv-sA-rbac-del-to-rg id-dv-sA-sp-to-rg-del id-dv-sA-azdo-rbac-del-to-rg" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
+          <bounds x="132" y="184" width="169" height="55"/>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-ful" targetConnections="id-dv-sA-tf-to-rg-ful id-dv-sA-rbac-ful-to-rg id-dv-sA-sp-to-rg-ful" textPosition="1" archimateElement="id-tech-rg-fulfillment-000002">
-          <bounds x="660" y="184" width="169" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-ful" targetConnections="id-dv-sA-tf-to-rg-ful id-dv-sA-rbac-ful-to-rg id-dv-sA-sp-to-rg-ful" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
+          <bounds x="492" y="184" width="169" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rg-ful-to-uami" source="id-dv-sA-rg-ful" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-rg-fulfillment-uami">
             <bendpoint startX="144" startY="-7" endX="18" endY="81"/>
           </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rg-ful-to-agic-uami" source="id-dv-sA-rg-ful" target="id-dv-sA-agic-uami" archimateRelationship="id-rel-sA-rg-fulfillment-agic-uami">
+            <bendpoint startX="120" startY="17" endX="-126" endY="17"/>
+          </sourceConnection>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-app" targetConnections="id-dv-sA-tf-to-app" textPosition="1" archimateElement="id-tech-app-infraapp-000004">
-          <bounds x="12" y="96" width="145" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-app" targetConnections="id-dv-sA-tf-to-app" textPosition="2" archimateElement="id-tech-app-infraapp-000004">
+          <bounds x="60" y="96" width="145" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-app-to-sp" source="id-dv-sA-app" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-app-contains-sp">
             <bendpoint startY="129" endX="-384" endY="41"/>
             <bendpoint startX="324" startY="129" endX="-60" endY="41"/>
           </sourceConnection>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-sp" targetConnections="id-dv-sA-tf-to-sp id-dv-sA-app-to-sp id-dv-sA-rbac-del-to-sp id-dv-sA-rbac-ful-to-sp" textPosition="1" archimateElement="id-tech-sp-infrasp-0000003">
-          <bounds x="384" y="184" width="145" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-sp" targetConnections="id-dv-sA-tf-to-sp id-dv-sA-app-to-sp id-dv-sA-rbac-del-to-sp id-dv-sA-rbac-ful-to-sp" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
+          <bounds x="324" y="184" width="145" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-del" source="id-dv-sA-sp" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-ful" source="id-dv-sA-sp" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-uami" targetConnections="id-dv-sA-tf-to-uami id-dv-sA-rg-ful-to-uami" textPosition="1" archimateElement="id-tech-uami-mftidentity-00005">
-          <bounds x="768" y="96" width="181" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-uami" targetConnections="id-dv-sA-tf-to-uami id-dv-sA-rg-ful-to-uami" textPosition="2" archimateElement="id-tech-uami-mftidentity-00005">
+          <bounds x="600" y="96" width="181" height="55"/>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-del" targetConnections="id-dv-sA-tf-to-rbac-del" textPosition="1" archimateElement="id-tech-rbac-delivery-000006">
-          <bounds x="204" y="96" width="220" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-del" targetConnections="id-dv-sA-tf-to-rbac-del" textPosition="2" archimateElement="id-tech-rbac-delivery-000006">
+          <bounds x="228" y="96" width="145" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-sp" source="id-dv-sA-rbac-del" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-del-to-sp"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-rg" source="id-dv-sA-rbac-del" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-rbac-del-to-rg"/>
         </child>
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-ful" targetConnections="id-dv-sA-tf-to-rbac-ful" textPosition="1" archimateElement="id-tech-rbac-fulfillmt-00007">
-          <bounds x="492" y="96" width="229" height="55"/>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-ful" targetConnections="id-dv-sA-tf-to-rbac-ful" textPosition="2" archimateElement="id-tech-rbac-fulfillmt-00007">
+          <bounds x="420" y="96" width="145" height="55"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-sp" source="id-dv-sA-rbac-ful" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-ful-to-sp"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-rg" source="id-dv-sA-rbac-ful" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-rbac-ful-to-rg"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-app" targetConnections="id-dv-sA-tf-to-azdo-app" textPosition="2" archimateElement="id-tech-app-azdoapp-00010">
+          <bounds x="852" y="96" width="145" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-app-to-sp" source="id-dv-sA-azdo-app" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-azdo-app-contains-sp"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-sp" targetConnections="id-dv-sA-tf-to-azdo-sp id-dv-sA-azdo-app-to-sp id-dv-sA-azdo-rbac-del-to-sp" textPosition="2" archimateElement="id-tech-sp-azdosp-00009">
+          <bounds x="900" y="264" width="145" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-rbac-del" targetConnections="id-dv-sA-tf-to-azdo-rbac-del" textPosition="2" archimateElement="id-tech-rbac-azdo-delivery-00011">
+          <bounds x="474" y="264" width="205" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-rbac-del-to-sp" source="id-dv-sA-azdo-rbac-del" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-rbac-azdo-del-to-sp"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-rbac-del-to-rg" source="id-dv-sA-azdo-rbac-del" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-rbac-azdo-del-to-rg">
+            <bendpoint startX="-336" startY="-15" endX="24" endY="77"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-agic-uami" targetConnections="id-dv-sA-tf-to-agic-uami id-dv-sA-rg-ful-to-agic-uami" textPosition="2" archimateElement="id-tech-uami-agicidentity-00008">
+          <bounds x="732" y="184" width="181" height="55"/>
         </child>
       </element>
     </folder>

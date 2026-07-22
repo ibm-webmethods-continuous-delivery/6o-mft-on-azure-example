@@ -53,6 +53,26 @@ output "infra_sp_subscription_id" {
 }
 
 ################################################################################
+# Azure DevOps Service Principal Outputs
+################################################################################
+
+output "azdo_sp_application_id" {
+  description = "Application (Client) ID of the Azure DevOps service principal"
+  value       = var.create_azdo_sp ? azuread_application.azdo[0].client_id : null
+}
+
+output "azdo_sp_object_id" {
+  description = "Object ID of the Azure DevOps service principal"
+  value       = var.create_azdo_sp ? azuread_service_principal.azdo[0].object_id : null
+}
+
+output "azdo_sp_client_secret" {
+  description = "Client secret for the Azure DevOps service principal (sensitive)"
+  value       = var.create_azdo_sp ? azuread_application_password.azdo[0].value : null
+  sensitive   = true
+}
+
+################################################################################
 # MFT Workload Identity Outputs
 ################################################################################
 
@@ -69,6 +89,25 @@ output "mft_identity_principal_id" {
 output "mft_identity_client_id" {
   description = "Client ID of the MFT workload user-assigned managed identity"
   value       = var.create_mft_identity ? azurerm_user_assigned_identity.mft[0].client_id : null
+}
+
+################################################################################
+# AGIC Workload Identity Outputs
+################################################################################
+
+output "agic_identity_id" {
+  description = "Resource ID of the AGIC workload user-assigned managed identity"
+  value       = var.create_agic_identity ? azurerm_user_assigned_identity.agic[0].id : null
+}
+
+output "agic_identity_principal_id" {
+  description = "Principal (Object) ID of the AGIC workload user-assigned managed identity"
+  value       = var.create_agic_identity ? azurerm_user_assigned_identity.agic[0].principal_id : null
+}
+
+output "agic_identity_client_id" {
+  description = "Client ID of the AGIC workload user-assigned managed identity"
+  value       = var.create_agic_identity ? azurerm_user_assigned_identity.agic[0].client_id : null
 }
 
 ################################################################################
@@ -103,6 +142,11 @@ output "instructions" {
     This service principal has Contributor role on:
     - ${azurerm_resource_group.delivery.name}
     - ${azurerm_resource_group.fulfillment.name}
+    
+    Additional Stage A outputs available for later stages:
+    - Azure DevOps Service Principal: terraform output azdo_sp_application_id
+    - AGIC Managed Identity: terraform output agic_identity_id
+    - MFT Managed Identity: terraform output mft_identity_id
     
     ========================================
   EOT

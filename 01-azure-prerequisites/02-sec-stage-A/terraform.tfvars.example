@@ -9,11 +9,14 @@ location = "westeurope"
 # delivery_rg_suffix    = "s-delivery"
 # fulfillment_rg_suffix = "s-fulfillment"
 
-# Optional: Override default service principal name suffix
+# Optional: Override default service principal name suffixes
 # infra_sp_name_suffix = "infra-sp"
+# azdo_sp_name_suffix  = "azdo-sp"
 
-# Optional: Control MFT identity creation
-# create_mft_identity = true
+# Optional: Control optional identity and service principal creation
+# create_azdo_sp       = true
+# create_mft_identity  = true
+# create_agic_identity = true
 
 # Optional: Custom tags
 # tags = {

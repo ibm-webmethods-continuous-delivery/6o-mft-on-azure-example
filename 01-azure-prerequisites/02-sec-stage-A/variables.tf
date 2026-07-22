@@ -41,6 +41,25 @@ variable "infra_sp_description" {
   default     = "Service Principal for infrastructure team to provision Azure resources"
 }
 
+# Azure DevOps Service Principal
+variable "create_azdo_sp" {
+  description = "Whether to create the Azure DevOps service principal for Stage C service delivery setup"
+  type        = bool
+  default     = true
+}
+
+variable "azdo_sp_name_suffix" {
+  description = "Suffix for the Azure DevOps service principal name"
+  type        = string
+  default     = "azdo-sp"
+}
+
+variable "azdo_sp_description" {
+  description = "Description for the Azure DevOps service principal"
+  type        = string
+  default     = "Service Principal for Azure DevOps service delivery provisioning"
+}
+
 # MFT Workload Identity
 variable "create_mft_identity" {
   description = "Whether to create the MFT workload user-assigned managed identity"
@@ -52,6 +71,19 @@ variable "mft_identity_suffix" {
   description = "Suffix for the MFT workload identity name"
   type        = string
   default     = "mft-identity"
+}
+
+# AGIC Workload Identity
+variable "create_agic_identity" {
+  description = "Whether to create the AGIC workload user-assigned managed identity"
+  type        = bool
+  default     = true
+}
+
+variable "agic_identity_suffix" {
+  description = "Suffix for the AGIC workload identity name"
+  type        = string
+  default     = "agic-identity"
 }
 
 # Tags
