@@ -1,0 +1,24 @@
+# Example Terraform Variables Configuration
+# Copy this file to terraform.tfvars and update with your values
+
+# Core Configuration
+prefix   = "vmazex"  # Change to your unique prefix (4-10 chars, lowercase letters/numbers)
+location = "westeurope"
+
+# Optional: Override default resource group suffixes
+# delivery_rg_suffix    = "s-delivery"
+# fulfillment_rg_suffix = "s-fulfillment"
+
+# Optional: Override default service principal name suffix
+# infra_sp_name_suffix = "infra-sp"
+
+# Optional: Control MFT identity creation
+# create_mft_identity = true
+
+# Optional: Custom tags
+# tags = {
+#   ManagedBy   = "SecurityTeam"
+#   Stage       = "Prerequisites"
+#   Environment = "Production"
+#   Project     = "MFT-on-Azure"
+# }

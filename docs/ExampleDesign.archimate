@@ -1,8 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <archimate:model xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:archimate="http://www.archimatetool.com/archimate" name="Active-Transfer-On-AKS-Example" id="id-241fb1177e824b9ea5b37a00bb96a79a" version="5.0.0">
   <folder name="Strategy" id="id-f1fd7f92dde24047a7345c8e5a8aed88" type="strategy"/>
-  <folder name="Business" id="id-c88535a3afee4bfeb5f1bc7bc2e0dc77" type="business"/>
+  <folder name="Business" id="id-c88535a3afee4bfeb5f1bc7bc2e0dc77" type="business">
+    <element xsi:type="archimate:BusinessActor" name="Security Team" id="id-biz-actor-secteam-00001">
+      <documentation>Team responsible for creating foundational Azure identities and resource groups.
+Responsibilities: Create and manage Azure AD identities, assign initial RBAC permissions, provide credentials to infrastructure team, manage identity lifecycle and secret rotation.
+</documentation>
+    </element>
+    <element xsi:type="archimate:BusinessActor" name="Infrastructure Team" id="id-biz-actor-infrateam-0002">
+      <documentation>Team responsible for provisioning Azure infrastructure using Terraform.
+Responsibilities: Provision Service Delivery resources (ACR, Key Vault, Azure DevOps), provision Service Fulfillment resources (AKS, SFTP VMs, PostgreSQL, App Gateway), use provided service principal credentials, request additional permissions if needed.
+</documentation>
+    </element>
+  </folder>
   <folder name="Application" id="id-6cf34d5ac80445418c2df7336cb8f392" type="application">
+    <folder name="SecurityPrerequisites" id="id-app-secprereq-folder-00001">
+      <element xsi:type="archimate:ApplicationComponent" name="Security Stage A Prerequisites" id="id-app-secstageA-tf-000001">
+        <documentation>Terraform project that creates foundational Azure resources before infrastructure provisioning.
+Location: 01-azure-prerequisites/02-sec-stage-A/
+Terraform Version: >= 1.0
+Providers: azurerm (~> 4.0), azuread (~> 3.0), time (~> 0.12)
+Managed By: Security Team
+</documentation>
+        <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        <property key="terraform-version" value=">= 1.0"/>
+        <property key="managed-by" value="Security Team"/>
+        <property key="created-date" value="2026-07-21"/>
+      </element>
+    </folder>
     <folder name="ServiceFulfillment" id="id-b094e814ab4d4eeaa44d72ad864b6eed">
       <element xsi:type="archimate:ApplicationService" name="MFT" id="id-396ebd509b99408e8a0452ff0687d361">
         <documentation>Managed File Transfer Service
@@ -92,6 +117,96 @@ Isolates agent traffic from the runtime platform network.
     </folder>
   </folder>
   <folder name="Technology &amp; Physical" id="id-cdf36429f3104aa2866ab552e5bf52bc" type="technology">
+    <element xsi:type="archimate:Node" name="${prefix}-s-delivery Resource Group" id="id-tech-rg-delivery-00000001">
+      <documentation>Azure Resource Group for CI/CD infrastructure (ACR, Key Vault, Azure DevOps agents).
+Azure Resource Type: Microsoft.Resources/resourceGroups
+Purpose: Service Delivery
+Created By: Security Team (Stage A)
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
+      <property key="purpose" value="Service Delivery"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
+    <element xsi:type="archimate:Node" name="${prefix}-s-fulfillment Resource Group" id="id-tech-rg-fulfillment-000002">
+      <documentation>Azure Resource Group for MFT runtime infrastructure (AKS, SFTP VMs, PostgreSQL, App Gateway).
+Azure Resource Type: Microsoft.Resources/resourceGroups
+Purpose: Service Fulfillment
+Created By: Security Team (Stage A)
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
+      <property key="purpose" value="Service Fulfillment"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Service Principal" id="id-tech-sp-infrasp-0000003">
+      <documentation>Service Principal used by infrastructure team for Terraform-based resource provisioning.
+Azure Resource Type: Microsoft.AzureActiveDirectory/servicePrincipals
+Authentication Type: Client Secret
+Secret Validity: 1 year
+Created By: Security Team (Stage A)
+Purpose: Infrastructure provisioning automation
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
+      <property key="authentication-type" value="Client Secret"/>
+      <property key="secret-validity" value="1 year"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="secret-rotation-required" value="yes"/>
+      <property key="next-rotation-date" value="2027-07-21"/>
+    </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Azure AD Application" id="id-tech-app-infraapp-000004">
+      <documentation>Azure AD Application backing the Infrastructure Team Service Principal.
+Azure Resource Type: Microsoft.AzureActiveDirectory/applications
+Created By: Security Team (Stage A)
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
+    <element xsi:type="archimate:SystemSoftware" name="${prefix}-mft-identity Managed Identity" id="id-tech-uami-mftidentity-00005">
+      <documentation>User-Assigned Managed Identity for MFT workloads running in AKS to access Key Vault.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
+Resource Group: ${prefix}-s-fulfillment
+Created By: Security Team (Stage A)
+Optional: Can be disabled via create_mft_identity variable.
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
+      <property key="resource-group" value="${prefix}-s-fulfillment"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+      <property key="optional" value="yes — controlled by create_mft_identity variable"/>
+    </element>
+    <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG" id="id-tech-rbac-delivery-000006">
+      <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Contributor
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+      <property key="role" value="Contributor"/>
+      <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+      <property key="principal" value="${prefix}-infra-sp"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
+    <element xsi:type="archimate:Node" name="Contributor on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-00007">
+      <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Contributor
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+</documentation>
+      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+      <property key="role" value="Contributor"/>
+      <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+      <property key="principal" value="${prefix}-infra-sp"/>
+      <property key="created-by" value="Security Team (Stage A)"/>
+      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+    </element>
     <element xsi:type="archimate:TechnologyService" name="Azure Container Registry" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
       <documentation>Microsoft Azure managed container registry service.
 Provides storage, management and distribution of container images and OCI artefacts.
@@ -216,6 +331,24 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:CompositionRelationship" id="id-f010a1769d2c404782ca701aee3485af" source="id-d48e23ee6d1f454f9eb19549fa7cd7e4" target="id-05a5637827ba41c6bafc569808cd0174"/>
     <element xsi:type="archimate:AccessRelationship" id="id-e4b07a1594af4e71b0ab170cb32c577a" source="id-app-sf-keyvault-000000009" target="id-05a5637827ba41c6bafc569808cd0174"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-3f6ee55a4e694d9cac9fbc2137d2b559" source="id-05a5637827ba41c6bafc569808cd0174" target="id-app-sf-keyvault-000000009"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-rg-fulfillment-uami" source="id-tech-rg-fulfillment-000002" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-app-contains-sp" source="id-tech-app-infraapp-000004" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-to-sp" source="id-tech-rbac-delivery-000006" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-to-sp" source="id-tech-rbac-fulfillmt-00007" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-to-rg" source="id-tech-rbac-delivery-000006" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-to-rg" source="id-tech-rbac-fulfillmt-00007" target="id-tech-rg-fulfillment-000002"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rg-del" source="id-app-secstageA-tf-000001" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rg-ful" source="id-app-secstageA-tf-000001" target="id-tech-rg-fulfillment-000002"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-sp" source="id-app-secstageA-tf-000001" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-app" source="id-app-secstageA-tf-000001" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-uami" source="id-app-secstageA-tf-000001" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-del" source="id-app-secstageA-tf-000001" target="id-tech-rbac-delivery-000006"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-ful" source="id-app-secstageA-tf-000001" target="id-tech-rbac-fulfillmt-00007"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-rel-sA-sp-serves-infrateam" source="id-tech-sp-infrasp-0000003" target="id-biz-actor-infrateam-0002"/>
+    <element xsi:type="archimate:AccessRelationship" id="id-rel-sA-sp-access-rg-del" source="id-tech-sp-infrasp-0000003" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:AccessRelationship" id="id-rel-sA-sp-access-rg-ful" source="id-tech-sp-infrasp-0000003" target="id-tech-rg-fulfillment-000002"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-secteam-performs-tf" source="id-biz-actor-secteam-00001" target="id-app-secstageA-tf-000001"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-infrateam-uses-sp" source="id-biz-actor-infrateam-0002" target="id-tech-sp-infrasp-0000003"/>
   </folder>
   <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
     <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
@@ -353,6 +486,56 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
           </child>
         </element>
       </folder>
+    </folder>
+    <folder name="Stacks" id="id-ea64ada5fc814b709d2715829e80d66e">
+      <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A" id="id-8c53511f151d48bcb2ab576079b0063d">
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-tf" textPosition="1" archimateElement="id-app-secstageA-tf-000001">
+          <bounds x="12" y="12" width="937" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-del" source="id-dv-sA-tf" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-tf-to-rg-del"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-ful" source="id-dv-sA-tf" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-tf-to-rg-ful"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-app" source="id-dv-sA-tf" target="id-dv-sA-app" archimateRelationship="id-rel-sA-tf-to-app"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-sp" source="id-dv-sA-tf" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-tf-to-sp"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-uami" source="id-dv-sA-tf" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-tf-to-uami"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-del" source="id-dv-sA-tf" target="id-dv-sA-rbac-del" archimateRelationship="id-rel-sA-tf-to-rbac-del"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-ful" source="id-dv-sA-tf" target="id-dv-sA-rbac-ful" archimateRelationship="id-rel-sA-tf-to-rbac-ful">
+            <bendpoint startX="150" startY="213" endX="-20" endY="-207"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-del" targetConnections="id-dv-sA-tf-to-rg-del id-dv-sA-rbac-del-to-rg id-dv-sA-sp-to-rg-del" textPosition="1" archimateElement="id-tech-rg-delivery-00000001">
+          <bounds x="96" y="184" width="169" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-ful" targetConnections="id-dv-sA-tf-to-rg-ful id-dv-sA-rbac-ful-to-rg id-dv-sA-sp-to-rg-ful" textPosition="1" archimateElement="id-tech-rg-fulfillment-000002">
+          <bounds x="660" y="184" width="169" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rg-ful-to-uami" source="id-dv-sA-rg-ful" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-rg-fulfillment-uami">
+            <bendpoint startX="144" startY="-7" endX="18" endY="81"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-app" targetConnections="id-dv-sA-tf-to-app" textPosition="1" archimateElement="id-tech-app-infraapp-000004">
+          <bounds x="12" y="96" width="145" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-app-to-sp" source="id-dv-sA-app" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-app-contains-sp">
+            <bendpoint startY="129" endX="-384" endY="41"/>
+            <bendpoint startX="324" startY="129" endX="-60" endY="41"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-sp" targetConnections="id-dv-sA-tf-to-sp id-dv-sA-app-to-sp id-dv-sA-rbac-del-to-sp id-dv-sA-rbac-ful-to-sp" textPosition="1" archimateElement="id-tech-sp-infrasp-0000003">
+          <bounds x="384" y="184" width="145" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-del" source="id-dv-sA-sp" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-ful" source="id-dv-sA-sp" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-uami" targetConnections="id-dv-sA-tf-to-uami id-dv-sA-rg-ful-to-uami" textPosition="1" archimateElement="id-tech-uami-mftidentity-00005">
+          <bounds x="768" y="96" width="181" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-del" targetConnections="id-dv-sA-tf-to-rbac-del" textPosition="1" archimateElement="id-tech-rbac-delivery-000006">
+          <bounds x="204" y="96" width="220" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-sp" source="id-dv-sA-rbac-del" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-del-to-sp"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-rg" source="id-dv-sA-rbac-del" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-rbac-del-to-rg"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-ful" targetConnections="id-dv-sA-tf-to-rbac-ful" textPosition="1" archimateElement="id-tech-rbac-fulfillmt-00007">
+          <bounds x="492" y="96" width="229" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-sp" source="id-dv-sA-rbac-ful" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-ful-to-sp"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-rg" source="id-dv-sA-rbac-ful" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-rbac-ful-to-rg"/>
+        </child>
+      </element>
     </folder>
     <element xsi:type="archimate:ArchimateDiagramModel" name="Requirements" id="id-a0e642f5c59f4ee2b11f3833267838a7">
       <child xsi:type="archimate:DiagramObject" id="id-164db30f7e75407f92e203e3fbdd046b" archimateElement="id-89d6fcff3f7443cfad966cffa1d8d862">
