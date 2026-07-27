@@ -15,8 +15,9 @@ Responsibilities: Provision Service Delivery resources (ACR, Key Vault, Azure De
   </folder>
   <folder name="Application" id="id-6cf34d5ac80445418c2df7336cb8f392" type="application">
     <folder name="SecurityPrerequisites" id="id-app-secprereq-folder-00001">
-      <element xsi:type="archimate:ApplicationComponent" name="Security Stage A Prerequisites" id="id-app-secstageA-tf-000001">
+      <element xsi:type="archimate:ApplicationComponent" name="Security Stage A - Prerequisites Core" id="id-app-secstageA-tf-000001">
         <documentation>Terraform project that creates foundational Azure resources before infrastructure provisioning.
+Purpose: create a service principal for the infrastructure team to allow them provisioning, while still maintaining control to cover for normatives such as NIS2
 Location: 01-azure-prerequisites/02-sec-stage-A/
 Terraform Version: >= 1.0
 Providers: azurerm (~> 4.0), azuread (~> 3.0), time (~> 0.12)
@@ -26,6 +27,18 @@ Managed By: Security Team
         <property key="terraform-version" value=">= 1.0"/>
         <property key="managed-by" value="Security Team"/>
         <property key="created-date" value="2026-07-21"/>
+      </element>
+      <element xsi:type="archimate:ApplicationComponent" name="Security Stage A - Additional - option UAA" id="id-e21227c130eb4e379f4530a541744041">
+        <documentation>If security principal may receive user access administration permissions, this is an option, however, in most organizations this is not allowed</documentation>
+      </element>
+      <element xsi:type="archimate:ApplicationComponent" name="Security Stage A - Additional - option custom role" id="id-app-secstageA-custom-role-00001">
+        <documentation>Alternative to UAA: creates a custom role definition granting only roleAssignments/write and /delete, then assigns it to the infra SP on both resource groups.
+Required when the subscription Owner assignment carries an ABAC condition that blocks assigning built-in privileged roles (Owner, User Access Administrator, RBAC Administrator).
+The custom role GUID is not in the ABAC deny-list, so the assignment succeeds.
+This is also a better least-privilege design than UAA: the infra SP can only delegate within its own RGs.
+Location: 01-azure-prerequisites/02-sec-stage-A/main.tf</documentation>
+        <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        <property key="managed-by" value="Security Team"/>
       </element>
     </folder>
     <folder name="InfrastructureProvisioning" id="id-app-infraprereq-folder-00001">
@@ -133,55 +146,50 @@ Isolates agent traffic from the runtime platform network.
     </folder>
   </folder>
   <folder name="Technology &amp; Physical" id="id-cdf36429f3104aa2866ab552e5bf52bc" type="technology">
-    <element xsi:type="archimate:Node" name="${prefix}-s-delivery Resource Group" id="id-tech-rg-delivery-00000001">
-      <documentation>Azure Resource Group for CI/CD infrastructure (ACR, Key Vault, Azure DevOps agents).
-Azure Resource Type: Microsoft.Resources/resourceGroups
-Purpose: Service Delivery
+    <folder name="OwnedBySecurity" id="id-6592f07ff9424d3f9677568a27d5e912">
+      <folder name="Identities" id="id-7b7a9d9c8b8145e383622132be6acdcb">
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-agic-identity Managed Identity" id="id-tech-uami-agicidentity-00008">
+          <documentation>User-Assigned Managed Identity for AGIC workloads running in AKS to manage Azure Application Gateway.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
+Resource Group: ${prefix}-s-fulfillment
 Created By: Security Team (Stage A)
+Optional: Can be disabled via create_agic_identity variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
-      <property key="purpose" value="Service Delivery"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="${prefix}-s-fulfillment Resource Group" id="id-tech-rg-fulfillment-000002">
-      <documentation>Azure Resource Group for MFT runtime infrastructure (AKS, SFTP VMs, PostgreSQL, App Gateway).
-Azure Resource Type: Microsoft.Resources/resourceGroups
-Purpose: Service Fulfillment
+          <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
+          <property key="resource-group" value="${prefix}-s-fulfillment"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="optional" value="yes — controlled by create_agic_identity variable"/>
+        </element>
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Azure AD Application" id="id-tech-app-azdoapp-00010">
+          <documentation>Azure AD Application backing the Azure DevOps Stage C Service Principal.
+Azure Resource Type: Microsoft.AzureActiveDirectory/applications
 Created By: Security Team (Stage A)
+Optional: Can be disabled via create_azdo_sp variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
-      <property key="purpose" value="Service Fulfillment"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Service Principal" id="id-tech-sp-infrasp-0000003">
-      <documentation>Service Principal used by infrastructure team for Terraform-based resource provisioning.
+          <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
+        </element>
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Service Principal" id="id-tech-sp-infrasp-0000003">
+          <documentation>Service Principal used by infrastructure team for Terraform-based resource provisioning.
 Azure Resource Type: Microsoft.AzureActiveDirectory/servicePrincipals
 Authentication Type: Client Secret
 Secret Validity: 1 year
 Created By: Security Team (Stage A)
 Purpose: Infrastructure provisioning automation
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
-      <property key="authentication-type" value="Client Secret"/>
-      <property key="secret-validity" value="1 year"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="secret-rotation-required" value="yes"/>
-      <property key="next-rotation-date" value="2027-07-21"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Azure AD Application" id="id-tech-app-infraapp-000004">
-      <documentation>Azure AD Application backing the Infrastructure Team Service Principal.
-Azure Resource Type: Microsoft.AzureActiveDirectory/applications
-Created By: Security Team (Stage A)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Service Principal" id="id-tech-sp-azdosp-00009">
-      <documentation>Service Principal used by the DevOps/Application team for Stage C Azure DevOps service delivery provisioning.
+          <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
+          <property key="authentication-type" value="Client Secret"/>
+          <property key="secret-validity" value="1 year"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="secret-rotation-required" value="yes"/>
+          <property key="next-rotation-date" value="2027-07-21"/>
+        </element>
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Service Principal" id="id-tech-sp-azdosp-00009">
+          <documentation>Service Principal used by the DevOps/Application team for Stage C Azure DevOps service delivery provisioning.
 Azure Resource Type: Microsoft.AzureActiveDirectory/servicePrincipals
 Authentication Type: Client Secret
 Secret Validity: 1 year
@@ -189,51 +197,153 @@ Created By: Security Team (Stage A)
 Purpose: Azure DevOps service connection authentication against Azure
 Optional: Can be disabled via create_azdo_sp variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
-      <property key="authentication-type" value="Client Secret"/>
-      <property key="secret-validity" value="1 year"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
-      <property key="secret-rotation-required" value="yes"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-azdo-sp Azure AD Application" id="id-tech-app-azdoapp-00010">
-      <documentation>Azure AD Application backing the Azure DevOps Stage C Service Principal.
+          <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/servicePrincipals"/>
+          <property key="authentication-type" value="Client Secret"/>
+          <property key="secret-validity" value="1 year"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
+          <property key="secret-rotation-required" value="yes"/>
+        </element>
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-infra-sp Azure AD Application" id="id-tech-app-infraapp-000004">
+          <documentation>Azure AD Application backing the Infrastructure Team Service Principal.
 Azure Resource Type: Microsoft.AzureActiveDirectory/applications
 Created By: Security Team (Stage A)
-Optional: Can be disabled via create_azdo_sp variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-mft-identity Managed Identity" id="id-tech-uami-mftidentity-00005">
-      <documentation>User-Assigned Managed Identity for MFT workloads running in AKS to access Key Vault.
+          <property key="Azure Resource Type" value="Microsoft.AzureActiveDirectory/applications"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:SystemSoftware" name="${prefix}-mft-identity Managed Identity" id="id-tech-uami-mftidentity-00005">
+          <documentation>User-Assigned Managed Identity for MFT workloads running in AKS to access Key Vault.
 Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
 Resource Group: ${prefix}-s-fulfillment
 Created By: Security Team (Stage A)
 Optional: Can be disabled via create_mft_identity variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
-      <property key="resource-group" value="${prefix}-s-fulfillment"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by create_mft_identity variable"/>
-    </element>
-    <element xsi:type="archimate:SystemSoftware" name="${prefix}-agic-identity Managed Identity" id="id-tech-uami-agicidentity-00008">
-      <documentation>User-Assigned Managed Identity for AGIC workloads running in AKS to manage Azure Application Gateway.
-Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities
-Resource Group: ${prefix}-s-fulfillment
+          <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
+          <property key="resource-group" value="${prefix}-s-fulfillment"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="optional" value="yes — controlled by create_mft_identity variable"/>
+        </element>
+      </folder>
+      <folder name="Resources" id="id-2d918bfde001498396dcd5e5465d09c4">
+        <element xsi:type="archimate:Node" name="${prefix}-s-delivery Resource Group" id="id-tech-rg-delivery-00000001">
+          <documentation>Azure Resource Group for CI/CD infrastructure (ACR, Key Vault, Azure DevOps agents).
+Azure Resource Type: Microsoft.Resources/resourceGroups
+Purpose: Service Delivery
 Created By: Security Team (Stage A)
-Optional: Can be disabled via create_agic_identity variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities"/>
-      <property key="resource-group" value="${prefix}-s-fulfillment"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by create_agic_identity variable"/>
-    </element>
+          <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
+          <property key="purpose" value="Service Delivery"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="${prefix}-s-fulfillment Resource Group" id="id-tech-rg-fulfillment-000002">
+          <documentation>Azure Resource Group for MFT runtime infrastructure (AKS, SFTP VMs, PostgreSQL, App Gateway).
+Azure Resource Type: Microsoft.Resources/resourceGroups
+Purpose: Service Fulfillment
+Created By: Security Team (Stage A)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
+          <property key="purpose" value="Service Fulfillment"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+      </folder>
+      <folder name="AccessControl" id="id-73b12aa5138b4918b71b42b5842d341f">
+        <element xsi:type="archimate:Node" name="AGIC AppGW Contributor Role" id="id-tech-sB-sf-agicappgwrole-00051">
+          <documentation>Role Assignment granting AGIC Contributor access to Application Gateway.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Contributor
+Scope: Application Gateway
+Principal: ${prefix}-agic-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator Custom Role Definition" id="id-tech-rbac-custom-roledef-00069">
+          <documentation>Azure custom role definition granting only roleAssignments/write, /delete and /read.
+Azure Resource Type: Microsoft.Authorization/roleDefinitions
+Scope: Subscription
+Assignable Scopes: ${prefix}-s-delivery RG, ${prefix}-s-fulfillment RG
+Created By: Security Team (Stage A)
+Purpose: Replaces User Access Administrator to comply with IBM enterprise subscription ABAC constraints that block assignment of built-in privileged roles (Owner GUID 8e3af657, UAA GUID 18d7d88d, RBAC Admin GUID f58310d9). Custom role has a new GUID not in the deny-list.
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleDefinitions"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="abac-workaround" value="yes — custom GUID bypasses IBM ABAC condition"/>
+        </element>
+        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Delivery RG" id="id-tech-rbac-delivery-custom-00070">
+          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., AcrPull for VMs). Replaces UAA to comply with IBM ABAC policy.
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+          <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+          <property key="principal" value="${prefix}-infra-sp"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-custom-00071">
+          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access). Replaces UAA to comply with IBM ABAC policy.
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+          <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+          <property key="principal" value="${prefix}-infra-sp"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="User Access Administrator on Service Delivery RG" id="id-tech-rbac-delivery-uaa-00067">
+          <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: User Access Administrator
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., ACR Pull for VMs).
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="role" value="User Access Administrator"/>
+          <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+          <property key="principal" value="${prefix}-infra-sp"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="User Access Administrator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-uaa-00068">
+          <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: User Access Administrator
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access).
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="role" value="User Access Administrator"/>
+          <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+          <property key="principal" value="${prefix}-infra-sp"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+      </folder>
+    </folder>
     <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG" id="id-tech-rbac-delivery-000006">
       <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Delivery Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
@@ -730,18 +840,6 @@ Created By: Infrastructure Team (Stage B)
       <property key="created-by" value="Infrastructure Team (Stage B)"/>
       <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
     </element>
-    <element xsi:type="archimate:Node" name="AGIC AppGW Contributor Role" id="id-tech-sB-sf-agicappgwrole-00051">
-      <documentation>Role Assignment granting AGIC Contributor access to Application Gateway.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Contributor
-Scope: Application Gateway
-Principal: ${prefix}-agic-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
     <element xsi:type="archimate:Node" name="AGIC RG Reader Role" id="id-tech-sB-sf-agicrgrole-00052">
       <documentation>Role Assignment granting AGIC Reader access to Service Fulfillment Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
@@ -1004,6 +1102,23 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-kv-rg-to-sp" source="id-tech-rbac-keyvault-rg-00013" target="id-tech-sp-infrasp-0000003"/>
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-kv-rg-to-rg" source="id-tech-rbac-keyvault-rg-00013" target="id-tech-rg-keyvault-000012"/>
     <element xsi:type="archimate:AccessRelationship" id="id-rel-sA-sp-access-rg-kv" source="id-tech-sp-infrasp-0000003" target="id-tech-rg-keyvault-000012"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-del-uaa" source="id-app-secstageA-tf-000001" target="id-tech-rbac-delivery-uaa-00067"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-ful-uaa" source="id-app-secstageA-tf-000001" target="id-tech-rbac-fulfillmt-uaa-00068"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-uaa-to-sp" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-uaa-to-rg" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-uaa-to-sp" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-uaa-to-rg" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-roledef-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-custom-roledef-00069"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-del-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-delivery-custom-00070"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-ful-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-fulfillmt-custom-00071"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-sp-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-app-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-custom-to-sp" source="id-tech-rbac-delivery-custom-00070" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-custom-to-rg" source="id-tech-rbac-delivery-custom-00070" target="id-tech-rg-delivery-00000001"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-custom-to-sp" source="id-tech-rbac-fulfillmt-custom-00071" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-custom-to-rg" source="id-tech-rbac-fulfillmt-custom-00071" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-roledef-to-del-assign" source="id-tech-rbac-custom-roledef-00069" target="id-rel-sA-sp-access-rg-ful"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-roledef-to-ful-assign" source="id-tech-rbac-custom-roledef-00069" target="id-app-secstageA-custom-role-00001"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sB-infrateam-performs-tf" source="id-biz-actor-infrateam-0002" target="id-app-infrastageB-tf-000001"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sd-vnet" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sd-vnet-00014"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sd-subnet" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sd-subnet-00015"/>
@@ -1052,6 +1167,14 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sf-mftsecretsdb" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sf-mftsecretsdb-00058"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sf-privatestorage" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sf-privatestorage-00059"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sf-privateshare" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sf-privateshare-00060"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-2b38ea56c63c4cdb984c98b60e0da9dd" source="id-tech-rbac-keyvault-rg-00013" target="id-rel-sA-sp-access-rg-kv"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-97d74d8dfadd40c899a2fd68fe600f7e" source="id-tech-rbac-fulfillmt-00007" target="id-rel-sA-sp-access-rg-ful"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-568dd481f3854cc49b50fa7c28175ef5" source="id-tech-rbac-delivery-000006" target="id-rel-sA-sp-access-rg-del"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-0d5a967129fa4eda935c51e40f83b5b1" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-rg-fulfillment-000002"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-0265459cb9784efb92ab85b093902783" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-85a63146f89f4e8899b0dc516e8cb7f4" source="id-tech-rbac-fulfillmt-custom-00071" target="id-tech-rg-fulfillment-000002"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-c4ae4e8dd6af4ae98edec02adcc42661" source="id-tech-rbac-custom-roledef-00069" target="id-tech-rbac-fulfillmt-custom-00071"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-ee53e070945e402380d9122ac37dca4d" source="id-tech-rbac-custom-roledef-00069" target="id-tech-rbac-delivery-custom-00070"/>
   </folder>
   <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
     <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
@@ -1191,95 +1314,145 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
       </folder>
     </folder>
     <folder name="Stacks" id="id-ea64ada5fc814b709d2715829e80d66e">
-      <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A" id="id-8c53511f151d48bcb2ab576079b0063d">
-        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-tf" archimateElement="id-app-secstageA-tf-000001">
-          <bounds x="12" y="12" width="1033" height="337"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-del" source="id-dv-sA-tf" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-tf-to-rg-del"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rg-ful" source="id-dv-sA-tf" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-tf-to-rg-ful"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-app" source="id-dv-sA-tf" target="id-dv-sA-app" archimateRelationship="id-rel-sA-tf-to-app"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-sp" source="id-dv-sA-tf" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-tf-to-sp"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-uami" source="id-dv-sA-tf" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-tf-to-uami"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-del" source="id-dv-sA-tf" target="id-dv-sA-rbac-del" archimateRelationship="id-rel-sA-tf-to-rbac-del"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-ful" source="id-dv-sA-tf" target="id-dv-sA-rbac-ful" archimateRelationship="id-rel-sA-tf-to-rbac-ful"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-app" source="id-dv-sA-tf" target="id-dv-sA-azdo-app" archimateRelationship="id-rel-sA-tf-to-azdo-app"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-sp" source="id-dv-sA-tf" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-tf-to-azdo-sp">
-            <bendpoint startX="492" startY="129" endX="48" endY="-123"/>
-          </sourceConnection>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-azdo-rbac-del" source="id-dv-sA-tf" target="id-dv-sA-azdo-rbac-del" archimateRelationship="id-rel-sA-tf-to-azdo-rbac-del">
-            <bendpoint startX="-492" startY="357" endX="-798" endY="21"/>
-          </sourceConnection>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-agic-uami" source="id-dv-sA-tf" target="id-dv-sA-agic-uami" archimateRelationship="id-rel-sA-tf-to-agic-uami"/>
-          <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-tf-to-rbac-kv-rg" source="id-dv-sA-tf" target="id-dv-sA-rbac-kv-rg" archimateRelationship="id-rel-sA-tf-to-rbac-kv-rg">
-            <bendpoint startX="-480" startY="345" endX="-576" endY="69"/>
-            <bendpoint startX="72" startY="345" endX="-24" endY="69"/>
-          </sourceConnection>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-ful" targetConnections="id-dv-sA-tf-to-rbac-ful" textPosition="2" archimateElement="id-tech-rbac-fulfillmt-00007">
-            <bounds x="408" y="36" width="145" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-sp" source="id-dv-sA-rbac-ful" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-ful-to-sp"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-ful-to-rg" source="id-dv-sA-rbac-ful" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-rbac-ful-to-rg"/>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A (part 2 - option UAA)" id="id-8c53511f151d48bcb2ab576079b0063d">
+        <child xsi:type="archimate:DiagramObject" id="id-48046f953d8946ff93a66f69f8838c3a" archimateElement="id-e21227c130eb4e379f4530a541744041">
+          <bounds x="12" y="12" width="709" height="217"/>
+          <child xsi:type="archimate:DiagramObject" id="id-1951f89f3cc24139a97095f0c61f8b0a" targetConnections="id-d45f94b05f6d49dd84ba2a77547137bb id-45bd374031584d59a5e95fbfe268dfa2" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
+            <bounds x="276" y="84" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-805ba51c438c45419893f95f7a4fd1b7" source="id-1951f89f3cc24139a97095f0c61f8b0a" target="id-03fa815936e94593a79ccea43261e688" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-ae5c51a0260e4338992a369e6efb7e8e" source="id-1951f89f3cc24139a97095f0c61f8b0a" target="id-ed3488aa4a2542eb90e1274d152bce9a" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-app" targetConnections="id-dv-sA-tf-to-app" textPosition="2" archimateElement="id-tech-app-infraapp-000004">
-            <bounds x="48" y="36" width="145" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-app-to-sp" source="id-dv-sA-app" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-app-contains-sp">
-              <bendpoint startX="-36" startY="141" endX="-288" endY="57"/>
-              <bendpoint startX="240" startY="141" endX="-12" endY="57"/>
-            </sourceConnection>
+          <child xsi:type="archimate:DiagramObject" id="id-e5b0e2326f7b4947afecfea8c3179db9" archimateElement="id-tech-rbac-delivery-uaa-00067">
+            <bounds x="36" y="132" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-049e12ac69164394aaad1e3f36ff5e30" source="id-e5b0e2326f7b4947afecfea8c3179db9" target="id-ed3488aa4a2542eb90e1274d152bce9a" archimateRelationship="id-rel-sA-rbac-del-uaa-to-rg"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-45bd374031584d59a5e95fbfe268dfa2" source="id-e5b0e2326f7b4947afecfea8c3179db9" target="id-1951f89f3cc24139a97095f0c61f8b0a" archimateRelationship="id-0265459cb9784efb92ab85b093902783"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-del" targetConnections="id-dv-sA-tf-to-rbac-del" textPosition="2" archimateElement="id-tech-rbac-delivery-000006">
-            <bounds x="216" y="36" width="145" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-sp" source="id-dv-sA-rbac-del" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-del-to-sp"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-del-to-rg" source="id-dv-sA-rbac-del" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-rbac-del-to-rg"/>
+          <child xsi:type="archimate:DiagramObject" id="id-2babe035a4f14713a74a942a097cf758" archimateElement="id-tech-rbac-fulfillmt-uaa-00068">
+            <bounds x="504" y="132" width="169" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-d45f94b05f6d49dd84ba2a77547137bb" source="id-2babe035a4f14713a74a942a097cf758" target="id-1951f89f3cc24139a97095f0c61f8b0a" archimateRelationship="id-rel-sA-rbac-ful-uaa-to-sp"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-30c3b0b31c46452582e7d23f941de2c1" source="id-2babe035a4f14713a74a942a097cf758" target="id-03fa815936e94593a79ccea43261e688" archimateRelationship="id-0d5a967129fa4eda935c51e40f83b5b1"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-app" targetConnections="id-dv-sA-tf-to-azdo-app" textPosition="2" archimateElement="id-tech-app-azdoapp-00010">
-            <bounds x="840" y="36" width="145" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-app-to-sp" source="id-dv-sA-azdo-app" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-azdo-app-contains-sp"/>
+          <child xsi:type="archimate:DiagramObject" id="id-ed3488aa4a2542eb90e1274d152bce9a" targetConnections="id-ae5c51a0260e4338992a369e6efb7e8e id-049e12ac69164394aaad1e3f36ff5e30" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
+            <bounds x="36" y="36" width="169" height="55"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-uami" targetConnections="id-dv-sA-tf-to-uami id-dv-sA-rg-ful-to-uami" textPosition="2" archimateElement="id-tech-uami-mftidentity-00005">
-            <bounds x="588" y="36" width="181" height="55"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-del" targetConnections="id-dv-sA-tf-to-rg-del id-dv-sA-rbac-del-to-rg id-dv-sA-sp-to-rg-del id-dv-sA-azdo-rbac-del-to-rg" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
-            <bounds x="108" y="120" width="169" height="55"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-ful" targetConnections="id-dv-sA-tf-to-rg-ful id-dv-sA-rbac-ful-to-rg id-dv-sA-sp-to-rg-ful" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
-            <bounds x="468" y="120" width="169" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rg-ful-to-uami" source="id-dv-sA-rg-ful" target="id-dv-sA-uami" archimateRelationship="id-rel-sA-rg-fulfillment-uami">
-              <bendpoint startX="144" startY="-7" endX="18" endY="81"/>
-            </sourceConnection>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rg-ful-to-agic-uami" source="id-dv-sA-rg-ful" target="id-dv-sA-agic-uami" archimateRelationship="id-rel-sA-rg-fulfillment-agic-uami">
-              <bendpoint startX="120" startY="9" endX="-126" endY="9"/>
-            </sourceConnection>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-sp" targetConnections="id-dv-sA-tf-to-sp id-dv-sA-app-to-sp id-dv-sA-rbac-del-to-sp id-dv-sA-rbac-ful-to-sp id-dv-sA-rbac-kv-rg-to-sp" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
-            <bounds x="300" y="120" width="145" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-del" source="id-dv-sA-sp" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-ful" source="id-dv-sA-sp" target="id-dv-sA-rg-ful" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-sp-to-rg-kv" source="id-dv-sA-sp" target="id-dv-sA-rg-kv" archimateRelationship="id-rel-sA-sp-access-rg-kv"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-agic-uami" targetConnections="id-dv-sA-tf-to-agic-uami id-dv-sA-rg-ful-to-agic-uami" textPosition="2" archimateElement="id-tech-uami-agicidentity-00008">
-            <bounds x="708" y="120" width="181" height="55"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-sp" targetConnections="id-dv-sA-tf-to-azdo-sp id-dv-sA-azdo-app-to-sp id-dv-sA-azdo-rbac-del-to-sp" textPosition="2" archimateElement="id-tech-sp-azdosp-00009">
-            <bounds x="852" y="228" width="145" height="55"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rbac-kv-rg" targetConnections="id-dv-sA-tf-to-rbac-kv-rg" textPosition="2" archimateElement="id-tech-rbac-keyvault-rg-00013">
-            <bounds x="420" y="228" width="169" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-kv-rg-to-sp" source="id-dv-sA-rbac-kv-rg" target="id-dv-sA-sp" archimateRelationship="id-rel-sA-rbac-kv-rg-to-sp"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-rbac-kv-rg-to-rg" source="id-dv-sA-rbac-kv-rg" target="id-dv-sA-rg-kv" archimateRelationship="id-rel-sA-rbac-kv-rg-to-rg"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-azdo-rbac-del" targetConnections="id-dv-sA-tf-to-azdo-rbac-del" textPosition="2" archimateElement="id-tech-rbac-azdo-delivery-00011">
-            <bounds x="612" y="228" width="205" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-rbac-del-to-sp" source="id-dv-sA-azdo-rbac-del" target="id-dv-sA-azdo-sp" archimateRelationship="id-rel-sA-rbac-azdo-del-to-sp"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-dv-sA-azdo-rbac-del-to-rg" source="id-dv-sA-azdo-rbac-del" target="id-dv-sA-rg-del" archimateRelationship="id-rel-sA-rbac-azdo-del-to-rg">
-              <bendpoint startX="-78" startY="57" endX="444" endY="165"/>
-              <bendpoint startX="-558" startY="57" endX="-36" endY="165"/>
-            </sourceConnection>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-rg-kv" targetConnections="id-dv-sA-rbac-kv-rg-to-rg id-dv-sA-sp-to-rg-kv" textPosition="2" archimateElement="id-tech-rg-keyvault-000012">
-            <bounds x="216" y="234" width="169" height="55"/>
+          <child xsi:type="archimate:DiagramObject" id="id-03fa815936e94593a79ccea43261e688" targetConnections="id-805ba51c438c45419893f95f7a4fd1b7 id-30c3b0b31c46452582e7d23f941de2c1" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
+            <bounds x="504" y="36" width="169" height="55"/>
           </child>
         </child>
       </element>
       <element xsi:type="archimate:ArchimateDiagramModel" name="03-infra-stage-B" id="id-1f9ee46a2d094819a72a4164263db402"/>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A (part 2 - option custom role)" id="id-dv-sA-part2-custom-role-00001">
+        <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-wrapper" targetConnections="id-dv-conn-roledef-to-ful" archimateElement="id-app-secstageA-custom-role-00001">
+          <bounds x="12" y="12" width="553" height="229"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-179bfd62223e4fc89395966ee1e512fa" source="id-dv-sA-cr-wrapper" target="id-dv-sA-cr-roledef" archimateRelationship="id-rel-sA-tf-to-roledef-custom"/>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-sp" targetConnections="id-dv-conn-cr-ful-to-sp id-dv-conn-cr-del-to-app" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
+            <bounds x="204" y="168" width="145" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-sp-access-ful" source="id-dv-sA-cr-sp" target="id-dv-sA-cr-rg-ful" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-sp-access-del" source="id-dv-sA-cr-sp" target="id-dv-sA-cr-rg-del" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rbac-del" targetConnections="id-5404eb04042546cd847de588d53dd8ad" archimateElement="id-tech-rbac-delivery-custom-00070">
+            <bounds x="36" y="96" width="217" height="49"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-del-to-rg" source="id-dv-sA-cr-rbac-del" target="id-dv-sA-cr-rg-del" archimateRelationship="id-rel-sA-rbac-del-custom-to-rg"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-del-to-app" source="id-dv-sA-cr-rbac-del" target="id-dv-sA-cr-sp" archimateRelationship="id-rel-sA-rbac-del-custom-to-sp"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rbac-ful" targetConnections="id-e305d12018b74af2adcc9c1220ce292b" archimateElement="id-tech-rbac-fulfillmt-custom-00071">
+            <bounds x="288" y="96" width="217" height="49"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-ful-to-sp" source="id-dv-sA-cr-rbac-ful" target="id-dv-sA-cr-sp" archimateRelationship="id-rel-sA-rbac-ful-custom-to-sp"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-46c3191a427d4141b22f21f36ea7f27e" source="id-dv-sA-cr-rbac-ful" target="id-dv-sA-cr-rg-ful" archimateRelationship="id-85a63146f89f4e8899b0dc516e8cb7f4"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rg-del" targetConnections="id-dv-conn-cr-sp-access-del id-dv-conn-cr-del-to-rg" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
+            <bounds x="12" y="168" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rg-ful" targetConnections="id-dv-conn-cr-sp-access-ful id-46c3191a427d4141b22f21f36ea7f27e" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
+            <bounds x="372" y="168" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-roledef" targetConnections="id-179bfd62223e4fc89395966ee1e512fa" archimateElement="id-tech-rbac-custom-roledef-00069">
+            <bounds x="156" y="36" width="241" height="43"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-roledef-to-ful" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-wrapper" archimateRelationship="id-rel-sA-roledef-to-ful-assign">
+              <bendpoint startX="126" startY="93" endX="-198" endY="9"/>
+            </sourceConnection>
+            <sourceConnection xsi:type="archimate:Connection" id="id-e305d12018b74af2adcc9c1220ce292b" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-rbac-ful" archimateRelationship="id-c4ae4e8dd6af4ae98edec02adcc42661"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-5404eb04042546cd847de588d53dd8ad" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-rbac-del" archimateRelationship="id-ee53e070945e402380d9122ac37dca4d"/>
+          </child>
+        </child>
+      </element>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A (part 1)" id="id-7f8b101353444d1aa235f20e0b4fba72">
+        <child xsi:type="archimate:DiagramObject" id="id-93a05ebe3adb4ee2a4addc73c4999350" fillColor="#feffff" archimateElement="id-app-secstageA-tf-000001">
+          <bounds x="12" y="12" width="1189" height="277"/>
+          <child xsi:type="archimate:Group" id="id-16eb0d66222c4ed187f04112e6043cfd" name="Security Core" textAlignment="1">
+            <bounds x="360" y="24" width="397" height="244"/>
+            <child xsi:type="archimate:DiagramObject" id="id-08dd70a256ef4600a96e168aba7f597b" fillColor="#feffff" textPosition="2" archimateElement="id-tech-app-infraapp-000004">
+              <bounds x="12" y="180" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-a5f0f31a9feb4372ba55cbb9d76ca95d" source="id-08dd70a256ef4600a96e168aba7f597b" target="id-a8cb604246224049806408a76fa58dce" archimateRelationship="id-rel-sA-app-contains-sp"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-c6f3bde2b10f4b0bb1051f5f0243683a" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rbac-keyvault-rg-00013">
+              <bounds x="300" y="180" width="85" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-a03a12bd41a2497582c444cff345771e" source="id-c6f3bde2b10f4b0bb1051f5f0243683a" target="id-a8cb604246224049806408a76fa58dce" archimateRelationship="id-rel-sA-rbac-kv-rg-to-sp"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-f4e696ff494441d8b9b5520e60ffc200" source="id-c6f3bde2b10f4b0bb1051f5f0243683a" target="id-7202b2cbf9f84fe5acd3d71362c3811c" archimateRelationship="id-rel-sA-rbac-kv-rg-to-rg"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-23dfb835d4804a01b15162a7551aacab" source="id-c6f3bde2b10f4b0bb1051f5f0243683a" target="id-2ebcdb4bc9714bfa9d0338fb6b2143f9" archimateRelationship="id-2b38ea56c63c4cdb984c98b60e0da9dd"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-7202b2cbf9f84fe5acd3d71362c3811c" targetConnections="id-f4e696ff494441d8b9b5520e60ffc200 id-2ebcdb4bc9714bfa9d0338fb6b2143f9" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-keyvault-000012">
+              <bounds x="168" y="180" width="109" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-a8cb604246224049806408a76fa58dce" targetConnections="id-a5f0f31a9feb4372ba55cbb9d76ca95d id-cd7b5a9406314ddbab7c48b40b6637c5 id-9d5fd26d5ec9476c9b69534f35f91e57 id-a03a12bd41a2497582c444cff345771e" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
+              <bounds x="96" y="24" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-924ee7024af04d4580af1f659855490e" targetConnections="id-358df7c9864446e2af5137da6cdd6ce2" source="id-a8cb604246224049806408a76fa58dce" target="id-e6515fbd862a447fb9d3910c2878c083" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-1a46293a799f4fafa1afe5dff93d2847" targetConnections="id-db9b710b5842415882483b78c52e83b6" source="id-a8cb604246224049806408a76fa58dce" target="id-490ca65c61ce43e692d74ed0d4eb90af" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-2ebcdb4bc9714bfa9d0338fb6b2143f9" targetConnections="id-23dfb835d4804a01b15162a7551aacab" source="id-a8cb604246224049806408a76fa58dce" target="id-7202b2cbf9f84fe5acd3d71362c3811c" archimateRelationship="id-rel-sA-sp-access-rg-kv"/>
+            </child>
+          </child>
+          <child xsi:type="archimate:Group" id="id-a1e5353ace4b4b08882e04c26fe3471b" name="Allow Work on Service Delivery" textAlignment="1">
+            <bounds x="12" y="24" width="325" height="244"/>
+            <child xsi:type="archimate:DiagramObject" id="id-a1a8caf7800e4a63b9aa00c84433f513" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rbac-azdo-delivery-00011">
+              <bounds x="60" y="180" width="205" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-e4c5f3487ce348c5b50817aa3f74e460" source="id-a1a8caf7800e4a63b9aa00c84433f513" target="id-170d75c87e6c491b9e97ebb4fa18a606" archimateRelationship="id-rel-sA-rbac-azdo-del-to-sp"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-83c795a17f8642c88fbf897e196e02d2" source="id-a1a8caf7800e4a63b9aa00c84433f513" target="id-e6515fbd862a447fb9d3910c2878c083" archimateRelationship="id-rel-sA-rbac-azdo-del-to-rg"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-170d75c87e6c491b9e97ebb4fa18a606" targetConnections="id-d0a2cb859c6c4d2d9418df211d590dd9 id-e4c5f3487ce348c5b50817aa3f74e460" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-azdosp-00009">
+              <bounds x="12" y="108" width="145" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-e6515fbd862a447fb9d3910c2878c083" targetConnections="id-6a728fc290ed4ffcbb12a717133f3034 id-924ee7024af04d4580af1f659855490e id-83c795a17f8642c88fbf897e196e02d2" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
+              <bounds x="168" y="108" width="145" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-76ed7773ffaa4aaab0b00157a609c71f" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rbac-delivery-000006">
+              <bounds x="168" y="24" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-cd7b5a9406314ddbab7c48b40b6637c5" source="id-76ed7773ffaa4aaab0b00157a609c71f" target="id-a8cb604246224049806408a76fa58dce" archimateRelationship="id-rel-sA-rbac-del-to-sp"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-6a728fc290ed4ffcbb12a717133f3034" source="id-76ed7773ffaa4aaab0b00157a609c71f" target="id-e6515fbd862a447fb9d3910c2878c083" archimateRelationship="id-rel-sA-rbac-del-to-rg"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-358df7c9864446e2af5137da6cdd6ce2" source="id-76ed7773ffaa4aaab0b00157a609c71f" target="id-924ee7024af04d4580af1f659855490e" archimateRelationship="id-568dd481f3854cc49b50fa7c28175ef5">
+                <bendpoint startX="132" startY="19" endX="-6" endY="-24"/>
+              </sourceConnection>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-ffc4fccf0e86436887e2080240dd5629" fillColor="#feffff" textPosition="2" archimateElement="id-tech-app-azdoapp-00010">
+              <bounds x="12" y="24" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-d0a2cb859c6c4d2d9418df211d590dd9" source="id-ffc4fccf0e86436887e2080240dd5629" target="id-170d75c87e6c491b9e97ebb4fa18a606" archimateRelationship="id-rel-sA-azdo-app-contains-sp"/>
+            </child>
+          </child>
+          <child xsi:type="archimate:Group" id="id-610c5562ff73401cb5cee6964aba926e" name="Allow Work On Fulfillment Resources" textAlignment="1">
+            <bounds x="780" y="24" width="400" height="244"/>
+            <child xsi:type="archimate:DiagramObject" id="id-dd52fab72b5e4ac89801b69320caaebf" targetConnections="id-2d5948c569534892ac591cc3dcc44ac2" fillColor="#feffff" textPosition="2" archimateElement="id-tech-uami-agicidentity-00008">
+              <bounds x="216" y="180" width="157" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-490ca65c61ce43e692d74ed0d4eb90af" targetConnections="id-e0a9278c95d74b0eaa1eb2273a47307a id-1a46293a799f4fafa1afe5dff93d2847" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
+              <bounds x="24" y="156" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-3da2b8815ec94c4092e75cff1ffa470c" source="id-490ca65c61ce43e692d74ed0d4eb90af" target="id-e1fe40795fe54de882831897289ee276" archimateRelationship="id-rel-sA-rg-fulfillment-uami"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-2d5948c569534892ac591cc3dcc44ac2" source="id-490ca65c61ce43e692d74ed0d4eb90af" target="id-dd52fab72b5e4ac89801b69320caaebf" archimateRelationship="id-rel-sA-rg-fulfillment-agic-uami">
+                <bendpoint startX="120" startY="9" endX="-126" endY="9"/>
+              </sourceConnection>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-e1fe40795fe54de882831897289ee276" targetConnections="id-3da2b8815ec94c4092e75cff1ffa470c" fillColor="#feffff" textPosition="2" archimateElement="id-tech-uami-mftidentity-00005">
+              <bounds x="216" y="120" width="157" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-8026a97f4ae948d8a791affd3f4e3e14" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rbac-fulfillmt-00007">
+              <bounds x="24" y="36" width="145" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-9d5fd26d5ec9476c9b69534f35f91e57" source="id-8026a97f4ae948d8a791affd3f4e3e14" target="id-a8cb604246224049806408a76fa58dce" archimateRelationship="id-rel-sA-rbac-ful-to-sp"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-e0a9278c95d74b0eaa1eb2273a47307a" source="id-8026a97f4ae948d8a791affd3f4e3e14" target="id-490ca65c61ce43e692d74ed0d4eb90af" archimateRelationship="id-rel-sA-rbac-ful-to-rg"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-db9b710b5842415882483b78c52e83b6" source="id-8026a97f4ae948d8a791affd3f4e3e14" target="id-1a46293a799f4fafa1afe5dff93d2847" archimateRelationship="id-97d74d8dfadd40c899a2fd68fe600f7e">
+                <bendpoint startX="-156" startY="19" endX="17" endY="-19"/>
+              </sourceConnection>
+            </child>
+          </child>
+        </child>
+      </element>
     </folder>
     <element xsi:type="archimate:ArchimateDiagramModel" name="Requirements" id="id-a0e642f5c59f4ee2b11f3833267838a7">
       <child xsi:type="archimate:DiagramObject" id="id-164db30f7e75407f92e203e3fbdd046b" archimateElement="id-89d6fcff3f7443cfad966cffa1d8d862">

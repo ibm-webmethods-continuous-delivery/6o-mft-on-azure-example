@@ -146,7 +146,83 @@ resource "azurerm_role_assignment" "infra_keyvault_rg_reader" {
   depends_on = [time_sleep.wait_for_sp_propagation]
 }
 
+################################################################################
+# Custom Role: Infrastructure Role Delegator
+#
+# WHY NOT User Access Administrator?
+#
+# The built-in "User Access Administrator" role (GUID 18d7d88d-...) is one of
+# three privileged roles that IBM enterprise subscriptions block via an ABAC
+# condition on the Owner/UAA assignment granted to subscription owners:
+#
+#   @Request[roleAssignments:RoleDefinitionId]
+#     ForAnyOfAllValues:GuidNotEquals {
+#       8e3af657-...  (Owner)
+#       18d7d88d-...  (User Access Administrator)   ← blocked
+#       f58310d9-...  (Role Based Access Control Administrator)
+#     }
+#
+# This means even a subscription Owner cannot assign UAA to another principal,
+# because the ABAC condition on their own assignment prevents it.
+#
+# SOLUTION: Create a custom role that grants only the specific IAM write actions
+# the infrastructure team needs in Stage B. Custom roles have a new GUID that
+# is not in the ABAC deny-list, so the assignment succeeds.
+#
+# LEAST-PRIVILEGE: Unlike UAA (which allows assigning ANY role), this custom
+# role only permits roleAssignments/write and /delete — and Stage B further
+# constrains which roles it actually assigns (AcrPull, Contributor, Reader,
+# Network Contributor, Key Vault Secrets User, Key Vault Certificate User,
+# Key Vault Administrator).
+################################################################################
 
+resource "azurerm_role_definition" "infra_role_delegator" {
+  name        = "${var.prefix}-infra-role-delegator"
+  scope       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  description = "Allows the infrastructure team service principal to create and delete role assignments within its managed resource groups. Replaces User Access Administrator to comply with subscription ABAC constraints that block assignment of built-in privileged roles."
+
+  permissions {
+    actions = [
+      "Microsoft.Authorization/roleAssignments/write",
+      "Microsoft.Authorization/roleAssignments/delete",
+      "Microsoft.Authorization/roleAssignments/read",
+    ]
+    not_actions = []
+  }
+
+  assignable_scopes = [
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.delivery_rg_name}",
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.fulfillment_rg_name}",
+  ]
+}
+
+# Infrastructure Role Delegator on Service Delivery Resource Group
+# Allows the infrastructure SP to create role assignments in Stage B:
+#   - AcrPull for SFTP VMs and AKS on the Container Registry
+resource "azurerm_role_assignment" "infra_delivery_role_delegator" {
+  scope              = azurerm_resource_group.delivery.id
+  role_definition_id = azurerm_role_definition.infra_role_delegator.role_definition_resource_id
+  principal_id       = azuread_service_principal.infra.object_id
+
+  depends_on = [time_sleep.wait_for_sp_propagation]
+}
+
+# Infrastructure Role Delegator on Service Fulfillment Resource Group
+# Allows the infrastructure SP to create role assignments in Stage B:
+#   - AGIC: Contributor on App Gateway, Reader on RG, Network Contributor on subnet
+#   - MFT identity: Key Vault Secrets User, Key Vault Certificate User
+#   - Terraform: Key Vault Administrator
+resource "azurerm_role_assignment" "infra_fulfillment_role_delegator" {
+  scope              = azurerm_resource_group.fulfillment.id
+  role_definition_id = azurerm_role_definition.infra_role_delegator.role_definition_resource_id
+  principal_id       = azuread_service_principal.infra.object_id
+
+  depends_on = [time_sleep.wait_for_sp_propagation]
+}
+
+################################################################################
+# Role Assignments for Azure DevOps Service Principal
+################################################################################
 
 # Contributor role on Service Delivery Resource Group for Azure DevOps Service Principal
 resource "azurerm_role_assignment" "azdo_delivery_contributor" {

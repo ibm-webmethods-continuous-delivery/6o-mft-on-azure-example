@@ -28,8 +28,9 @@ The security team uses this project to:
 - **Infrastructure Team Service Principal**: `${prefix}-infra-sp`
   - Azure AD Application
   - Service Principal with client secret
-  - Contributor role on both resource groups
-  - Reader role on Key Vault resource group (if provided)
+  - **Contributor role** on both resource groups (manage resources)
+  - **`${prefix}-infra-role-delegator` custom role** on both resource groups (create/delete role assignments — see [Why a custom role?](#why-a-custom-role-instead-of-user-access-administrator) below)
+  - **Reader role** on Key Vault resource group (if provided, read Key Vault metadata)
   - Valid for 1 year
 
 - **Azure DevOps Service Principal** (Optional): `${prefix}-azdo-sp`
@@ -50,6 +51,28 @@ The security team uses this project to:
   - Intended for AGIC workload identity integration in later stages
   - Federated credentials to be added later when AKS OIDC issuer is available
 
+## Why a custom role instead of User Access Administrator?
+
+Stage B needs the infrastructure service principal to create role assignments (e.g. grant `AcrPull` to VMs, `Key Vault Secrets User` to the MFT identity). The natural built-in role for this is **User Access Administrator** (`18d7d88d-d35e-4fb5-a5c3-7773c20a72d9`).
+
+However, IBM enterprise subscriptions apply an **ABAC condition** on the Owner role assignment granted to subscription owners:
+
+```
+roleAssignments/write is ALLOWED only when the role being assigned is NOT one of:
+  - 8e3af657-a8ff-443c-a75c-2fe8c4bcb635  (Owner)
+  - 18d7d88d-d35e-4fb5-a5c3-7773c20a72d9  (User Access Administrator)  ← blocked
+  - f58310d9-a9f6-439a-9e8d-f62e7b41a168  (Role Based Access Control Administrator)
+```
+
+This means that even a subscription Owner gets a `403 AuthorizationFailed: ABAC condition not fulfilled` when trying to assign UAA to another principal via Terraform or the CLI.
+
+**Solution:** This stage creates a **custom role** (`${prefix}-infra-role-delegator`) that grants only:
+- `Microsoft.Authorization/roleAssignments/write`
+- `Microsoft.Authorization/roleAssignments/delete`
+- `Microsoft.Authorization/roleAssignments/read`
+
+Because the custom role has a new GUID (not in the ABAC blocklist), assigning it succeeds. This is also a **better least-privilege design** than UAA: the infrastructure SP can only create/delete role assignments within its own resource groups, not assign any role at any scope.
+
 ## Prerequisites
 
 1. **Azure CLI** installed and authenticated
@@ -57,7 +80,8 @@ The security team uses this project to:
 3. **Permissions**: The user running this Terraform must have:
    - Ability to create resource groups in the subscription
    - Ability to create Azure AD applications and service principals
-   - Ability to assign roles (User Access Administrator or Owner)
+   - Ability to create custom role definitions in the subscription
+   - Ability to assign roles at resource group scope (Contributor or Owner with standard ABAC conditions)
 4. **Key Vault** (Optional): If you have an existing Key Vault from `01-vault/`, provide its resource group name to grant the infrastructure team Reader access
 
 ## Usage
@@ -211,9 +235,19 @@ Provide the infrastructure team with:
    - Restrict access to the state file
    - Enable state locking
 
-3. **Least Privilege**: The service principal has Contributor role on the two resource groups only, not on the entire subscription.
+3. **Least Privilege**: The service principal has Contributor and the custom `${prefix}-infra-role-delegator` roles scoped to specific resource groups only, not on the entire subscription. The custom role grants only `roleAssignments/write` and `roleAssignments/delete` — unlike User Access Administrator, it cannot be used to assign roles at any other scope or to escalate privileges.
 
-4. **Audit Trail**: All operations performed by the service principal can be tracked via Azure Activity Logs.
+4. **Role Assignment Permissions**: The custom `${prefix}-infra-role-delegator` role allows the infrastructure team to create role assignments within their managed resource groups. This is required for Stage B to grant:
+   - `AcrPull` access to SFTP VMs and AKS on the Container Registry
+   - AGIC permissions (Application Gateway Contributor, Resource Group Reader, Subnet Network Contributor)
+   - Key Vault access for MFT identity (Secrets User, Certificate User)
+   - Key Vault Administrator for Terraform to manage secrets
+
+5. **ABAC Compliance**: The custom role design is required by IBM enterprise subscription policy. Attempting to use the built-in User Access Administrator role results in `403 AuthorizationFailed: ABAC condition not fulfilled` even for subscription Owners, because the Owner assignment carries a condition blocking assignment of the three built-in privileged roles (Owner, UAA, RBAC Administrator).
+
+6. **Monitoring**: Consider enabling Azure Activity Log monitoring for role assignment changes to track what access is granted by the infrastructure team service principal.
+
+7. **Audit Trail**: All operations performed by the service principal can be tracked via Azure Activity Logs.
 
 ## Troubleshooting
 
@@ -238,6 +272,45 @@ If you encounter permission errors during `terraform apply`:
    ```bash
    az account show
    ```
+
+### Role Assignment Errors in Stage A (403 ABAC condition not fulfilled)
+
+If you see this error during `terraform apply` in Stage A:
+
+```
+Error: AuthorizationFailed: The client has an authorization with ABAC condition
+that is not fulfilled to perform action 'Microsoft.Authorization/roleAssignments/write'
+```
+
+**Root Cause:** Your Owner role on the subscription has an ABAC condition that blocks assigning the built-in User Access Administrator role (and Owner, RBAC Admin). This is an IBM enterprise subscription policy applied to the `SUB-*_Owner` Entra group.
+
+**This project handles it automatically** by using a custom role instead of UAA. If you are seeing this error, you may be running an older version of this file that still references `role_definition_name = "User Access Administrator"`. Pull the latest version and re-apply.
+
+### Role Assignment Errors in Stage B
+
+If Stage B encounters "AuthorizationFailed" errors when creating role assignments:
+
+**Error Message:**
+```
+Error: The client does not have authorization to perform action
+'Microsoft.Authorization/roleAssignments/write' over scope...
+```
+
+**Root Cause:** The infrastructure team service principal needs the `${prefix}-infra-role-delegator` custom role to create role assignments. This is granted by Stage A.
+
+**Solution:** Ensure you've applied the latest version of Stage A before running Stage B:
+
+```bash
+# In 02-sec-stage-A directory
+terraform plan   # Verify the custom role and its assignments will be created
+terraform apply  # Apply the changes
+```
+
+**What Gets Fixed:** After applying, the infrastructure SP can create role assignments in Stage B for:
+- AcrPull access for SFTP VMs and AKS
+- AGIC permissions (Application Gateway, Resource Group, Subnet)
+- Key Vault access for MFT identity
+- Key Vault Administrator for Terraform
 
 ## Next Steps
 

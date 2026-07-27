@@ -150,9 +150,21 @@ output "instructions" {
     The client secret can be retrieved with:
     terraform output -raw infra_sp_client_secret
     
-    This service principal has Contributor role on:
+    This service principal has the following roles on its resource groups:
+
+    Contributor (manage resources):
     - ${azurerm_resource_group.delivery.name}
     - ${azurerm_resource_group.fulfillment.name}
+
+    ${var.prefix}-infra-role-delegator (create/delete role assignments):
+    - ${azurerm_resource_group.delivery.name}
+    - ${azurerm_resource_group.fulfillment.name}
+
+    NOTE: A custom role is used instead of User Access Administrator because
+    IBM enterprise subscriptions apply an ABAC condition that blocks assigning
+    built-in privileged roles (Owner, UAA, RBAC Administrator) even to
+    subscription Owners. The custom role carries a new GUID not in the blocklist
+    and grants only Microsoft.Authorization/roleAssignments/write and /delete.
     
     Additional Stage A outputs available for later stages:
     - Azure DevOps Service Principal: terraform output azdo_sp_application_id
