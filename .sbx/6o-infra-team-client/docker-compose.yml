@@ -3,8 +3,8 @@ services:
     # obtain this image using
     #  https://github.com/ibm-webmethods-continuous-delivery/7u-container-images/tree/main/images/u/alpine/terraform
     image: iwcd-terraform-u:alpine
-    container_name: iwcd-sbx-mft-azure-tf
-    hostname: iwcd-sbx-mft-azure-tf
+    container_name: 6o-infra-team-client
+    hostname: 6o-infra-team-client
     read_only: true
     environment:
       - ARM_CLIENT_ID
