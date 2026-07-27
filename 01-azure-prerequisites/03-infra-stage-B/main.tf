@@ -597,7 +597,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     node_count                  = var.aks_node_count
     vm_size                     = var.aks_node_size
     vnet_subnet_id              = azurerm_subnet.private_1.id
-    zones                       = ["1", "2", "3"]
+    zones                       = var.aks_zones
     temporary_name_for_rotation = "defaulttmp"
   }
 
@@ -816,8 +816,8 @@ resource "azurerm_application_gateway" "main" {
 
 # Federated credential for MFT service account
 resource "azurerm_federated_identity_credential" "mft" {
-  name      = "${var.prefix}-mft-federated-credential"
-  parent_id = data.azurerm_user_assigned_identity.mft.id
+  name                      = "${var.prefix}-mft-federated-credential"
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.mft.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:${var.mft_namespace}:${var.mft_service_account_name}"
@@ -825,8 +825,8 @@ resource "azurerm_federated_identity_credential" "mft" {
 
 # Federated credential for Database Configurator service account
 resource "azurerm_federated_identity_credential" "dbc" {
-  name      = "${var.prefix}-dbc-federated-credential"
-  parent_id = data.azurerm_user_assigned_identity.mft.id
+  name                      = "${var.prefix}-dbc-federated-credential"
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.mft.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:default:database-configurator-sa"
@@ -834,8 +834,8 @@ resource "azurerm_federated_identity_credential" "dbc" {
 
 # Federated credential for Database User Init service account
 resource "azurerm_federated_identity_credential" "db_user_init" {
-  name      = "${var.prefix}-db-user-init-federated-credential"
-  parent_id = data.azurerm_user_assigned_identity.mft.id
+  name                      = "${var.prefix}-db-user-init-federated-credential"
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.mft.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:default:database-user-init-sa"
@@ -843,8 +843,8 @@ resource "azurerm_federated_identity_credential" "db_user_init" {
 
 # Federated credential for MFT service (active transfer)
 resource "azurerm_federated_identity_credential" "mft_service" {
-  name      = "${var.prefix}-mft-service-federated-credential"
-  parent_id = data.azurerm_user_assigned_identity.mft.id
+  name                      = "${var.prefix}-mft-service-federated-credential"
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.mft.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:mft:mft-service-account"
@@ -856,8 +856,8 @@ resource "azurerm_federated_identity_credential" "mft_service" {
 
 # Federated credential for AGIC service account
 resource "azurerm_federated_identity_credential" "agic" {
-  name      = "${var.prefix}-agic-federated-credential"
-  parent_id = data.azurerm_user_assigned_identity.agic.id
+  name                      = "${var.prefix}-agic-federated-credential"
+  user_assigned_identity_id = data.azurerm_user_assigned_identity.agic.id
   audience  = ["api://AzureADTokenExchange"]
   issuer    = azurerm_kubernetes_cluster.main.oidc_issuer_url
   subject   = "system:serviceaccount:default:ingress-azure"

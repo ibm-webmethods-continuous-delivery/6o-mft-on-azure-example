@@ -316,6 +316,12 @@ variable "enable_aks_acr_role" {
   default     = true
 }
 
+variable "aks_zones" {
+  description = "Availability zones for the AKS default node pool. Not all regions support all zones — e.g. westeurope only supports zone 3. Set to [] to disable zone pinning."
+  type        = list(string)
+  default     = ["1", "2", "3"]
+}
+
 variable "mft_namespace" {
   description = "Kubernetes namespace for MFT workload"
   type        = string

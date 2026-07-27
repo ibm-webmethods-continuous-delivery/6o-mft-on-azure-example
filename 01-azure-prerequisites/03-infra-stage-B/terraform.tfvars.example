@@ -133,10 +133,14 @@ enable_sftp_vm_acr_role = true
 # Service Fulfillment - AKS Configuration (Optional)
 ################################################################################
 
-# aks_cluster_name = "mftdemo-aks"
-aks_node_count   = 3
-aks_node_size    = "Standard_D4s_v3"
+# aks_cluster_name  = "mftdemo-aks"
+aks_node_count      = 3
+aks_node_size       = "Standard_D4s_v3"
 enable_aks_acr_role = true
+# Availability zones for AKS nodes. Supported zones vary by region:
+#   westeurope: ["3"]   northeurope: ["1","2","3"]
+# Set to [] to disable zone pinning entirely.
+aks_zones = ["1", "2", "3"]
 
 mft_namespace            = "mft"
 mft_service_account_name = "mft-service-account"
