@@ -190,10 +190,15 @@ resource "azurerm_role_definition" "infra_role_delegator" {
     not_actions = []
   }
 
-  assignable_scopes = [
-    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.delivery_rg_name}",
-    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.fulfillment_rg_name}",
-  ]
+  assignable_scopes = concat(
+    [
+      "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.delivery_rg_name}",
+      "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${local.fulfillment_rg_name}",
+    ],
+    var.key_vault_resource_group_name != null ? [
+      "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.key_vault_resource_group_name}",
+    ] : []
+  )
 }
 
 # Infrastructure Role Delegator on Service Delivery Resource Group
@@ -214,6 +219,23 @@ resource "azurerm_role_assignment" "infra_delivery_role_delegator" {
 #   - Terraform: Key Vault Administrator
 resource "azurerm_role_assignment" "infra_fulfillment_role_delegator" {
   scope              = azurerm_resource_group.fulfillment.id
+  role_definition_id = azurerm_role_definition.infra_role_delegator.role_definition_resource_id
+  principal_id       = azuread_service_principal.infra.object_id
+
+  depends_on = [time_sleep.wait_for_sp_propagation]
+}
+
+# Infrastructure Role Delegator on Key Vault Resource Group (if provided)
+# Allows the infrastructure SP to create role assignments in Stage B:
+#   - Key Vault Secrets User for MFT identity
+#   - Key Vault Certificate User for MFT identity
+#   - Key Vault Administrator for Terraform (to write secrets)
+# The Key Vault lives in a separate RG (e.g. MIUN_LongTerm) outside the two
+# infra RGs — the custom role assignable_scopes must include it too.
+resource "azurerm_role_assignment" "infra_keyvault_rg_role_delegator" {
+  count = var.key_vault_resource_group_name != null ? 1 : 0
+
+  scope              = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.key_vault_resource_group_name}"
   role_definition_id = azurerm_role_definition.infra_role_delegator.role_definition_resource_id
   principal_id       = azuread_service_principal.infra.object_id
 

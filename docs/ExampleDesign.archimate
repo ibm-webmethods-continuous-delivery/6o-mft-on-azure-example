@@ -269,9 +269,10 @@ Created By: Infrastructure Team (Stage B)
           <documentation>Azure custom role definition granting only roleAssignments/write, /delete and /read.
 Azure Resource Type: Microsoft.Authorization/roleDefinitions
 Scope: Subscription
-Assignable Scopes: ${prefix}-s-delivery RG, ${prefix}-s-fulfillment RG
+Assignable Scopes: ${prefix}-s-delivery RG, ${prefix}-s-fulfillment RG, Key Vault RG (optional — when key_vault_resource_group_name is provided)
 Created By: Security Team (Stage A)
 Purpose: Replaces User Access Administrator to comply with IBM enterprise subscription ABAC constraints that block assignment of built-in privileged roles (Owner GUID 8e3af657, UAA GUID 18d7d88d, RBAC Admin GUID f58310d9). Custom role has a new GUID not in the deny-list.
+The Key Vault RG assignable scope is needed so the infra SP can assign Key Vault Secrets User, Certificate User and Administrator roles on the vault in Stage B.
 </documentation>
           <property key="Azure Resource Type" value="Microsoft.Authorization/roleDefinitions"/>
           <property key="created-by" value="Security Team (Stage A)"/>
@@ -309,6 +310,24 @@ Purpose: Allows infrastructure team to create role assignments within Service Fu
           <property key="principal" value="${prefix}-infra-sp"/>
           <property key="created-by" value="Security Team (Stage A)"/>
           <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Key Vault RG" id="id-tech-rbac-kv-custom-00072">
+          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Key Vault Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: Key Vault Resource Group (from 01-vault/ — e.g. MIUN_LongTerm)
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Optional: only created when key_vault_resource_group_name variable is provided.
+Purpose: Allows infrastructure team to create role assignments on the Key Vault in Stage B (Key Vault Secrets User for MFT identity, Key Vault Certificate User for MFT identity, Key Vault Administrator for Terraform). The Key Vault lives in a separate RG outside the two infra RGs — this third assignment is required.
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+          <property key="scope" value="Key Vault Resource Group"/>
+          <property key="principal" value="${prefix}-infra-sp"/>
+          <property key="created-by" value="Security Team (Stage A)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          <property key="optional" value="yes — controlled by key_vault_resource_group_name variable"/>
         </element>
         <element xsi:type="archimate:Node" name="User Access Administrator on Service Delivery RG" id="id-tech-rbac-delivery-uaa-00067">
           <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Delivery Resource Group.
@@ -1119,6 +1138,10 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-custom-to-rg" source="id-tech-rbac-fulfillmt-custom-00071" target="id-tech-app-infraapp-000004"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-roledef-to-del-assign" source="id-tech-rbac-custom-roledef-00069" target="id-rel-sA-sp-access-rg-ful"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-roledef-to-ful-assign" source="id-tech-rbac-custom-roledef-00069" target="id-app-secstageA-custom-role-00001"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-kv-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-kv-custom-00072"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-kv-custom-to-sp" source="id-tech-rbac-kv-custom-00072" target="id-tech-sp-infrasp-0000003"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-kv-custom-to-rg" source="id-tech-rbac-kv-custom-00072" target="id-tech-rg-keyvault-000012"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-rel-sA-roledef-to-kv-assign" source="id-tech-rbac-custom-roledef-00069" target="id-tech-rbac-kv-custom-00072"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-rel-sB-infrateam-performs-tf" source="id-biz-actor-infrateam-0002" target="id-app-infrastageB-tf-000001"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sd-vnet" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sd-vnet-00014"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-tf-to-sd-subnet" source="id-app-infrastageB-tf-000001" target="id-tech-sB-sd-subnet-00015"/>
@@ -1343,36 +1366,49 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
       <element xsi:type="archimate:ArchimateDiagramModel" name="03-infra-stage-B" id="id-1f9ee46a2d094819a72a4164263db402"/>
       <element xsi:type="archimate:ArchimateDiagramModel" name="02-sec-stage-A (part 2 - option custom role)" id="id-dv-sA-part2-custom-role-00001">
         <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-wrapper" targetConnections="id-dv-conn-roledef-to-ful" archimateElement="id-app-secstageA-custom-role-00001">
-          <bounds x="12" y="12" width="553" height="229"/>
+          <bounds x="12" y="12" width="721" height="313"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-179bfd62223e4fc89395966ee1e512fa" source="id-dv-sA-cr-wrapper" target="id-dv-sA-cr-roledef" archimateRelationship="id-rel-sA-tf-to-roledef-custom"/>
-          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-sp" targetConnections="id-dv-conn-cr-ful-to-sp id-dv-conn-cr-del-to-app" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
-            <bounds x="204" y="168" width="145" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-0e1b7bfc8dbd4832ad0a4c8a28127d74" source="id-dv-sA-cr-wrapper" target="id-dv-sA-cr-rbac-kv" archimateRelationship="id-rel-sA-tf-to-rbac-kv-custom"/>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-sp" targetConnections="id-dv-conn-cr-ful-to-sp id-dv-conn-cr-del-to-app id-dv-conn-cr-kv-to-sp" fillColor="#feffff" textPosition="2" archimateElement="id-tech-sp-infrasp-0000003">
+            <bounds x="168" y="240" width="145" height="55"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-sp-access-ful" source="id-dv-sA-cr-sp" target="id-dv-sA-cr-rg-ful" archimateRelationship="id-rel-sA-sp-access-rg-ful"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-sp-access-del" source="id-dv-sA-cr-sp" target="id-dv-sA-cr-rg-del" archimateRelationship="id-rel-sA-sp-access-rg-del"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-sp-access-kv" source="id-dv-sA-cr-sp" target="id-dv-sA-cr-rg-kv" archimateRelationship="id-rel-sA-sp-access-rg-kv"/>
           </child>
           <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rbac-del" targetConnections="id-5404eb04042546cd847de588d53dd8ad" archimateElement="id-tech-rbac-delivery-custom-00070">
-            <bounds x="36" y="96" width="217" height="49"/>
+            <bounds x="12" y="84" width="217" height="49"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-del-to-rg" source="id-dv-sA-cr-rbac-del" target="id-dv-sA-cr-rg-del" archimateRelationship="id-rel-sA-rbac-del-custom-to-rg"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-del-to-app" source="id-dv-sA-cr-rbac-del" target="id-dv-sA-cr-sp" archimateRelationship="id-rel-sA-rbac-del-custom-to-sp"/>
           </child>
           <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rbac-ful" targetConnections="id-e305d12018b74af2adcc9c1220ce292b" archimateElement="id-tech-rbac-fulfillmt-custom-00071">
-            <bounds x="288" y="96" width="217" height="49"/>
+            <bounds x="252" y="84" width="217" height="49"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-ful-to-sp" source="id-dv-sA-cr-rbac-ful" target="id-dv-sA-cr-sp" archimateRelationship="id-rel-sA-rbac-ful-custom-to-sp"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-46c3191a427d4141b22f21f36ea7f27e" source="id-dv-sA-cr-rbac-ful" target="id-dv-sA-cr-rg-ful" archimateRelationship="id-85a63146f89f4e8899b0dc516e8cb7f4"/>
           </child>
           <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rg-del" targetConnections="id-dv-conn-cr-sp-access-del id-dv-conn-cr-del-to-rg" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-delivery-00000001">
-            <bounds x="12" y="168" width="169" height="55"/>
+            <bounds x="12" y="156" width="169" height="55"/>
           </child>
           <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rg-ful" targetConnections="id-dv-conn-cr-sp-access-ful id-46c3191a427d4141b22f21f36ea7f27e" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
-            <bounds x="372" y="168" width="169" height="55"/>
+            <bounds x="300" y="156" width="169" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rg-kv" targetConnections="id-dv-conn-cr-sp-access-kv id-dv-conn-cr-kv-to-rg" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-keyvault-000012">
+            <bounds x="492" y="240" width="169" height="55"/>
           </child>
           <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-roledef" targetConnections="id-179bfd62223e4fc89395966ee1e512fa" archimateElement="id-tech-rbac-custom-roledef-00069">
-            <bounds x="156" y="36" width="241" height="43"/>
+            <bounds x="240" y="24" width="241" height="43"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-roledef-to-ful" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-wrapper" archimateRelationship="id-rel-sA-roledef-to-ful-assign">
               <bendpoint startX="126" startY="93" endX="-198" endY="9"/>
             </sourceConnection>
             <sourceConnection xsi:type="archimate:Connection" id="id-e305d12018b74af2adcc9c1220ce292b" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-rbac-ful" archimateRelationship="id-c4ae4e8dd6af4ae98edec02adcc42661"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-5404eb04042546cd847de588d53dd8ad" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-rbac-del" archimateRelationship="id-ee53e070945e402380d9122ac37dca4d"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-roledef-to-kv" source="id-dv-sA-cr-roledef" target="id-dv-sA-cr-rbac-kv" archimateRelationship="id-rel-sA-roledef-to-kv-assign"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-sA-cr-rbac-kv" targetConnections="id-dv-conn-roledef-to-kv id-dv-conn-cr-kv-to-sp id-0e1b7bfc8dbd4832ad0a4c8a28127d74" archimateElement="id-tech-rbac-kv-custom-00072">
+            <bounds x="492" y="84" width="217" height="49"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-kv-to-sp" source="id-dv-sA-cr-rbac-kv" target="id-dv-sA-cr-sp" archimateRelationship="id-rel-sA-rbac-kv-custom-to-sp">
+              <bendpoint startX="-132" startY="144" endX="240" endY="-15"/>
+            </sourceConnection>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-conn-cr-kv-to-rg" source="id-dv-sA-cr-rbac-kv" target="id-dv-sA-cr-rg-kv" archimateRelationship="id-rel-sA-rbac-kv-custom-to-rg"/>
           </child>
         </child>
       </element>
