@@ -131,9 +131,22 @@ resource "azurerm_role_assignment" "infra_fulfillment_contributor" {
   scope                = azurerm_resource_group.fulfillment.id
   role_definition_name = "Contributor"
   principal_id         = azuread_service_principal.infra.object_id
+  depends_on           = [time_sleep.wait_for_sp_propagation]
+}
+
+# Reader role on Key Vault Resource Group (if provided)
+# This allows the infrastructure team to read Key Vault metadata in Stage B
+resource "azurerm_role_assignment" "infra_keyvault_rg_reader" {
+  count = var.key_vault_resource_group_name != null ? 1 : 0
+
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.key_vault_resource_group_name}"
+  role_definition_name = "Reader"
+  principal_id         = azuread_service_principal.infra.object_id
 
   depends_on = [time_sleep.wait_for_sp_propagation]
 }
+
+
 
 # Contributor role on Service Delivery Resource Group for Azure DevOps Service Principal
 resource "azurerm_role_assignment" "azdo_delivery_contributor" {

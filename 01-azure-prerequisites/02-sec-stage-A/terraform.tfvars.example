@@ -5,6 +5,10 @@
 prefix   = "vmazex"  # Change to your unique prefix (4-10 chars, lowercase letters/numbers)
 location = "westeurope"
 
+# Optional: Key Vault Resource Group (from 01-vault/)
+# Provide this to grant infrastructure team Reader access to Key Vault metadata
+# key_vault_resource_group_name = "given-kv-rg"
+
 # Optional: Override default resource group suffixes
 # delivery_rg_suffix    = "s-delivery"
 # fulfillment_rg_suffix = "s-fulfillment"
@@ -20,8 +24,12 @@ location = "westeurope"
 
 # Optional: Custom tags
 # tags = {
-#   ManagedBy   = "SecurityTeam"
-#   Stage       = "Prerequisites"
-#   Environment = "Production"
-#   Project     = "MFT-on-Azure"
+#   DrivingClientType   = "Terraform"
+#   Environment         = "Vanilla"
+#   ManagedBy           = "SecurityTeam"
+#   Owner               = "John Doe"
+#   OwningTeam          = "JSecurity"
+#   Project             = "MFT-on-Azure-Example"
+#   Stack               = "02-sec-stage-A"
+#   Stage               = "Prerequisites"
 # }

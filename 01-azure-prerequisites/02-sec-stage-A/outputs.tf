@@ -54,6 +54,17 @@ output "infra_sp_subscription_id" {
 
 ################################################################################
 # Azure DevOps Service Principal Outputs
+
+
+################################################################################
+# Key Vault Resource Group Output
+################################################################################
+
+output "key_vault_resource_group_name" {
+  description = "Resource group name containing the Key Vault (if provided)"
+  value       = var.key_vault_resource_group_name
+}
+
 ################################################################################
 
 output "azdo_sp_application_id" {

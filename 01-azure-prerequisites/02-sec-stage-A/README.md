@@ -29,6 +29,7 @@ The security team uses this project to:
   - Azure AD Application
   - Service Principal with client secret
   - Contributor role on both resource groups
+  - Reader role on Key Vault resource group (if provided)
   - Valid for 1 year
 
 - **Azure DevOps Service Principal** (Optional): `${prefix}-azdo-sp`
@@ -57,6 +58,7 @@ The security team uses this project to:
    - Ability to create resource groups in the subscription
    - Ability to create Azure AD applications and service principals
    - Ability to assign roles (User Access Administrator or Owner)
+4. **Key Vault** (Optional): If you have an existing Key Vault from `01-vault/`, provide its resource group name to grant the infrastructure team Reader access
 
 ## Usage
 
@@ -73,6 +75,9 @@ Edit `terraform.tfvars` with your values:
 ```hcl
 prefix   = "vmazex"  # Your unique prefix (4-10 chars, lowercase)
 location = "westeurope"
+
+# Optional: Provide Key Vault resource group for infrastructure team access
+# key_vault_resource_group_name = "MIUN-LongTerm"
 ```
 
 ### 2. Initialize Terraform

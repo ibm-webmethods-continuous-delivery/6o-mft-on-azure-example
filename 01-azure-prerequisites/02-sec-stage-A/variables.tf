@@ -95,3 +95,11 @@ variable "tags" {
     Stage     = "Prerequisites"
   }
 }
+
+
+# Key Vault Access (for Stage B infrastructure team)
+variable "key_vault_resource_group_name" {
+  description = "Resource group name containing the Key Vault (from 01-vault/). Infrastructure SP needs Reader access to this RG."
+  type        = string
+  default     = null
+}
