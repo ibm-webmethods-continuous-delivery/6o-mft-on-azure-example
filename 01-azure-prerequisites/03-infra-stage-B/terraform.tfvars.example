@@ -1,0 +1,197 @@
+################################################################################
+# Stage B - Infrastructure Team Configuration Example
+################################################################################
+# Copy this file to terraform.tfvars and fill in your values
+# cp terraform.tfvars.example terraform.tfvars
+
+################################################################################
+# Common Configuration
+################################################################################
+
+prefix   = "mftdemo"
+location = "westeurope"
+
+tags = {
+  Environment = "Development"
+  Project     = "MFT-on-Azure"
+  ManagedBy   = "Terraform"
+  Stage       = "B-Infrastructure"
+}
+
+environment_name = "dev"
+
+################################################################################
+# Stage A Handoff (Required - from Stage A outputs)
+################################################################################
+# Get these values from Stage A:
+#   cd ../02-sec-stage-A
+#   terraform output delivery_resource_group_name
+#   terraform output fulfillment_resource_group_name
+#   terraform output mft_identity_id
+#   terraform output mft_identity_principal_id
+#   terraform output mft_identity_client_id
+#   terraform output agic_identity_id
+#   terraform output agic_identity_principal_id
+#   terraform output agic_identity_client_id
+
+delivery_resource_group_name    = "mftdemo-s-delivery"
+fulfillment_resource_group_name = "mftdemo-s-fulfillment"
+
+mft_identity_id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mftdemo-s-fulfillment/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mftdemo-mft-identity"
+mft_identity_principal_id = "00000000-0000-0000-0000-000000000000"
+mft_identity_client_id    = "00000000-0000-0000-0000-000000000000"
+
+agic_identity_id           = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mftdemo-s-fulfillment/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mftdemo-agic-identity"
+agic_identity_principal_id = "00000000-0000-0000-0000-000000000000"
+agic_identity_client_id    = "00000000-0000-0000-0000-000000000000"
+
+################################################################################
+# Key Vault Configuration (Required - from 01-vault/)
+################################################################################
+# Get these values from 01-vault/:
+#   cd ../../01-vault
+#   terraform output key_vault_name
+#   terraform output resource_group_name
+
+key_vault_name                = "mftdemovault"
+key_vault_resource_group_name = "mftdemo-vault-rg"
+
+################################################################################
+# SSH Configuration (Required)
+################################################################################
+# Generate SSH key pair if you don't have one:
+#   ssh-keygen -t rsa -b 4096 -f ~/.ssh/mft_azure_key
+# Then use the public key:
+#   cat ~/.ssh/mft_azure_key.pub
+
+ssh_admin_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... your-email@example.com"
+
+################################################################################
+# Service Delivery - Network Configuration (Optional)
+################################################################################
+
+# delivery_vnet_name          = "mftdemo-delivery-vnet"
+delivery_vnet_address_space = ["10.1.0.0/16"]
+# delivery_subnet_name        = "mftdemo-delivery-subnet"
+# delivery_nsg_name           = "mftdemo-delivery-nsg"
+
+################################################################################
+# Service Delivery - VMSS Configuration (Optional)
+################################################################################
+
+# vmss_name           = "mftdemoAgentsVmss"
+vmss_sku            = "Standard_D2s_v3"
+vmss_instance_count = 0 # Start with 0, Azure DevOps will scale
+vmss_image          = "Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest"
+
+################################################################################
+# Service Delivery - Storage Configuration (Optional)
+################################################################################
+
+# storage_account_name = "mftdemoimagessa"
+# storage_share_name   = "mftdemoimagessashare"
+storage_share_quota = 5120 # GB
+
+################################################################################
+# Service Delivery - ACR Configuration (Optional)
+################################################################################
+
+# acr_name = "mftdemoacr"
+acr_sku = "Standard" # Basic, Standard, or Premium
+
+################################################################################
+# Service Fulfillment - Network Configuration (Optional)
+################################################################################
+
+# fulfillment_vnet_name       = "mftdemo-fulfillment-vnet"
+fulfillment_vnet_address_space = ["10.2.0.0/16"]
+# public_subnet_1_name        = "mftdemo-public-subnet-1"
+# public_subnet_2_name        = "mftdemo-public-subnet-2"
+# private_subnet_1_name       = "mftdemo-private-subnet-1"
+# private_subnet_2_name       = "mftdemo-private-subnet-2"
+# app_gateway_subnet_name     = "mftdemo-appgw-subnet"
+# sftp_nsg_name               = "mftdemo-sftp-nsg"
+# aks_nsg_name                = "mftdemo-aks-nsg"
+
+# IP ranges allowed to access SFTP (empty list = no access)
+allowed_ip_ranges = [
+  "203.0.113.0/24", # Example: Your office network
+  "198.51.100.0/24" # Example: Your home network
+]
+
+################################################################################
+# Service Fulfillment - SFTP Configuration (Optional)
+################################################################################
+
+# sftp_lb_name    = "mftdemo-sftp-lb"
+# sftp_vm_1_name  = "mftdemo-sftp-vm-1"
+# sftp_vm_2_name  = "mftdemo-sftp-vm-2"
+sftp_vm_size    = "Standard_D2s_v3"
+enable_sftp_vm_acr_role = true
+
+################################################################################
+# Service Fulfillment - AKS Configuration (Optional)
+################################################################################
+
+# aks_cluster_name = "mftdemo-aks"
+aks_node_count   = 3
+aks_node_size    = "Standard_D4s_v3"
+enable_aks_acr_role = true
+
+mft_namespace            = "mft"
+mft_service_account_name = "mft-service-account"
+
+################################################################################
+# Service Fulfillment - PostgreSQL Configuration (Required)
+################################################################################
+
+# postgres_server_name = "mftdemo-postgres"
+postgres_version     = "16"
+postgres_sku_name    = "B_Standard_B2s" # Burstable tier for dev/test
+postgres_storage_mb  = 32768            # 32 GB
+
+postgres_admin_username = "psqladmin"
+postgres_admin_password = "ChangeMe123!SecurePassword" # CHANGE THIS!
+
+postgres_online_db_name  = "mft_online"
+postgres_archive_db_name = "mft_archive"
+
+postgres_dbc_user             = "mft_dbc_user"
+postgres_dbc_password         = "ChangeMe123!SecurePassword" # CHANGE THIS!
+postgres_dbc_archive_user     = "mft_dbc_archive_user"
+postgres_dbc_archive_password = "ChangeMe123!SecurePassword" # CHANGE THIS!
+
+################################################################################
+# Service Fulfillment - Application Gateway Configuration (Optional)
+################################################################################
+
+# app_gateway_name     = "mftdemo-appgw"
+app_gateway_sku_name = "Standard_v2"
+app_gateway_sku_tier = "Standard_v2"
+app_gateway_capacity = 2
+
+################################################################################
+# Key Vault Integration - Secrets Configuration (Optional)
+################################################################################
+
+secret_expiration_date = "2027-12-31T23:59:59Z"
+
+################################################################################
+# Key Vault Integration - Certificate Upload (Optional)
+################################################################################
+# Set to true if you have certificates to upload
+# Requires certificates_base_path to be set to the directory containing certificates
+
+upload_certificates    = false
+# certificates_base_path = "/path/to/certificates"
+# certificate_password   = "certificate-password"
+
+################################################################################
+# Optional Private Storage for MFT VFS (Optional)
+################################################################################
+# Set to true to create a separate storage account for MFT Virtual File System
+
+create_private_storage = false
+# private_storage_account_name = "mftdemomftvfs"
+# private_storage_share_name   = "mftdemomftvfsshare"
+# private_storage_share_quota  = 1024 # GB

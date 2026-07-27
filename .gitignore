@@ -1,3 +1,4 @@
+*.bak
 *.tfvars
 !example.tfvars
 .env
