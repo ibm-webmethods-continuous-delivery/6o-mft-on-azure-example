@@ -130,6 +130,17 @@ Grants Key Vault access to MFT pods without storing credentials in the cluster.
 Scaled on demand by Azure DevOps to build and push container images to ACR.
 </documentation>
       </element>
+      <element xsi:type="archimate:ApplicationService" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
+        <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
+Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
+Orchestration: Uniform
+Initial Instances: 0 (scaled on demand)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
       <element xsi:type="archimate:ApplicationService" name="MFT Network SD" id="id-app-sd-network-00000000005">
         <documentation>Azure Virtual Network, Subnet and NSG dedicated to the build agent VMSS.
 Isolates agent traffic from the runtime platform network.
@@ -754,17 +765,6 @@ Created By: Infrastructure Team (Stage B)
           <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
         </element>
       </folder>
-      <element xsi:type="archimate:Node" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
-        <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
-Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
-Orchestration: Uniform
-Initial Instances: 0 (scaled on demand)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
-        <property key="created-by" value="Infrastructure Team (Stage B)"/>
-        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-      </element>
       <element xsi:type="archimate:Node" name="Application Gateway" id="id-tech-sB-sf-appgw-00045">
         <documentation>Azure Application Gateway for MFT ingress.
 Azure Resource Type: Microsoft.Network/applicationGateways
@@ -1074,6 +1074,7 @@ Optional: Controlled by create_private_storage variable
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-keyvault-00000000001" source="id-tech-keyvault-000000000001" target="id-app-sd-keyvault-000000000001"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-storage-000000000002" source="id-tech-storage-000000000002" target="id-app-sd-storage-000000000002"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-vmss-0000000000003" source="id-tech-vmss-0000000000003" target="id-app-sd-vmss-0000000000003"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sB-vmss-tsvc-to-instance" source="id-tech-vmss-0000000000003" target="id-tech-sB-sd-vmss-00017"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-network-00000000005" source="id-tech-vnet-0000000000005" target="id-app-sd-network-00000000005"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-aks-000000000006" source="id-tech-aks-00000000000006" target="id-app-sf-aks-000000000006"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-appgw-00000000007" source="id-tech-appgw-0000000000007" target="id-app-sf-appgw-00000000007"/>
