@@ -722,17 +722,6 @@ Provides the relational database backend for the MFT solution, deployed in a pri
 </documentation>
         </element>
       </folder>
-      <element xsi:type="archimate:Node" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
-        <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
-Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
-Orchestration: Uniform
-Initial Instances: 0 (scaled on demand)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
-        <property key="created-by" value="Infrastructure Team (Stage B)"/>
-        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-      </element>
       <folder name="Credentials" id="id-c975f4a5ac0d4b5793d8a904b726dc2a">
         <element xsi:type="archimate:Node" name="AGIC Federated Credential" id="id-tech-sB-sf-agicfedcred-00050">
           <documentation>Federated Identity Credential for AGIC service account.
@@ -765,6 +754,17 @@ Created By: Infrastructure Team (Stage B)
           <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
         </element>
       </folder>
+      <element xsi:type="archimate:Node" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
+        <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
+Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
+Orchestration: Uniform
+Initial Instances: 0 (scaled on demand)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
       <element xsi:type="archimate:Node" name="Application Gateway" id="id-tech-sB-sf-appgw-00045">
         <documentation>Azure Application Gateway for MFT ingress.
 Azure Resource Type: Microsoft.Network/applicationGateways
@@ -1199,6 +1199,22 @@ Optional: Controlled by create_private_storage variable
     <element xsi:type="archimate:AssignmentRelationship" id="id-85a63146f89f4e8899b0dc516e8cb7f4" source="id-tech-rbac-fulfillmt-custom-00071" target="id-tech-rg-fulfillment-000002"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-c4ae4e8dd6af4ae98edec02adcc42661" source="id-tech-rbac-custom-roledef-00069" target="id-tech-rbac-fulfillmt-custom-00071"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-ee53e070945e402380d9122ac37dca4d" source="id-tech-rbac-custom-roledef-00069" target="id-tech-rbac-delivery-custom-00070"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-vm1acr-to-vm1" source="id-tech-sB-sf-vm1acr-00035" target="id-tech-sB-sf-vm1-00033"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-vm1acr-to-acr" source="id-tech-sB-sf-vm1acr-00035" target="id-tech-sB-sd-acr-00020"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-vm2acr-to-vm2" source="id-tech-sB-sf-vm2acr-00036" target="id-tech-sB-sf-vm2-00034"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-vm2acr-to-acr" source="id-tech-sB-sf-vm2acr-00036" target="id-tech-sB-sd-acr-00020"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-aksacr-to-aks" source="id-tech-sB-sf-aksacr-00038" target="id-tech-sB-sf-aks-00037"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-aksacr-to-acr" source="id-tech-sB-sf-aksacr-00038" target="id-tech-sB-sd-acr-00020"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-agicappgwrole-to-agic" source="id-tech-sB-sf-agicappgwrole-00051" target="id-tech-uami-agicidentity-00008"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-agicrgrole-to-agic" source="id-tech-sB-sf-agicrgrole-00052" target="id-tech-uami-agicidentity-00008"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-agicsubnetrole-to-agic" source="id-tech-sB-sf-agicsubnetrole-00053" target="id-tech-uami-agicidentity-00008"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-mftfedcred-to-mft" source="id-tech-sB-sf-mftfedcred-00046" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-dbcfedcred-to-mft" source="id-tech-sB-sf-dbcfedcred-00047" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-dbuifedcred-to-mft" source="id-tech-sB-sf-dbuifedcred-00048" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-mftsvcfedcred-to-mft" source="id-tech-sB-sf-mftsvcfedcred-00049" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-mftkvsecrets-to-mft" source="id-tech-sB-sf-mftkvsecrets-00054" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-mftkvcerts-to-mft" source="id-tech-sB-sf-mftkvcerts-00055" target="id-tech-uami-mftidentity-00005"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sB-agicfedcred-to-agic" source="id-tech-sB-sf-agicfedcred-00050" target="id-tech-uami-agicidentity-00008"/>
   </folder>
   <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
     <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
@@ -1472,6 +1488,387 @@ Optional: Controlled by create_private_storage variable
         </child>
       </element>
       <element xsi:type="archimate:ArchimateDiagramModel" name="test" id="id-192fba6349724c79a849c56bce2d4354"/>
+    </folder>
+    <folder name="StageB" id="id-dv-folder-stageB-diagrams">
+      <folder name="StageB-Fulfillment" id="id-dv-folder-stageB-fulfillment">
+        <element xsi:type="archimate:ArchimateDiagramModel" name="F-1 · Fulfillment — Network Topology" id="id-dv-f1-sf-network">
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f1-infrateam" archimateElement="id-biz-actor-infrateam-0002">
+            <bounds x="612" y="12" width="109" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-infrateam-to-tf" source="id-dv-f1-infrateam" target="id-dv-f1-tf" archimateRelationship="id-rel-sB-infrateam-performs-tf"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f1-tf" targetConnections="id-dv-f1-conn-infrateam-to-tf" archimateElement="id-app-infrastageB-tf-000001">
+            <bounds x="12" y="12" width="565" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-vnet" source="id-dv-f1-tf" target="id-dv-f1-vnet" archimateRelationship="id-rel-sB-tf-to-sf-vnet"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-pubsub1" source="id-dv-f1-tf" target="id-dv-f1-pubsub1" archimateRelationship="id-rel-sB-tf-to-sf-pubsub1"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-pubsub2" source="id-dv-f1-tf" target="id-dv-f1-pubsub2" archimateRelationship="id-rel-sB-tf-to-sf-pubsub2"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-privsub1" source="id-dv-f1-tf" target="id-dv-f1-privsub1" archimateRelationship="id-rel-sB-tf-to-sf-privsub1"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-privsub2" source="id-dv-f1-tf" target="id-dv-f1-privsub2" archimateRelationship="id-rel-sB-tf-to-sf-privsub2"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-appgwsub" source="id-dv-f1-tf" target="id-dv-f1-appgwsub" archimateRelationship="id-rel-sB-tf-to-sf-appgwsub">
+              <bendpoint startX="348" startY="81" endX="26" endY="-99"/>
+            </sourceConnection>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-sftpnsg" source="id-dv-f1-tf" target="id-dv-f1-sftpnsg" archimateRelationship="id-rel-sB-tf-to-sf-sftpnsg"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tf-to-aksnsg" source="id-dv-f1-tf" target="id-dv-f1-aksnsg" archimateRelationship="id-rel-sB-tf-to-sf-aksnsg"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f1-rg" fillColor="#feffff" textPosition="2" archimateElement="id-tech-rg-fulfillment-000002">
+            <bounds x="12" y="84" width="709" height="265"/>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-vnet" targetConnections="id-dv-f1-conn-tf-to-vnet" archimateElement="id-tech-sB-sf-vnet-00021">
+              <bounds x="12" y="36" width="133" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-aksnsg" targetConnections="id-dv-f1-conn-tf-to-aksnsg" archimateElement="id-tech-sB-sf-aksnsg-00028">
+              <bounds x="252" y="108" width="98" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-pubsub2" targetConnections="id-dv-f1-conn-tf-to-pubsub2" archimateElement="id-tech-sB-sf-pubsub2-00023">
+              <bounds x="311" y="36" width="143" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-sftpnsg" targetConnections="id-dv-f1-conn-tf-to-sftpnsg" archimateElement="id-tech-sB-sf-sftpnsg-00027">
+              <bounds x="96" y="108" width="109" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-pubsub1" targetConnections="id-dv-f1-conn-tf-to-pubsub1" archimateElement="id-tech-sB-sf-pubsub1-00022">
+              <bounds x="156" y="36" width="140" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-appgwsub" targetConnections="id-dv-f1-conn-tf-to-appgwsub" archimateElement="id-tech-sB-sf-appgwsub-00026">
+              <bounds x="552" y="108" width="140" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-privsub2" targetConnections="id-dv-f1-conn-tf-to-privsub2" archimateElement="id-tech-sB-sf-privsub2-00025">
+              <bounds x="468" y="36" width="157" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-privsub1" targetConnections="id-dv-f1-conn-tf-to-privsub1" archimateElement="id-tech-sB-sf-privsub1-00024">
+              <bounds x="384" y="108" width="157" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-appsvc-network" targetConnections="id-dv-f1-conn-tsvc-vnet" archimateElement="id-app-sf-network-0000000013">
+              <bounds x="311" y="186" width="217" height="37"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f1-tsvc-vnet" archimateElement="id-tech-vnet-0000000000005">
+              <bounds x="24" y="186" width="217" height="37"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-dv-f1-conn-tsvc-vnet" source="id-dv-f1-tsvc-vnet" target="id-dv-f1-appsvc-network" archimateRelationship="id-rel-sf-network-0000000013"/>
+            </child>
+          </child>
+        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="F-2 · Fulfillment — SFTP Gateway VMs &amp; Load Balancer" id="id-dv-f2-sftp-lb">
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f2-tf" archimateElement="id-app-infrastageB-tf-000001">
+            <bounds x="12" y="12" width="517" height="385"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-lbpip" source="id-dv-f2-tf" target="id-dv-f2-lbpip" archimateRelationship="id-rel-sB-tf-to-sf-lbpip"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-lb" source="id-dv-f2-tf" target="id-dv-f2-lb" archimateRelationship="id-rel-sB-tf-to-sf-lb"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-vm1nic" source="id-dv-f2-tf" target="id-dv-f2-vm1nic" archimateRelationship="id-rel-sB-tf-to-sf-vm1nic"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-vm2nic" source="id-dv-f2-tf" target="id-dv-f2-vm2nic" archimateRelationship="id-rel-sB-tf-to-sf-vm2nic"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-vm1" source="id-dv-f2-tf" target="id-dv-f2-vm1" archimateRelationship="id-rel-sB-tf-to-sf-vm1"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tf-to-vm2" source="id-dv-f2-tf" target="id-dv-f2-vm2" archimateRelationship="id-rel-sB-tf-to-sf-vm2"/>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-lbpip" targetConnections="id-dv-f2-conn-tf-to-lbpip" archimateElement="id-tech-sB-sf-lbpip-00029">
+              <bounds x="36" y="36" width="145" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-vm1" targetConnections="id-dv-f2-conn-tf-to-vm1" archimateElement="id-tech-sB-sf-vm1-00033">
+              <bounds x="204" y="120" width="109" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-vm2nic" targetConnections="id-dv-f2-conn-tf-to-vm2nic" archimateElement="id-tech-sB-sf-vm2nic-00032">
+              <bounds x="324" y="36" width="121" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-lb" targetConnections="id-dv-f2-conn-tf-to-lb" archimateElement="id-tech-sB-sf-lb-00030">
+              <bounds x="36" y="120" width="145" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-vm1nic" targetConnections="id-dv-f2-conn-tf-to-vm1nic" archimateElement="id-tech-sB-sf-vm1nic-00031">
+              <bounds x="204" y="36" width="109" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-vm2" targetConnections="id-dv-f2-conn-tf-to-vm2" archimateElement="id-tech-sB-sf-vm2-00034">
+              <bounds x="336" y="120" width="109" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-appsvc-lb" targetConnections="id-dv-f2-conn-tsvc-lb" archimateElement="id-app-sf-lb-00000000000010">
+              <bounds x="36" y="312" width="217" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-tsvc-vm" archimateElement="id-tech-vm-000000000000010">
+              <bounds x="288" y="228" width="217" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tsvc-vm" source="id-dv-f2-tsvc-vm" target="id-dv-f2-appsvc-sftpvms" archimateRelationship="id-rel-sf-sftpvms-000000011"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-appsvc-sftpvms" targetConnections="id-dv-f2-conn-tsvc-vm" archimateElement="id-app-sf-sftpvms-000000011">
+              <bounds x="288" y="312" width="217" height="55"/>
+            </child>
+            <child xsi:type="archimate:DiagramObject" id="id-dv-f2-tsvc-lb" archimateElement="id-tech-lb-000000000000009">
+              <bounds x="36" y="228" width="217" height="55"/>
+              <sourceConnection xsi:type="archimate:Connection" id="id-dv-f2-conn-tsvc-lb" source="id-dv-f2-tsvc-lb" target="id-dv-f2-appsvc-lb" archimateRelationship="id-rel-sf-lb-00000000000010"/>
+            </child>
+          </child>
+        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="F-3 · Fulfillment — AKS, App Gateway &amp; AGIC" id="id-dv-f3-aks-appgw">
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-tf" archimateElement="id-app-infrastageB-tf-000001">
+            <bounds x="12" y="12" width="985" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-appgwpip" source="id-dv-f3-tf" target="id-dv-f3-appgwpip" archimateRelationship="id-rel-sB-tf-to-sf-appgwpip"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-appgw" source="id-dv-f3-tf" target="id-dv-f3-appgw" archimateRelationship="id-rel-sB-tf-to-sf-appgw"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-aks" source="id-dv-f3-tf" target="id-dv-f3-aks" archimateRelationship="id-rel-sB-tf-to-sf-aks"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-agicfedcred" source="id-dv-f3-tf" target="id-dv-f3-agicfedcred" archimateRelationship="id-rel-sB-tf-to-sf-agicfedcred"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-agicappgwrole" source="id-dv-f3-tf" target="id-dv-f3-agicappgwrole" archimateRelationship="id-rel-sB-tf-to-sf-agicappgwrole"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-agicrgrole" source="id-dv-f3-tf" target="id-dv-f3-agicrgrole" archimateRelationship="id-rel-sB-tf-to-sf-agicrgrole"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tf-to-agicsubnetrole" source="id-dv-f3-tf" target="id-dv-f3-agicsubnetrole" archimateRelationship="id-rel-sB-tf-to-sf-agicsubnetrole"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-appgwpip" targetConnections="id-dv-f3-conn-tf-to-appgwpip" archimateElement="id-tech-sB-sf-appgwpip-00044">
+            <bounds x="12" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-appgw" targetConnections="id-dv-f3-conn-tf-to-appgw" archimateElement="id-tech-sB-sf-appgw-00045">
+            <bounds x="241" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-aks" targetConnections="id-dv-f3-conn-tf-to-aks" archimateElement="id-tech-sB-sf-aks-00037">
+            <bounds x="470" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-agicfedcred" targetConnections="id-dv-f3-conn-tf-to-agicfedcred" archimateElement="id-tech-sB-sf-agicfedcred-00050">
+            <bounds x="12" y="156" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-agicfedcred-to-agic" source="id-dv-f3-agicfedcred" target="id-dv-f3-agicidentity" archimateRelationship="id-rel-sB-agicfedcred-to-agic"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-agicidentity" targetConnections="id-dv-f3-conn-agicfedcred-to-agic id-dv-f3-conn-agicappgwrole-to-agic id-dv-f3-conn-agicrgrole-to-agic id-dv-f3-conn-agicsubnetrole-to-agic" archimateElement="id-tech-uami-agicidentity-00008">
+            <bounds x="241" y="156" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-agicappgwrole" targetConnections="id-dv-f3-conn-tf-to-agicappgwrole" archimateElement="id-tech-sB-sf-agicappgwrole-00051">
+            <bounds x="12" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-agicappgwrole-to-agic" source="id-dv-f3-agicappgwrole" target="id-dv-f3-agicidentity" archimateRelationship="id-rel-sB-agicappgwrole-to-agic"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-agicrgrole" targetConnections="id-dv-f3-conn-tf-to-agicrgrole" archimateElement="id-tech-sB-sf-agicrgrole-00052">
+            <bounds x="241" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-agicrgrole-to-agic" source="id-dv-f3-agicrgrole" target="id-dv-f3-agicidentity" archimateRelationship="id-rel-sB-agicrgrole-to-agic"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-agicsubnetrole" targetConnections="id-dv-f3-conn-tf-to-agicsubnetrole" archimateElement="id-tech-sB-sf-agicsubnetrole-00053">
+            <bounds x="470" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-agicsubnetrole-to-agic" source="id-dv-f3-agicsubnetrole" target="id-dv-f3-agicidentity" archimateRelationship="id-rel-sB-agicsubnetrole-to-agic"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-tsvc-aks" archimateElement="id-tech-aks-00000000000006">
+            <bounds x="12" y="300" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tsvc-aks" source="id-dv-f3-tsvc-aks" target="id-dv-f3-appsvc-aks" archimateRelationship="id-rel-sf-aks-000000000006"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-tsvc-appgw" archimateElement="id-tech-appgw-0000000000007">
+            <bounds x="241" y="300" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f3-conn-tsvc-appgw" source="id-dv-f3-tsvc-appgw" target="id-dv-f3-appsvc-appgw" archimateRelationship="id-rel-sf-appgw-00000000007"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-appsvc-aks" targetConnections="id-dv-f3-conn-tsvc-aks" archimateElement="id-app-sf-aks-000000000006">
+            <bounds x="12" y="372" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f3-appsvc-appgw" targetConnections="id-dv-f3-conn-tsvc-appgw" archimateElement="id-app-sf-appgw-00000000007">
+            <bounds x="241" y="372" width="217" height="55"/>
+          </child>
+        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="F-4 · Fulfillment — PostgreSQL Private Database" id="id-dv-f4-postgres">
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-tf" archimateElement="id-app-infrastageB-tf-000001">
+            <bounds x="12" y="12" width="985" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-pgdns" source="id-dv-f4-tf" target="id-dv-f4-pgdns" archimateRelationship="id-rel-sB-tf-to-sf-pgdns"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-pgdnslink" source="id-dv-f4-tf" target="id-dv-f4-pgdnslink" archimateRelationship="id-rel-sB-tf-to-sf-pgdnslink"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-postgres" source="id-dv-f4-tf" target="id-dv-f4-pgserver" archimateRelationship="id-rel-sB-tf-to-sf-postgres"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-pgdb-online" source="id-dv-f4-tf" target="id-dv-f4-pgdb-online" archimateRelationship="id-rel-sB-tf-to-sf-pgdb-online"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-pgdb-archive" source="id-dv-f4-tf" target="id-dv-f4-pgdb-archive" archimateRelationship="id-rel-sB-tf-to-sf-pgdb-archive"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-mftfedcred" source="id-dv-f4-tf" target="id-dv-f4-mftfedcred" archimateRelationship="id-rel-sB-tf-to-sf-mftfedcred"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-dbcfedcred" source="id-dv-f4-tf" target="id-dv-f4-dbcfedcred" archimateRelationship="id-rel-sB-tf-to-sf-dbcfedcred"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-dbuifedcred" source="id-dv-f4-tf" target="id-dv-f4-dbuifedcred" archimateRelationship="id-rel-sB-tf-to-sf-dbuifedcred"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tf-to-mftsvcfedcred" source="id-dv-f4-tf" target="id-dv-f4-mftsvcfedcred" archimateRelationship="id-rel-sB-tf-to-sf-mftsvcfedcred"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-pgdns" targetConnections="id-dv-f4-conn-tf-to-pgdns" archimateElement="id-tech-sB-sf-pgdns-00039">
+            <bounds x="12" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-pgdnslink" targetConnections="id-dv-f4-conn-tf-to-pgdnslink" archimateElement="id-tech-sB-sf-pgdnslink-00040">
+            <bounds x="241" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-pgserver" targetConnections="id-dv-f4-conn-tf-to-postgres" archimateElement="id-tech-sB-sf-postgres-00041">
+            <bounds x="470" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-pgdb-online" targetConnections="id-dv-f4-conn-tf-to-pgdb-online" archimateElement="id-tech-sB-sf-pgdb-online-00042">
+            <bounds x="12" y="156" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-pgdb-archive" targetConnections="id-dv-f4-conn-tf-to-pgdb-archive" archimateElement="id-tech-sB-sf-pgdb-archive-00043">
+            <bounds x="241" y="156" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-mftfedcred" targetConnections="id-dv-f4-conn-tf-to-mftfedcred" archimateElement="id-tech-sB-sf-mftfedcred-00046">
+            <bounds x="12" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-mftfedcred-to-mft" source="id-dv-f4-mftfedcred" target="id-dv-f4-mftidentity" archimateRelationship="id-rel-sB-mftfedcred-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-dbcfedcred" targetConnections="id-dv-f4-conn-tf-to-dbcfedcred" archimateElement="id-tech-sB-sf-dbcfedcred-00047">
+            <bounds x="241" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-dbcfedcred-to-mft" source="id-dv-f4-dbcfedcred" target="id-dv-f4-mftidentity" archimateRelationship="id-rel-sB-dbcfedcred-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-dbuifedcred" targetConnections="id-dv-f4-conn-tf-to-dbuifedcred" archimateElement="id-tech-sB-sf-dbuifedcred-00048">
+            <bounds x="470" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-dbuifedcred-to-mft" source="id-dv-f4-dbuifedcred" target="id-dv-f4-mftidentity" archimateRelationship="id-rel-sB-dbuifedcred-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-mftsvcfedcred" targetConnections="id-dv-f4-conn-tf-to-mftsvcfedcred" archimateElement="id-tech-sB-sf-mftsvcfedcred-00049">
+            <bounds x="699" y="228" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-mftsvcfedcred-to-mft" source="id-dv-f4-mftsvcfedcred" target="id-dv-f4-mftidentity" archimateRelationship="id-rel-sB-mftsvcfedcred-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-mftidentity" targetConnections="id-dv-f4-conn-mftfedcred-to-mft id-dv-f4-conn-dbcfedcred-to-mft id-dv-f4-conn-dbuifedcred-to-mft id-dv-f4-conn-mftsvcfedcred-to-mft" archimateElement="id-tech-uami-mftidentity-00005">
+            <bounds x="470" y="300" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-tsvc-postgres" archimateElement="id-tech-postgres-000000008">
+            <bounds x="12" y="372" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f4-conn-tsvc-postgres" source="id-dv-f4-tsvc-postgres" target="id-dv-f4-appsvc-postgres" archimateRelationship="id-rel-sf-postgres-0000008"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f4-appsvc-postgres" targetConnections="id-dv-f4-conn-tsvc-postgres" archimateElement="id-app-sf-postgres-0000008">
+            <bounds x="12" y="444" width="217" height="55"/>
+          </child>
+        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="F-5 · Fulfillment — Key Vault Access &amp; Workload Identity" id="id-dv-f5-keyvault">
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-tf" archimateElement="id-app-infrastageB-tf-000001">
+            <bounds x="12" y="12" width="985" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tf-to-mftkvsecrets" source="id-dv-f5-tf" target="id-dv-f5-mftkvsecrets" archimateRelationship="id-rel-sB-tf-to-sf-mftkvsecrets"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tf-to-mftkvcerts" source="id-dv-f5-tf" target="id-dv-f5-mftkvcerts" archimateRelationship="id-rel-sB-tf-to-sf-mftkvcerts"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tf-to-tfkvadmin" source="id-dv-f5-tf" target="id-dv-f5-tfkvadmin" archimateRelationship="id-rel-sB-tf-to-sf-tfkvadmin"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tf-to-mftsecretsdef" source="id-dv-f5-tf" target="id-dv-f5-mftsecretsdef" archimateRelationship="id-rel-sB-tf-to-sf-mftsecretsdef"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tf-to-mftsecretsdb" source="id-dv-f5-tf" target="id-dv-f5-mftsecretsdb" archimateRelationship="id-rel-sB-tf-to-sf-mftsecretsdb"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-mftkvsecrets" targetConnections="id-dv-f5-conn-tf-to-mftkvsecrets" archimateElement="id-tech-sB-sf-mftkvsecrets-00054">
+            <bounds x="12" y="84" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-mftkvsecrets-to-mft" source="id-dv-f5-mftkvsecrets" target="id-dv-f5-mftidentity" archimateRelationship="id-rel-sB-mftkvsecrets-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-mftkvcerts" targetConnections="id-dv-f5-conn-tf-to-mftkvcerts" archimateElement="id-tech-sB-sf-mftkvcerts-00055">
+            <bounds x="241" y="84" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-mftkvcerts-to-mft" source="id-dv-f5-mftkvcerts" target="id-dv-f5-mftidentity" archimateRelationship="id-rel-sB-mftkvcerts-to-mft"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-tfkvadmin" targetConnections="id-dv-f5-conn-tf-to-tfkvadmin" archimateElement="id-tech-sB-sf-tfkvadmin-00056">
+            <bounds x="470" y="84" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-mftsecretsdef" targetConnections="id-dv-f5-conn-tf-to-mftsecretsdef" archimateElement="id-tech-sB-sf-mftsecretsdef-00057">
+            <bounds x="12" y="156" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-mftsecretsdb" targetConnections="id-dv-f5-conn-tf-to-mftsecretsdb" archimateElement="id-tech-sB-sf-mftsecretsdb-00058">
+            <bounds x="241" y="156" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-mftidentity" targetConnections="id-dv-f5-conn-mftkvsecrets-to-mft id-dv-f5-conn-mftkvcerts-to-mft" archimateElement="id-tech-uami-mftidentity-00005">
+            <bounds x="12" y="228" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-tsvc-keyvault" archimateElement="id-tech-keyvault-000000000001">
+            <bounds x="12" y="300" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tsvc-kv" source="id-dv-f5-tsvc-keyvault" target="id-dv-f5-appsvc-keyvault" archimateRelationship="id-rel-sf-keyvault-000000009"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-tsvc-identity" archimateElement="id-tech-identity-000000011">
+            <bounds x="241" y="300" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-f5-conn-tsvc-identity" source="id-dv-f5-tsvc-identity" target="id-dv-f5-appsvc-identity" archimateRelationship="id-rel-sf-identity-000000014"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-appsvc-keyvault" targetConnections="id-dv-f5-conn-tsvc-kv" archimateElement="id-app-sf-keyvault-000000009">
+            <bounds x="12" y="372" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-f5-appsvc-identity" targetConnections="id-dv-f5-conn-tsvc-identity" archimateElement="id-app-sf-identity-000000014">
+            <bounds x="241" y="372" width="217" height="55"/>
+          </child>
+        </element>
+      </folder>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="D-1 · Delivery — CI/CD Infrastructure" id="id-dv-d1-delivery-cicd">
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d1-infrateam" archimateElement="id-biz-actor-infrateam-0002">
+          <bounds x="840" y="12" width="145" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-infrateam-to-tf" source="id-dv-d1-infrateam" target="id-dv-d1-tf" archimateRelationship="id-rel-sB-infrateam-performs-tf"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d1-tf" targetConnections="id-dv-d1-conn-infrateam-to-tf" archimateElement="id-app-infrastageB-tf-000001">
+          <bounds x="11" y="12" width="770" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-vnet" source="id-dv-d1-tf" target="id-dv-d1-vnet" archimateRelationship="id-rel-sB-tf-to-sd-vnet"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-subnet" source="id-dv-d1-tf" target="id-dv-d1-subnet" archimateRelationship="id-rel-sB-tf-to-sd-subnet"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-nsg" source="id-dv-d1-tf" target="id-dv-d1-nsg" archimateRelationship="id-rel-sB-tf-to-sd-nsg"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-vmss" source="id-dv-d1-tf" target="id-dv-d1-vmss" archimateRelationship="id-rel-sB-tf-to-sd-vmss">
+            <bendpoint startX="-336" startY="93" endX="-83" endY="-99"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-storage" source="id-dv-d1-tf" target="id-dv-d1-storage" archimateRelationship="id-rel-sB-tf-to-sd-storage">
+            <bendpoint startX="-108" startY="93" endX="-84" endY="-99"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-share" source="id-dv-d1-tf" target="id-dv-d1-share" archimateRelationship="id-rel-sB-tf-to-sd-share">
+            <bendpoint startX="120" startY="105" endX="-85" endY="-87"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tf-to-acr" source="id-dv-d1-tf" target="id-dv-d1-acr" archimateRelationship="id-rel-sB-tf-to-sd-acr">
+            <bendpoint startX="241" startY="108" endY="-108"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d1-rg" fillColor="#feffff" archimateElement="id-tech-rg-delivery-00000001">
+          <bounds x="11" y="108" width="974" height="337"/>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-storage" targetConnections="id-dv-d1-conn-tf-to-storage" archimateElement="id-tech-sB-sd-storage-00018">
+            <bounds x="253" y="96" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-vmss" targetConnections="id-dv-d1-conn-tf-to-vmss" archimateElement="id-tech-sB-sd-vmss-00017">
+            <bounds x="24" y="96" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-acr" targetConnections="id-dv-d1-conn-tf-to-acr" archimateElement="id-tech-sB-sd-acr-00020">
+            <bounds x="711" y="96" width="250" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-vnet" targetConnections="id-dv-d1-conn-tf-to-vnet" archimateElement="id-tech-sB-sd-vnet-00014">
+            <bounds x="60" y="24" width="205" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-subnet" targetConnections="id-dv-d1-conn-tf-to-subnet" archimateElement="id-tech-sB-sd-subnet-00015">
+            <bounds x="289" y="24" width="181" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-nsg" targetConnections="id-dv-d1-conn-tf-to-nsg" archimateElement="id-tech-sB-sd-nsg-00016">
+            <bounds x="519" y="24" width="193" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-share" targetConnections="id-dv-d1-conn-tf-to-share" archimateElement="id-tech-sB-sd-share-00019">
+            <bounds x="482" y="96" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-appsvc-network" targetConnections="id-dv-d1-conn-tsvc-vnet" archimateElement="id-app-sd-network-00000000005">
+            <bounds x="24" y="264" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-tsvc-vmss" archimateElement="id-tech-vmss-0000000000003">
+            <bounds x="253" y="180" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tsvc-vmss" source="id-dv-d1-tsvc-vmss" target="id-dv-d1-appsvc-agentpool" archimateRelationship="id-rel-sd-vmss-0000000000003"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-tsvc-acr" archimateElement="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
+            <bounds x="711" y="180" width="250" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tsvc-acr" source="id-dv-d1-tsvc-acr" target="id-dv-d1-appsvc-acr" archimateRelationship="id-b5c6d7e8f9a04b1c2d3e4f5a6b7c8d9e"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-tsvc-vnet" archimateElement="id-tech-vnet-0000000000005">
+            <bounds x="24" y="180" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tsvc-vnet" source="id-dv-d1-tsvc-vnet" target="id-dv-d1-appsvc-network" archimateRelationship="id-rel-sd-network-00000000005"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-appsvc-acr" targetConnections="id-dv-d1-conn-tsvc-acr" archimateElement="id-36f2bd3e10224074b745a791efbdbce9">
+            <bounds x="711" y="264" width="250" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-appsvc-agentpool" targetConnections="id-dv-d1-conn-tsvc-vmss" archimateElement="id-app-sd-vmss-0000000000003">
+            <bounds x="253" y="264" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-appsvc-storage" targetConnections="id-dv-d1-conn-tsvc-storage" archimateElement="id-app-sd-storage-000000000002">
+            <bounds x="482" y="264" width="217" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-dv-d1-tsvc-storage" archimateElement="id-tech-storage-000000000002">
+            <bounds x="482" y="180" width="217" height="55"/>
+            <sourceConnection xsi:type="archimate:Connection" id="id-dv-d1-conn-tsvc-storage" source="id-dv-d1-tsvc-storage" target="id-dv-d1-appsvc-storage" archimateRelationship="id-rel-sd-storage-000000000002"/>
+          </child>
+        </child>
+      </element>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="D-2 · Delivery — ACR Image Pull Access" id="id-dv-d2-acr-pull">
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-tf" archimateElement="id-app-infrastageB-tf-000001">
+          <bounds x="12" y="12" width="985" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-tf-vm1acr" source="id-dv-d2-tf" target="id-dv-d2-role-vm1acr" archimateRelationship="id-rel-sB-tf-to-sf-vm1acr">
+            <bendpoint startX="-24" startY="93" endX="119" endY="-51"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-tf-vm2acr" source="id-dv-d2-tf" target="id-dv-d2-role-vm2acr" archimateRelationship="id-rel-sB-tf-to-sf-vm2acr">
+            <bendpoint startX="216" startY="93" endX="118" endY="-51"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-tf-aksacr" source="id-dv-d2-tf" target="id-dv-d2-role-aksacr" archimateRelationship="id-rel-sB-tf-to-sf-aksacr">
+            <bendpoint startX="468" startY="93" endX="129" endY="-51"/>
+          </sourceConnection>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-acr" targetConnections="id-dv-d2-conn-vm1acr-to-acr id-dv-d2-conn-vm2acr-to-acr id-dv-d2-conn-aksacr-to-acr" archimateElement="id-tech-sB-sd-acr-00020">
+          <bounds x="12" y="84" width="217" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-vm1" targetConnections="id-dv-d2-conn-vm1acr-to-vm1" archimateElement="id-tech-sB-sf-vm1-00033">
+          <bounds x="253" y="84" width="217" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-vm2" targetConnections="id-dv-d2-conn-vm2acr-to-vm2" archimateElement="id-tech-sB-sf-vm2-00034">
+          <bounds x="494" y="84" width="217" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-aks" targetConnections="id-dv-d2-conn-aksacr-to-aks" archimateElement="id-tech-sB-sf-aks-00037">
+          <bounds x="735" y="84" width="217" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-role-vm1acr" targetConnections="id-dv-d2-conn-tf-vm1acr" archimateElement="id-tech-sB-sf-vm1acr-00035">
+          <bounds x="253" y="156" width="217" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-vm1acr-to-acr" source="id-dv-d2-role-vm1acr" target="id-dv-d2-acr" archimateRelationship="id-rel-sB-vm1acr-to-acr"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-vm1acr-to-vm1" source="id-dv-d2-role-vm1acr" target="id-dv-d2-vm1" archimateRelationship="id-rel-sB-vm1acr-to-vm1"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-role-vm2acr" targetConnections="id-dv-d2-conn-tf-vm2acr" archimateElement="id-tech-sB-sf-vm2acr-00036">
+          <bounds x="494" y="156" width="217" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-vm2acr-to-acr" source="id-dv-d2-role-vm2acr" target="id-dv-d2-acr" archimateRelationship="id-rel-sB-vm2acr-to-acr">
+            <bendpoint startX="-86" startY="45" endX="396" endY="117"/>
+            <bendpoint startX="-614" startY="45" endX="-132" endY="117"/>
+            <bendpoint startX="-614" startY="-51" endX="-132" endY="21"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-vm2acr-to-vm2" source="id-dv-d2-role-vm2acr" target="id-dv-d2-vm2" archimateRelationship="id-rel-sB-vm2acr-to-vm2"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-role-aksacr" targetConnections="id-dv-d2-conn-tf-aksacr" archimateElement="id-tech-sB-sf-aksacr-00038">
+          <bounds x="735" y="156" width="217" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-aksacr-to-acr" source="id-dv-d2-role-aksacr" target="id-dv-d2-acr" archimateRelationship="id-rel-sB-aksacr-to-acr">
+            <bendpoint startX="-87" startY="57" endX="636" endY="129"/>
+            <bendpoint startX="-867" startY="57" endX="-144" endY="129"/>
+            <bendpoint startX="-867" startY="-63" endX="-144" endY="9"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-dv-d2-conn-aksacr-to-aks" source="id-dv-d2-role-aksacr" target="id-dv-d2-aks" archimateRelationship="id-rel-sB-aksacr-to-aks"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-dv-d2-appsvc-acr" archimateElement="id-36f2bd3e10224074b745a791efbdbce9">
+          <bounds x="12" y="156" width="217" height="55"/>
+        </child>
+      </element>
     </folder>
     <element xsi:type="archimate:ArchimateDiagramModel" name="Requirements" id="id-a0e642f5c59f4ee2b11f3833267838a7">
       <child xsi:type="archimate:DiagramObject" id="id-164db30f7e75407f92e203e3fbdd046b" archimateElement="id-89d6fcff3f7443cfad966cffa1d8d862">
