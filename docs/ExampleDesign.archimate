@@ -111,10 +111,6 @@ Secured by NSGs per subnet.
 Grants Key Vault access to MFT pods without storing credentials in the cluster.
 </documentation>
       </element>
-      <element xsi:type="archimate:ApplicationService" name="MFT PrivateLink SF" id="id-app-sf-privatelink-00015">
-        <documentation>Azure Private Endpoints and Private DNS Zones providing private network access to Key Vault and the MFT VFS Storage Account from within the AKS subnet.
-</documentation>
-      </element>
     </folder>
     <folder name="ServiceDelivery" id="id-5f5f53147e044e50b1c6020112f2e094">
       <element xsi:type="archimate:ApplicationService" name="MFT ACR" id="id-36f2bd3e10224074b745a791efbdbce9">
@@ -132,10 +128,6 @@ Grants Key Vault access to MFT pods without storing credentials in the cluster.
       <element xsi:type="archimate:ApplicationService" name="MFT AgentPool" id="id-app-sd-vmss-0000000000003">
         <documentation>Azure VM Scale Set (uniform, 0 initial instances) providing self-hosted Azure DevOps build agents.
 Scaled on demand by Azure DevOps to build and push container images to ACR.
-</documentation>
-      </element>
-      <element xsi:type="archimate:ApplicationService" name="MFT AzDO" id="id-app-sd-azdo-0000000000004">
-        <documentation>Azure DevOps project hosting the CI/CD pipelines, GitHub service connection, agent pool, and pipeline variable groups for the MFT build and deployment automation.
 </documentation>
       </element>
       <element xsi:type="archimate:ApplicationService" name="MFT Network SD" id="id-app-sd-network-00000000005">
@@ -227,6 +219,11 @@ Optional: Can be disabled via create_mft_identity variable.
           <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
           <property key="optional" value="yes — controlled by create_mft_identity variable"/>
         </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure Managed Identity" id="id-tech-identity-000000011">
+          <documentation>Microsoft Azure managed identity service (User-Assigned Managed Identity with federated OIDC credentials).
+Provides credential-free authentication from Kubernetes workloads to Azure services.
+</documentation>
+        </element>
       </folder>
       <folder name="Resources" id="id-2d918bfde001498396dcd5e5465d09c4">
         <element xsi:type="archimate:Node" name="${prefix}-s-delivery Resource Group" id="id-tech-rg-delivery-00000001">
@@ -251,150 +248,46 @@ Created By: Security Team (Stage A)
           <property key="created-by" value="Security Team (Stage A)"/>
           <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
         </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure Key Vault" id="id-tech-keyvault-000000000001">
+          <documentation>Microsoft Azure managed secrets, keys and certificates vault.
+Used generically by both the ServiceDelivery (build-time) and ServiceFulfillment (runtime) modules — each has its own ApplicationService instance.
+</documentation>
+        </element>
       </folder>
       <folder name="AccessControl" id="id-73b12aa5138b4918b71b42b5842d341f">
-        <element xsi:type="archimate:Node" name="AGIC AppGW Contributor Role" id="id-tech-sB-sf-agicappgwrole-00051">
-          <documentation>Role Assignment granting AGIC Contributor access to Application Gateway.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Contributor
-Scope: Application Gateway
-Principal: ${prefix}-agic-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="created-by" value="Infrastructure Team (Stage B)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-        </element>
-        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator Custom Role Definition" id="id-tech-rbac-custom-roledef-00069">
-          <documentation>Azure custom role definition granting only roleAssignments/write, /delete and /read.
-Azure Resource Type: Microsoft.Authorization/roleDefinitions
-Scope: Subscription
-Assignable Scopes: ${prefix}-s-delivery RG, ${prefix}-s-fulfillment RG, Key Vault RG (optional — when key_vault_resource_group_name is provided)
-Created By: Security Team (Stage A)
-Purpose: Replaces User Access Administrator to comply with IBM enterprise subscription ABAC constraints that block assignment of built-in privileged roles (Owner GUID 8e3af657, UAA GUID 18d7d88d, RBAC Admin GUID f58310d9). Custom role has a new GUID not in the deny-list.
-The Key Vault RG assignable scope is needed so the infra SP can assign Key Vault Secrets User, Certificate User and Administrator roles on the vault in Stage B.
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleDefinitions"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-          <property key="abac-workaround" value="yes — custom GUID bypasses IBM ABAC condition"/>
-        </element>
-        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Delivery RG" id="id-tech-rbac-delivery-custom-00070">
-          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Delivery Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: ${prefix}-infra-role-delegator (custom)
-Scope: ${prefix}-s-delivery Resource Group
-Principal: ${prefix}-infra-sp
-Created By: Security Team (Stage A)
-Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., AcrPull for VMs). Replaces UAA to comply with IBM ABAC policy.
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
-          <property key="scope" value="${prefix}-s-delivery Resource Group"/>
-          <property key="principal" value="${prefix}-infra-sp"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-        </element>
-        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-custom-00071">
-          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Fulfillment Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: ${prefix}-infra-role-delegator (custom)
-Scope: ${prefix}-s-fulfillment Resource Group
-Principal: ${prefix}-infra-sp
-Created By: Security Team (Stage A)
-Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access). Replaces UAA to comply with IBM ABAC policy.
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
-          <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
-          <property key="principal" value="${prefix}-infra-sp"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-        </element>
-        <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Key Vault RG" id="id-tech-rbac-kv-custom-00072">
-          <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Key Vault Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: ${prefix}-infra-role-delegator (custom)
-Scope: Key Vault Resource Group (from 01-vault/ — e.g. MIUN_LongTerm)
-Principal: ${prefix}-infra-sp
-Created By: Security Team (Stage A)
-Optional: only created when key_vault_resource_group_name variable is provided.
-Purpose: Allows infrastructure team to create role assignments on the Key Vault in Stage B (Key Vault Secrets User for MFT identity, Key Vault Certificate User for MFT identity, Key Vault Administrator for Terraform). The Key Vault lives in a separate RG outside the two infra RGs — this third assignment is required.
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
-          <property key="scope" value="Key Vault Resource Group"/>
-          <property key="principal" value="${prefix}-infra-sp"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-          <property key="optional" value="yes — controlled by key_vault_resource_group_name variable"/>
-        </element>
-        <element xsi:type="archimate:Node" name="User Access Administrator on Service Delivery RG" id="id-tech-rbac-delivery-uaa-00067">
-          <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Delivery Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: User Access Administrator
-Scope: ${prefix}-s-delivery Resource Group
-Principal: ${prefix}-infra-sp
-Created By: Security Team (Stage A)
-Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., ACR Pull for VMs).
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="role" value="User Access Administrator"/>
-          <property key="scope" value="${prefix}-s-delivery Resource Group"/>
-          <property key="principal" value="${prefix}-infra-sp"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-        </element>
-        <element xsi:type="archimate:Node" name="User Access Administrator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-uaa-00068">
-          <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Fulfillment Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: User Access Administrator
-Scope: ${prefix}-s-fulfillment Resource Group
-Principal: ${prefix}-infra-sp
-Created By: Security Team (Stage A)
-Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access).
-</documentation>
-          <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-          <property key="role" value="User Access Administrator"/>
-          <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
-          <property key="principal" value="${prefix}-infra-sp"/>
-          <property key="created-by" value="Security Team (Stage A)"/>
-          <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-        </element>
-      </folder>
-    </folder>
-    <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG" id="id-tech-rbac-delivery-000006">
-      <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Delivery Resource Group.
+        <folder name="StageA-Contributor" id="id-tech-ac-stageA-contributor-0001">
+          <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG" id="id-tech-rbac-delivery-000006">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Delivery Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
 Role: Contributor
 Scope: ${prefix}-s-delivery Resource Group
 Principal: ${prefix}-infra-sp
 Created By: Security Team (Stage A)
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="role" value="Contributor"/>
-      <property key="scope" value="${prefix}-s-delivery Resource Group"/>
-      <property key="principal" value="${prefix}-infra-sp"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Contributor on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-00007">
-      <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Fulfillment Resource Group.
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="Contributor"/>
+            <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="Contributor on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-00007">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal Contributor permissions on Service Fulfillment Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
 Role: Contributor
 Scope: ${prefix}-s-fulfillment Resource Group
 Principal: ${prefix}-infra-sp
 Created By: Security Team (Stage A)
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="role" value="Contributor"/>
-      <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
-      <property key="principal" value="${prefix}-infra-sp"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG for Azure DevOps" id="id-tech-rbac-azdo-delivery-00011">
-      <documentation>Role Assignment granting Azure DevOps Service Principal Contributor permissions on Service Delivery Resource Group.
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="Contributor"/>
+            <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="Contributor on Service Delivery RG for Azure DevOps" id="id-tech-rbac-azdo-delivery-00011">
+            <documentation>Role Assignment granting Azure DevOps Service Principal Contributor permissions on Service Delivery Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
 Role: Contributor
 Scope: ${prefix}-s-delivery Resource Group
@@ -402,28 +295,16 @@ Principal: ${prefix}-azdo-sp
 Created By: Security Team (Stage A)
 Optional: Can be disabled via create_azdo_sp variable.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="role" value="Contributor"/>
-      <property key="scope" value="${prefix}-s-delivery Resource Group"/>
-      <property key="principal" value="${prefix}-azdo-sp"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Key Vault Resource Group" id="id-tech-rg-keyvault-000012">
-      <documentation>Azure Resource Group containing the Key Vault (from 01-vault/).
-Azure Resource Type: Microsoft.Resources/resourceGroups
-Purpose: Key Vault hosting
-Created By: Security Team (separate stack)
-Note: External to Stage A, referenced for RBAC assignment.
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
-      <property key="purpose" value="Key Vault hosting"/>
-      <property key="created-by" value="Security Team (separate stack)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/01-vault/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Reader on Key Vault RG" id="id-tech-rbac-keyvault-rg-00013">
-      <documentation>Role Assignment granting Infrastructure Team Service Principal Reader permissions on Key Vault Resource Group.
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="Contributor"/>
+            <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+            <property key="principal" value="${prefix}-azdo-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+            <property key="optional" value="yes — controlled by create_azdo_sp variable"/>
+          </element>
+          <element xsi:type="archimate:Node" name="Reader on Key Vault RG" id="id-tech-rbac-keyvault-rg-00013">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal Reader permissions on Key Vault Resource Group.
 Azure Resource Type: Microsoft.Authorization/roleAssignments
 Role: Reader
 Scope: Key Vault Resource Group (from 01-vault/)
@@ -432,14 +313,647 @@ Created By: Security Team (Stage A)
 Optional: Can be disabled by not providing key_vault_resource_group_name variable.
 Purpose: Allows infrastructure team to read Key Vault metadata for Terraform data sources without write access.
 </documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="role" value="Reader"/>
-      <property key="scope" value="Key Vault Resource Group"/>
-      <property key="principal" value="${prefix}-infra-sp"/>
-      <property key="created-by" value="Security Team (Stage A)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
-      <property key="optional" value="yes — controlled by key_vault_resource_group_name variable"/>
-    </element>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="Reader"/>
+            <property key="scope" value="Key Vault Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+            <property key="optional" value="yes — controlled by key_vault_resource_group_name variable"/>
+          </element>
+        </folder>
+        <folder name="StageA-CustomRole" id="id-tech-ac-stageA-customrole-0002">
+          <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator Custom Role Definition" id="id-tech-rbac-custom-roledef-00069">
+            <documentation>Azure custom role definition granting only roleAssignments/write, /delete and /read.
+Azure Resource Type: Microsoft.Authorization/roleDefinitions
+Scope: Subscription
+Assignable Scopes: ${prefix}-s-delivery RG, ${prefix}-s-fulfillment RG, Key Vault RG (optional — when key_vault_resource_group_name is provided)
+Created By: Security Team (Stage A)
+Purpose: Replaces User Access Administrator to comply with enterprise subscription ABAC constraints that block assignment of built-in privileged roles (Owner, User Access Administrator, RBAC Administrator). Custom role has a distinct GUID not matched by the ABAC deny condition.
+The Key Vault RG assignable scope is needed so the infra SP can assign Key Vault Secrets User, Certificate User and Administrator roles on the vault in Stage B.
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleDefinitions"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+            <property key="abac-workaround" value="yes — custom GUID bypasses IBM ABAC condition"/>
+          </element>
+          <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Delivery RG" id="id-tech-rbac-delivery-custom-00070">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., AcrPull for VMs). Replaces UAA to comply with IBM ABAC policy.
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+            <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-custom-00071">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access). Replaces UAA to comply with IBM ABAC policy.
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+            <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="${prefix}-infra-role-delegator on Key Vault RG" id="id-tech-rbac-kv-custom-00072">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal the custom infra-role-delegator on Key Vault Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: ${prefix}-infra-role-delegator (custom)
+Scope: Key Vault Resource Group (from 01-vault/ — controlled by key_vault_resource_group_name variable)
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Optional: only created when key_vault_resource_group_name variable is provided.
+Purpose: Allows infrastructure team to create role assignments on the Key Vault in Stage B (Key Vault Secrets User for MFT identity, Key Vault Certificate User for MFT identity, Key Vault Administrator for Terraform). The Key Vault lives in a separate RG outside the two infra RGs — this third assignment is required.
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="${prefix}-infra-role-delegator (custom)"/>
+            <property key="scope" value="Key Vault Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+            <property key="optional" value="yes — controlled by key_vault_resource_group_name variable"/>
+          </element>
+        </folder>
+        <folder name="StageA-UAA-option" id="id-tech-ac-stageA-uaa-0003">
+          <element xsi:type="archimate:Node" name="User Access Administrator on Service Delivery RG" id="id-tech-rbac-delivery-uaa-00067">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Delivery Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: User Access Administrator
+Scope: ${prefix}-s-delivery Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Delivery RG (e.g., ACR Pull for VMs).
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="User Access Administrator"/>
+            <property key="scope" value="${prefix}-s-delivery Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="User Access Administrator on Service Fulfillment RG" id="id-tech-rbac-fulfillmt-uaa-00068">
+            <documentation>Role Assignment granting Infrastructure Team Service Principal User Access Administrator permissions on Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: User Access Administrator
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-infra-sp
+Created By: Security Team (Stage A)
+Purpose: Allows infrastructure team to create role assignments within Service Fulfillment RG (e.g., AGIC roles, MFT Key Vault access).
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="role" value="User Access Administrator"/>
+            <property key="scope" value="${prefix}-s-fulfillment Resource Group"/>
+            <property key="principal" value="${prefix}-infra-sp"/>
+            <property key="created-by" value="Security Team (Stage A)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/02-sec-stage-A/"/>
+          </element>
+        </folder>
+        <folder name="StageB" id="id-tech-ac-stageB-0004">
+          <element xsi:type="archimate:Node" name="AGIC AppGW Contributor Role" id="id-tech-sB-sf-agicappgwrole-00051">
+            <documentation>Role Assignment granting AGIC Contributor access to Application Gateway.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Contributor
+Scope: Application Gateway
+Principal: ${prefix}-agic-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="AGIC RG Reader Role" id="id-tech-sB-sf-agicrgrole-00052">
+            <documentation>Role Assignment granting AGIC Reader access to Service Fulfillment Resource Group.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Reader
+Scope: ${prefix}-s-fulfillment Resource Group
+Principal: ${prefix}-agic-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="AGIC Subnet Network Contributor Role" id="id-tech-sB-sf-agicsubnetrole-00053">
+            <documentation>Role Assignment granting AGIC Network Contributor access to Application Gateway Subnet.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Network Contributor
+Scope: Application Gateway Subnet
+Principal: ${prefix}-agic-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="MFT KV Secrets User Role" id="id-tech-sB-sf-mftkvsecrets-00054">
+            <documentation>Role Assignment granting MFT identity Key Vault Secrets User access.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Key Vault Secrets User
+Scope: Key Vault (from 01-vault/)
+Principal: ${prefix}-mft-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="MFT KV Certificates User Role" id="id-tech-sB-sf-mftkvcerts-00055">
+            <documentation>Role Assignment granting MFT identity Key Vault Certificate User access.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Key Vault Certificate User
+Scope: Key Vault (from 01-vault/)
+Principal: ${prefix}-mft-identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="Terraform KV Administrator Role" id="id-tech-sB-sf-tfkvadmin-00056">
+            <documentation>Role Assignment granting Infrastructure SP Key Vault Administrator access for secret creation.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: Key Vault Administrator
+Scope: Key Vault (from 01-vault/)
+Principal: Infrastructure Service Principal (current client)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="SFTP VM 1 ACR Pull Role" id="id-tech-sB-sf-vm1acr-00035">
+            <documentation>Role Assignment granting SFTP VM 1 AcrPull access to ACR.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: AcrPull
+Scope: Azure Container Registry
+Principal: SFTP VM 1 System-Assigned Identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="SFTP VM 2 ACR Pull Role" id="id-tech-sB-sf-vm2acr-00036">
+            <documentation>Role Assignment granting SFTP VM 2 AcrPull access to ACR.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: AcrPull
+Scope: Azure Container Registry
+Principal: SFTP VM 2 System-Assigned Identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+          <element xsi:type="archimate:Node" name="AKS ACR Pull Role" id="id-tech-sB-sf-aksacr-00038">
+            <documentation>Role Assignment granting AKS kubelet identity AcrPull access to ACR.
+Azure Resource Type: Microsoft.Authorization/roleAssignments
+Role: AcrPull
+Scope: Azure Container Registry
+Principal: AKS Kubelet Identity
+Created By: Infrastructure Team (Stage B)
+</documentation>
+            <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
+            <property key="created-by" value="Infrastructure Team (Stage B)"/>
+            <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+          </element>
+        </folder>
+      </folder>
+      <element xsi:type="archimate:Node" name="Key Vault Resource Group" id="id-tech-rg-keyvault-000012">
+        <documentation>Azure Resource Group containing the Key Vault (from 01-vault/).
+Azure Resource Type: Microsoft.Resources/resourceGroups
+Purpose: Key Vault hosting
+Created By: Security Team (separate stack)
+Note: External to Stage A, referenced for RBAC assignment.
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Resources/resourceGroups"/>
+        <property key="purpose" value="Key Vault hosting"/>
+        <property key="created-by" value="Security Team (separate stack)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/01-vault/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="MFT Database Secrets (9)" id="id-tech-sB-sf-mftsecretsdb-00058">
+        <documentation>9 Key Vault secrets for MFT database credentials.
+Azure Resource Type: Microsoft.KeyVault/vaults/secrets
+Secrets: postgres-server-fqdn, postgres-online-db, postgres-archive-db, postgres-admin-user, postgres-admin-password, postgres-online-user, postgres-online-password, postgres-archive-user, postgres-archive-password
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.KeyVault/vaults/secrets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        <property key="count" value="9"/>
+      </element>
+      <element xsi:type="archimate:Node" name="MFT Default Secrets (13)" id="id-tech-sB-sf-mftsecretsdef-00057">
+        <documentation>13 default Key Vault secrets for MFT configuration.
+Azure Resource Type: Microsoft.KeyVault/vaults/secrets
+Secrets: admin-password, admin-ui-jks-keystore-password, admin-ui-pkcs12-keystore-password, admin-ui-jks-truststore-password, admin-ui-pkcs12-truststore-password, web-client-jks-keystore-password, web-client-pkcs12-keystore-password, web-client-jks-truststore-password, web-client-pkcs12-truststore-password, cert-jks-truststore-password, cert-pkcs12-truststore-password, sftp-ssh-private-key, metering-config-xml-file
+Created By: Infrastructure Team (Stage B)
+Note: Default values with WARNING tag - must be changed immediately
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.KeyVault/vaults/secrets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        <property key="count" value="13"/>
+      </element>
+    </folder>
+    <folder name="OwnedByInfra" id="id-351855cfa224457d8d462a1132e8a239">
+      <folder name="NwLevel" id="id-dc3ecdaf1c3f4594866710847fd160be">
+        <element xsi:type="archimate:TechnologyService" name="Azure Load Balancer" id="id-tech-lb-000000000000009">
+          <documentation>Microsoft Azure managed Standard Load Balancer (layer-4).
+Used to distribute inbound SFTP traffic across the two SFTP gateway VMs.
+</documentation>
+        </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure Virtual Network" id="id-tech-vnet-0000000000005">
+          <documentation>Microsoft Azure managed Virtual Network service (VNet, Subnets, NSGs, subnet associations).
+Used generically by both the ServiceDelivery agents network and the ServiceFulfillment runtime network.
+</documentation>
+        </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure Private Link" id="id-tech-privatelink-000012">
+          <documentation>Microsoft Azure Private Endpoints and Private DNS Zones service.
+Provides private network connectivity to PaaS services (Key Vault, Storage) without traversing the public internet.
+</documentation>
+        </element>
+        <element xsi:type="archimate:Node" name="AKS NSG" id="id-tech-sB-sf-aksnsg-00028">
+          <documentation>Network Security Group for AKS cluster (private subnet).
+Azure Resource Type: Microsoft.Network/networkSecurityGroups
+Rules: Allow traffic from Application Gateway
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/networkSecurityGroups"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="Private Subnet 1 (AKS)" id="id-tech-sB-sf-privsub1-00024">
+          <documentation>Azure Subnet for AKS cluster in Service Fulfillment VNet.
+Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
+Address Prefix: 10.2.10.0/24 (default)
+Service Endpoints: Microsoft.Storage, Microsoft.Sql
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="Private Subnet 2 (PostgreSQL)" id="id-tech-sB-sf-privsub2-00025">
+          <documentation>Azure Subnet for PostgreSQL Flexible Server in Service Fulfillment VNet.
+Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
+Address Prefix: 10.2.11.0/24 (default)
+Delegation: Microsoft.DBforPostgreSQL/flexibleServers
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="Public Subnet 1" id="id-tech-sB-sf-pubsub1-00022">
+          <documentation>Azure Subnet for SFTP VM 1 in Service Fulfillment VNet.
+Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
+Address Prefix: 10.2.0.0/24 (default)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="Public Subnet 2" id="id-tech-sB-sf-pubsub2-00023">
+          <documentation>Azure Subnet for SFTP VM 2 in Service Fulfillment VNet.
+Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
+Address Prefix: 10.2.1.0/24 (default)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+      </folder>
+      <folder name="ManagedServices" id="id-e44042aa9ea4490d8d3a2f5c5a3ee624">
+        <element xsi:type="archimate:Node" name="PostgreSQL Archive Database" id="id-tech-sB-sf-pgdb-archive-00043">
+          <documentation>PostgreSQL database for MFT archiving.
+Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers/databases
+Database Name: mft_archive (default)
+Charset: UTF8
+Collation: en_US.utf8
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers/databases"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="PostgreSQL Online Database" id="id-tech-sB-sf-pgdb-online-00042">
+          <documentation>PostgreSQL database for MFT online transactions.
+Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers/databases
+Database Name: mft_online (default)
+Charset: UTF8
+Collation: en_US.utf8
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers/databases"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="PostgreSQL DNS VNet Link" id="id-tech-sB-sf-pgdnslink-00040">
+          <documentation>Virtual Network Link for PostgreSQL Private DNS Zone.
+Azure Resource Type: Microsoft.Network/privateDnsZones/virtualNetworkLinks
+Links DNS Zone to Service Fulfillment VNet
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/privateDnsZones/virtualNetworkLinks"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="PostgreSQL Flexible Server" id="id-tech-sB-sf-postgres-00041">
+          <documentation>Azure PostgreSQL Flexible Server for MFT databases.
+Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers
+Version: 16 (default)
+SKU: Standard_D2s_v3 (default)
+Storage: 32 GB (default)
+Public Access: Disabled
+Delegated Subnet: Private Subnet 2
+Private DNS Zone: PostgreSQL Private DNS Zone
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="PostgreSQL Private DNS Zone" id="id-tech-sB-sf-pgdns-00039">
+          <documentation>Private DNS Zone for PostgreSQL Flexible Server.
+Azure Resource Type: Microsoft.Network/privateDnsZones
+Zone Name: ${prefix}-postgres.private.postgres.database.azure.com
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.Network/privateDnsZones"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:Node" name="Azure Container Registry" id="id-tech-sB-sd-acr-00020">
+          <documentation>Azure Container Registry for storing container images.
+Azure Resource Type: Microsoft.ContainerRegistry/registries
+SKU: Standard (default)
+Admin Enabled: false
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.ContainerRegistry/registries"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure Container Registry" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
+          <documentation>Microsoft Azure managed container registry service.
+Provides storage, management and distribution of container images and OCI artefacts.
+This is the generic platform-level capability; specific instances are modelled at the application layer.
+</documentation>
+        </element>
+        <element xsi:type="archimate:TechnologyService" name="Azure PostgreSQL Flexible Server" id="id-tech-postgres-000000008">
+          <documentation>Microsoft Azure managed PostgreSQL Flexible Server database service.
+Provides the relational database backend for the MFT solution, deployed in a private delegated subnet.
+</documentation>
+        </element>
+      </folder>
+      <element xsi:type="archimate:Node" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
+        <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
+Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
+Orchestration: Uniform
+Initial Instances: 0 (scaled on demand)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <folder name="Credentials" id="id-c975f4a5ac0d4b5793d8a904b726dc2a">
+        <element xsi:type="archimate:Node" name="AGIC Federated Credential" id="id-tech-sB-sf-agicfedcred-00050">
+          <documentation>Federated Identity Credential for AGIC service account.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
+Parent: ${prefix}-agic-identity
+Audience: api://AzureADTokenExchange
+Issuer: AKS OIDC Issuer URL
+Subject: system:serviceaccount:default:ingress-azure
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+      </folder>
+      <folder name="Resources" id="id-08da4cc917ce4b2fb6455372f76f41f8">
+        <element xsi:type="archimate:Node" name="AKS Cluster" id="id-tech-sB-sf-aks-00037">
+          <documentation>Azure Kubernetes Service cluster for MFT workloads.
+Azure Resource Type: Microsoft.ContainerService/managedClusters
+OIDC Issuer: Enabled
+Workload Identity: Enabled
+Key Vault CSI Driver: Enabled
+Network Plugin: Azure CNI
+Network Policy: Azure
+Zones: 1, 2, 3
+Created By: Infrastructure Team (Stage B)
+</documentation>
+          <property key="Azure Resource Type" value="Microsoft.ContainerService/managedClusters"/>
+          <property key="created-by" value="Infrastructure Team (Stage B)"/>
+          <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+        </element>
+      </folder>
+      <element xsi:type="archimate:Node" name="Application Gateway" id="id-tech-sB-sf-appgw-00045">
+        <documentation>Azure Application Gateway for MFT ingress.
+Azure Resource Type: Microsoft.Network/applicationGateways
+SKU: Standard_v2 (default)
+Tier: Standard_v2 (default)
+Capacity: 2 (default)
+Managed By: AGIC (Application Gateway Ingress Controller)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/applicationGateways"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="Application Gateway Public IP" id="id-tech-sB-sf-appgwpip-00044">
+        <documentation>Public IP address for Application Gateway.
+Azure Resource Type: Microsoft.Network/publicIPAddresses
+Allocation: Static
+SKU: Standard
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/publicIPAddresses"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="Application Gateway Subnet" id="id-tech-sB-sf-appgwsub-00026">
+        <documentation>Azure Subnet for Application Gateway in Service Fulfillment VNet.
+Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
+Address Prefix: 10.2.2.0/24 (default)
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:TechnologyService" name="Azure Application Gateway" id="id-tech-appgw-0000000000007">
+        <documentation>Microsoft Azure managed layer-7 load balancer and ingress service.
+Configured as the AGIC-managed ingress for the AKS cluster.
+</documentation>
+      </element>
+      <element xsi:type="archimate:TechnologyService" name="Azure Kubernetes Service" id="id-tech-aks-00000000000006">
+        <documentation>Microsoft Azure managed Kubernetes cluster service.
+Provides container orchestration, OIDC issuer for workload identity, Key Vault CSI driver and Azure CNI networking.
+</documentation>
+      </element>
+      <element xsi:type="archimate:TechnologyService" name="Azure Storage Account" id="id-tech-storage-000000000002">
+        <documentation>Microsoft Azure managed object and file storage service (StorageV2 / Azure Files).
+Used generically by both the build agent file share (ServiceDelivery) and the MFT VFS private share (ServiceFulfillment).
+</documentation>
+      </element>
+      <element xsi:type="archimate:TechnologyService" name="Azure VM Scale Set" id="id-tech-vmss-0000000000003">
+        <documentation>Microsoft Azure managed Virtual Machine Scale Set (uniform orchestration).
+Used as the compute substrate for self-hosted Azure DevOps build agents.
+</documentation>
+      </element>
+      <element xsi:type="archimate:TechnologyService" name="Azure Linux Virtual Machine" id="id-tech-vm-000000000000010">
+        <documentation>Microsoft Azure managed Linux Virtual Machine compute service.
+Used as the underlying infrastructure for SFTP gateway nodes.
+</documentation>
+      </element>
+      <element xsi:type="archimate:Node" name="DBC Federated Credential" id="id-tech-sB-sf-dbcfedcred-00047">
+        <documentation>Federated Identity Credential for Database Configurator service account.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
+Parent: ${prefix}-mft-identity
+Audience: api://AzureADTokenExchange
+Issuer: AKS OIDC Issuer URL
+Subject: system:serviceaccount:default:database-configurator-sa
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="Build Artifacts File Share" id="id-tech-sB-sd-share-00019">
+        <documentation>Azure File Share in Storage Account for build artifacts.
+Azure Resource Type: Microsoft.Storage/storageAccounts/fileServices/shares
+Access Tier: TransactionOptimized
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Storage/storageAccounts/fileServices/shares"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="Build Artifacts Storage Account" id="id-tech-sB-sd-storage-00018">
+        <documentation>Azure Storage Account with large file share for build artifacts.
+Azure Resource Type: Microsoft.Storage/storageAccounts
+Replication: LRS
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Storage/storageAccounts"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP Load Balancer" id="id-tech-sB-sf-lb-00030">
+        <documentation>Azure Standard Load Balancer for SFTP VMs.
+Azure Resource Type: Microsoft.Network/loadBalancers
+SKU: Standard
+Frontend: SFTP endpoint (port 55022)
+Backend Pool: 2 SFTP VMs
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/loadBalancers"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP Load Balancer Public IP" id="id-tech-sB-sf-lbpip-00029">
+        <documentation>Public IP address for SFTP Load Balancer.
+Azure Resource Type: Microsoft.Network/publicIPAddresses
+Allocation: Static
+SKU: Standard
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/publicIPAddresses"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP NSG" id="id-tech-sB-sf-sftpnsg-00027">
+        <documentation>Network Security Group for SFTP VMs (public subnets).
+Azure Resource Type: Microsoft.Network/networkSecurityGroups
+Rules: Allow SFTP (55022), SSH (22), Gateway traffic from AKS
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/networkSecurityGroups"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP VM 1" id="id-tech-sB-sf-vm1-00033">
+        <documentation>Linux Virtual Machine for SFTP Gateway 1.
+Azure Resource Type: Microsoft.Compute/virtualMachines
+OS: Ubuntu 22.04 LTS
+Identity: System-Assigned Managed Identity
+Docker: Installed via cloud-init
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachines"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP VM 1 NIC" id="id-tech-sB-sf-vm1nic-00031">
+        <documentation>Network Interface for SFTP VM 1.
+Azure Resource Type: Microsoft.Network/networkInterfaces
+Subnet: Public Subnet 1
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/networkInterfaces"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP VM 2" id="id-tech-sB-sf-vm2-00034">
+        <documentation>Linux Virtual Machine for SFTP Gateway 2.
+Azure Resource Type: Microsoft.Compute/virtualMachines
+OS: Ubuntu 22.04 LTS
+Identity: System-Assigned Managed Identity
+Docker: Installed via cloud-init
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachines"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="SFTP VM 2 NIC" id="id-tech-sB-sf-vm2nic-00032">
+        <documentation>Network Interface for SFTP VM 2.
+Azure Resource Type: Microsoft.Network/networkInterfaces
+Subnet: Public Subnet 2
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.Network/networkInterfaces"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+      <element xsi:type="archimate:Node" name="MFT Federated Credential" id="id-tech-sB-sf-mftfedcred-00046">
+        <documentation>Federated Identity Credential for MFT service account.
+Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
+Parent: ${prefix}-mft-identity
+Audience: api://AzureADTokenExchange
+Issuer: AKS OIDC Issuer URL
+Subject: system:serviceaccount:${mft_namespace}:${mft_service_account_name}
+Created By: Infrastructure Team (Stage B)
+</documentation>
+        <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
+        <property key="created-by" value="Infrastructure Team (Stage B)"/>
+        <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
+      </element>
+    </folder>
+    <folder name="OwnedByApp" id="id-fc5f24d90b8b478e82c0e83d7c1fa003">
+      <element xsi:type="archimate:TechnologyService" name="Azure DevOps" id="id-tech-azdo-0000000000004">
+        <documentation>Microsoft Azure DevOps SaaS platform providing source control, CI/CD pipelines, agent pools and artefact management.
+</documentation>
+      </element>
+    </folder>
     <element xsi:type="archimate:Node" name="Service Delivery VNet" id="id-tech-sB-sd-vnet-00014">
       <documentation>Azure Virtual Network for Service Delivery (build agents).
 Azure Resource Type: Microsoft.Network/virtualNetworks
@@ -469,48 +983,6 @@ Created By: Infrastructure Team (Stage B)
       <property key="created-by" value="Infrastructure Team (Stage B)"/>
       <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
     </element>
-    <element xsi:type="archimate:Node" name="Azure DevOps Agents VMSS" id="id-tech-sB-sd-vmss-00017">
-      <documentation>Virtual Machine Scale Set for Azure DevOps self-hosted build agents.
-Azure Resource Type: Microsoft.Compute/virtualMachineScaleSets
-Orchestration: Uniform
-Initial Instances: 0 (scaled on demand)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachineScaleSets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Build Artifacts Storage Account" id="id-tech-sB-sd-storage-00018">
-      <documentation>Azure Storage Account with large file share for build artifacts.
-Azure Resource Type: Microsoft.Storage/storageAccounts
-Replication: LRS
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Storage/storageAccounts"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Build Artifacts File Share" id="id-tech-sB-sd-share-00019">
-      <documentation>Azure File Share in Storage Account for build artifacts.
-Azure Resource Type: Microsoft.Storage/storageAccounts/fileServices/shares
-Access Tier: TransactionOptimized
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Storage/storageAccounts/fileServices/shares"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Azure Container Registry" id="id-tech-sB-sd-acr-00020">
-      <documentation>Azure Container Registry for storing container images.
-Azure Resource Type: Microsoft.ContainerRegistry/registries
-SKU: Standard (default)
-Admin Enabled: false
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.ContainerRegistry/registries"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
     <element xsi:type="archimate:Node" name="Service Fulfillment VNet" id="id-tech-sB-sf-vnet-00021">
       <documentation>Azure Virtual Network for Service Fulfillment (runtime platform).
 Azure Resource Type: Microsoft.Network/virtualNetworks
@@ -518,305 +990,6 @@ Address Space: 10.2.0.0/16 (default)
 Created By: Infrastructure Team (Stage B)
 </documentation>
       <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Public Subnet 1" id="id-tech-sB-sf-pubsub1-00022">
-      <documentation>Azure Subnet for SFTP VM 1 in Service Fulfillment VNet.
-Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
-Address Prefix: 10.2.0.0/24 (default)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Public Subnet 2" id="id-tech-sB-sf-pubsub2-00023">
-      <documentation>Azure Subnet for SFTP VM 2 in Service Fulfillment VNet.
-Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
-Address Prefix: 10.2.1.0/24 (default)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Private Subnet 1 (AKS)" id="id-tech-sB-sf-privsub1-00024">
-      <documentation>Azure Subnet for AKS cluster in Service Fulfillment VNet.
-Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
-Address Prefix: 10.2.10.0/24 (default)
-Service Endpoints: Microsoft.Storage, Microsoft.Sql
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Private Subnet 2 (PostgreSQL)" id="id-tech-sB-sf-privsub2-00025">
-      <documentation>Azure Subnet for PostgreSQL Flexible Server in Service Fulfillment VNet.
-Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
-Address Prefix: 10.2.11.0/24 (default)
-Delegation: Microsoft.DBforPostgreSQL/flexibleServers
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Application Gateway Subnet" id="id-tech-sB-sf-appgwsub-00026">
-      <documentation>Azure Subnet for Application Gateway in Service Fulfillment VNet.
-Azure Resource Type: Microsoft.Network/virtualNetworks/subnets
-Address Prefix: 10.2.2.0/24 (default)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/virtualNetworks/subnets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP NSG" id="id-tech-sB-sf-sftpnsg-00027">
-      <documentation>Network Security Group for SFTP VMs (public subnets).
-Azure Resource Type: Microsoft.Network/networkSecurityGroups
-Rules: Allow SFTP (55022), SSH (22), Gateway traffic from AKS
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/networkSecurityGroups"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="AKS NSG" id="id-tech-sB-sf-aksnsg-00028">
-      <documentation>Network Security Group for AKS cluster (private subnet).
-Azure Resource Type: Microsoft.Network/networkSecurityGroups
-Rules: Allow traffic from Application Gateway
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/networkSecurityGroups"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP Load Balancer Public IP" id="id-tech-sB-sf-lbpip-00029">
-      <documentation>Public IP address for SFTP Load Balancer.
-Azure Resource Type: Microsoft.Network/publicIPAddresses
-Allocation: Static
-SKU: Standard
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/publicIPAddresses"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP Load Balancer" id="id-tech-sB-sf-lb-00030">
-      <documentation>Azure Standard Load Balancer for SFTP VMs.
-Azure Resource Type: Microsoft.Network/loadBalancers
-SKU: Standard
-Frontend: SFTP endpoint (port 55022)
-Backend Pool: 2 SFTP VMs
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/loadBalancers"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 1 NIC" id="id-tech-sB-sf-vm1nic-00031">
-      <documentation>Network Interface for SFTP VM 1.
-Azure Resource Type: Microsoft.Network/networkInterfaces
-Subnet: Public Subnet 1
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/networkInterfaces"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 2 NIC" id="id-tech-sB-sf-vm2nic-00032">
-      <documentation>Network Interface for SFTP VM 2.
-Azure Resource Type: Microsoft.Network/networkInterfaces
-Subnet: Public Subnet 2
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/networkInterfaces"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 1" id="id-tech-sB-sf-vm1-00033">
-      <documentation>Linux Virtual Machine for SFTP Gateway 1.
-Azure Resource Type: Microsoft.Compute/virtualMachines
-OS: Ubuntu 22.04 LTS
-Identity: System-Assigned Managed Identity
-Docker: Installed via cloud-init
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachines"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 2" id="id-tech-sB-sf-vm2-00034">
-      <documentation>Linux Virtual Machine for SFTP Gateway 2.
-Azure Resource Type: Microsoft.Compute/virtualMachines
-OS: Ubuntu 22.04 LTS
-Identity: System-Assigned Managed Identity
-Docker: Installed via cloud-init
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Compute/virtualMachines"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 1 ACR Pull Role" id="id-tech-sB-sf-vm1acr-00035">
-      <documentation>Role Assignment granting SFTP VM 1 AcrPull access to ACR.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: AcrPull
-Scope: Azure Container Registry
-Principal: SFTP VM 1 System-Assigned Identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="SFTP VM 2 ACR Pull Role" id="id-tech-sB-sf-vm2acr-00036">
-      <documentation>Role Assignment granting SFTP VM 2 AcrPull access to ACR.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: AcrPull
-Scope: Azure Container Registry
-Principal: SFTP VM 2 System-Assigned Identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="AKS Cluster" id="id-tech-sB-sf-aks-00037">
-      <documentation>Azure Kubernetes Service cluster for MFT workloads.
-Azure Resource Type: Microsoft.ContainerService/managedClusters
-OIDC Issuer: Enabled
-Workload Identity: Enabled
-Key Vault CSI Driver: Enabled
-Network Plugin: Azure CNI
-Network Policy: Azure
-Zones: 1, 2, 3
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.ContainerService/managedClusters"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="AKS ACR Pull Role" id="id-tech-sB-sf-aksacr-00038">
-      <documentation>Role Assignment granting AKS kubelet identity AcrPull access to ACR.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: AcrPull
-Scope: Azure Container Registry
-Principal: AKS Kubelet Identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="PostgreSQL Private DNS Zone" id="id-tech-sB-sf-pgdns-00039">
-      <documentation>Private DNS Zone for PostgreSQL Flexible Server.
-Azure Resource Type: Microsoft.Network/privateDnsZones
-Zone Name: ${prefix}-postgres.private.postgres.database.azure.com
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/privateDnsZones"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="PostgreSQL DNS VNet Link" id="id-tech-sB-sf-pgdnslink-00040">
-      <documentation>Virtual Network Link for PostgreSQL Private DNS Zone.
-Azure Resource Type: Microsoft.Network/privateDnsZones/virtualNetworkLinks
-Links DNS Zone to Service Fulfillment VNet
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/privateDnsZones/virtualNetworkLinks"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="PostgreSQL Flexible Server" id="id-tech-sB-sf-postgres-00041">
-      <documentation>Azure PostgreSQL Flexible Server for MFT databases.
-Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers
-Version: 16 (default)
-SKU: Standard_D2s_v3 (default)
-Storage: 32 GB (default)
-Public Access: Disabled
-Delegated Subnet: Private Subnet 2
-Private DNS Zone: PostgreSQL Private DNS Zone
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="PostgreSQL Online Database" id="id-tech-sB-sf-pgdb-online-00042">
-      <documentation>PostgreSQL database for MFT online transactions.
-Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers/databases
-Database Name: mft_online (default)
-Charset: UTF8
-Collation: en_US.utf8
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers/databases"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="PostgreSQL Archive Database" id="id-tech-sB-sf-pgdb-archive-00043">
-      <documentation>PostgreSQL database for MFT archiving.
-Azure Resource Type: Microsoft.DBforPostgreSQL/flexibleServers/databases
-Database Name: mft_archive (default)
-Charset: UTF8
-Collation: en_US.utf8
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.DBforPostgreSQL/flexibleServers/databases"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Application Gateway Public IP" id="id-tech-sB-sf-appgwpip-00044">
-      <documentation>Public IP address for Application Gateway.
-Azure Resource Type: Microsoft.Network/publicIPAddresses
-Allocation: Static
-SKU: Standard
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/publicIPAddresses"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Application Gateway" id="id-tech-sB-sf-appgw-00045">
-      <documentation>Azure Application Gateway for MFT ingress.
-Azure Resource Type: Microsoft.Network/applicationGateways
-SKU: Standard_v2 (default)
-Tier: Standard_v2 (default)
-Capacity: 2 (default)
-Managed By: AGIC (Application Gateway Ingress Controller)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Network/applicationGateways"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="MFT Federated Credential" id="id-tech-sB-sf-mftfedcred-00046">
-      <documentation>Federated Identity Credential for MFT service account.
-Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
-Parent: ${prefix}-mft-identity
-Audience: api://AzureADTokenExchange
-Issuer: AKS OIDC Issuer URL
-Subject: system:serviceaccount:${mft_namespace}:${mft_service_account_name}
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="DBC Federated Credential" id="id-tech-sB-sf-dbcfedcred-00047">
-      <documentation>Federated Identity Credential for Database Configurator service account.
-Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
-Parent: ${prefix}-mft-identity
-Audience: api://AzureADTokenExchange
-Issuer: AKS OIDC Issuer URL
-Subject: system:serviceaccount:default:database-configurator-sa
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
       <property key="created-by" value="Infrastructure Team (Stage B)"/>
       <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
     </element>
@@ -846,102 +1019,6 @@ Created By: Infrastructure Team (Stage B)
       <property key="created-by" value="Infrastructure Team (Stage B)"/>
       <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
     </element>
-    <element xsi:type="archimate:Node" name="AGIC Federated Credential" id="id-tech-sB-sf-agicfedcred-00050">
-      <documentation>Federated Identity Credential for AGIC service account.
-Azure Resource Type: Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials
-Parent: ${prefix}-agic-identity
-Audience: api://AzureADTokenExchange
-Issuer: AKS OIDC Issuer URL
-Subject: system:serviceaccount:default:ingress-azure
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="AGIC RG Reader Role" id="id-tech-sB-sf-agicrgrole-00052">
-      <documentation>Role Assignment granting AGIC Reader access to Service Fulfillment Resource Group.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Reader
-Scope: ${prefix}-s-fulfillment Resource Group
-Principal: ${prefix}-agic-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="AGIC Subnet Network Contributor Role" id="id-tech-sB-sf-agicsubnetrole-00053">
-      <documentation>Role Assignment granting AGIC Network Contributor access to Application Gateway Subnet.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Network Contributor
-Scope: Application Gateway Subnet
-Principal: ${prefix}-agic-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="MFT KV Secrets User Role" id="id-tech-sB-sf-mftkvsecrets-00054">
-      <documentation>Role Assignment granting MFT identity Key Vault Secrets User access.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Key Vault Secrets User
-Scope: Key Vault (from 01-vault/)
-Principal: ${prefix}-mft-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="MFT KV Certificates User Role" id="id-tech-sB-sf-mftkvcerts-00055">
-      <documentation>Role Assignment granting MFT identity Key Vault Certificate User access.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Key Vault Certificate User
-Scope: Key Vault (from 01-vault/)
-Principal: ${prefix}-mft-identity
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="Terraform KV Administrator Role" id="id-tech-sB-sf-tfkvadmin-00056">
-      <documentation>Role Assignment granting Infrastructure SP Key Vault Administrator access for secret creation.
-Azure Resource Type: Microsoft.Authorization/roleAssignments
-Role: Key Vault Administrator
-Scope: Key Vault (from 01-vault/)
-Principal: Infrastructure Service Principal (current client)
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.Authorization/roleAssignments"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-    </element>
-    <element xsi:type="archimate:Node" name="MFT Default Secrets (13)" id="id-tech-sB-sf-mftsecretsdef-00057">
-      <documentation>13 default Key Vault secrets for MFT configuration.
-Azure Resource Type: Microsoft.KeyVault/vaults/secrets
-Secrets: admin-password, admin-ui-jks-keystore-password, admin-ui-pkcs12-keystore-password, admin-ui-jks-truststore-password, admin-ui-pkcs12-truststore-password, web-client-jks-keystore-password, web-client-pkcs12-keystore-password, web-client-jks-truststore-password, web-client-pkcs12-truststore-password, cert-jks-truststore-password, cert-pkcs12-truststore-password, sftp-ssh-private-key, metering-config-xml-file
-Created By: Infrastructure Team (Stage B)
-Note: Default values with WARNING tag - must be changed immediately
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.KeyVault/vaults/secrets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-      <property key="count" value="13"/>
-    </element>
-    <element xsi:type="archimate:Node" name="MFT Database Secrets (9)" id="id-tech-sB-sf-mftsecretsdb-00058">
-      <documentation>9 Key Vault secrets for MFT database credentials.
-Azure Resource Type: Microsoft.KeyVault/vaults/secrets
-Secrets: postgres-server-fqdn, postgres-online-db, postgres-archive-db, postgres-admin-user, postgres-admin-password, postgres-online-user, postgres-online-password, postgres-archive-user, postgres-archive-password
-Created By: Infrastructure Team (Stage B)
-</documentation>
-      <property key="Azure Resource Type" value="Microsoft.KeyVault/vaults/secrets"/>
-      <property key="created-by" value="Infrastructure Team (Stage B)"/>
-      <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
-      <property key="count" value="9"/>
-    </element>
     <element xsi:type="archimate:Node" name="Private MFT VFS Storage Account" id="id-tech-sB-sf-privatestorage-00059">
       <documentation>Optional Azure Storage Account for MFT Virtual File System (VFS).
 Azure Resource Type: Microsoft.Storage/storageAccounts
@@ -967,72 +1044,6 @@ Optional: Controlled by create_private_storage variable
       <property key="terraform-project" value="01-azure-prerequisites/03-infra-stage-B/"/>
       <property key="optional" value="yes — controlled by create_private_storage variable"/>
     </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Container Registry" id="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
-      <documentation>Microsoft Azure managed container registry service.
-Provides storage, management and distribution of container images and OCI artefacts.
-This is the generic platform-level capability; specific instances are modelled at the application layer.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Key Vault" id="id-tech-keyvault-000000000001">
-      <documentation>Microsoft Azure managed secrets, keys and certificates vault.
-Used generically by both the ServiceDelivery (build-time) and ServiceFulfillment (runtime) modules — each has its own ApplicationService instance.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Storage Account" id="id-tech-storage-000000000002">
-      <documentation>Microsoft Azure managed object and file storage service (StorageV2 / Azure Files).
-Used generically by both the build agent file share (ServiceDelivery) and the MFT VFS private share (ServiceFulfillment).
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure VM Scale Set" id="id-tech-vmss-0000000000003">
-      <documentation>Microsoft Azure managed Virtual Machine Scale Set (uniform orchestration).
-Used as the compute substrate for self-hosted Azure DevOps build agents.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure DevOps" id="id-tech-azdo-0000000000004">
-      <documentation>Microsoft Azure DevOps SaaS platform providing source control, CI/CD pipelines, agent pools and artefact management.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Virtual Network" id="id-tech-vnet-0000000000005">
-      <documentation>Microsoft Azure managed Virtual Network service (VNet, Subnets, NSGs, subnet associations).
-Used generically by both the ServiceDelivery agents network and the ServiceFulfillment runtime network.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Kubernetes Service" id="id-tech-aks-00000000000006">
-      <documentation>Microsoft Azure managed Kubernetes cluster service.
-Provides container orchestration, OIDC issuer for workload identity, Key Vault CSI driver and Azure CNI networking.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Application Gateway" id="id-tech-appgw-0000000000007">
-      <documentation>Microsoft Azure managed layer-7 load balancer and ingress service.
-Configured as the AGIC-managed ingress for the AKS cluster.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure PostgreSQL Flexible Server" id="id-tech-postgres-000000008">
-      <documentation>Microsoft Azure managed PostgreSQL Flexible Server database service.
-Provides the relational database backend for the MFT solution, deployed in a private delegated subnet.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Load Balancer" id="id-tech-lb-000000000000009">
-      <documentation>Microsoft Azure managed Standard Load Balancer (layer-4).
-Used to distribute inbound SFTP traffic across the two SFTP gateway VMs.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Linux Virtual Machine" id="id-tech-vm-000000000000010">
-      <documentation>Microsoft Azure managed Linux Virtual Machine compute service.
-Used as the underlying infrastructure for SFTP gateway nodes.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Managed Identity" id="id-tech-identity-000000011">
-      <documentation>Microsoft Azure managed identity service (User-Assigned Managed Identity with federated OIDC credentials).
-Provides credential-free authentication from Kubernetes workloads to Azure services.
-</documentation>
-    </element>
-    <element xsi:type="archimate:TechnologyService" name="Azure Private Link" id="id-tech-privatelink-000012">
-      <documentation>Microsoft Azure Private Endpoints and Private DNS Zones service.
-Provides private network connectivity to PaaS services (Key Vault, Storage) without traversing the public internet.
-</documentation>
-    </element>
-    <element xsi:type="archimate:Artifact" name="MFT KeyVault SF Artifact" id="id-05a5637827ba41c6bafc569808cd0174"/>
   </folder>
   <folder name="Motivation" id="id-74ebde5715144b66acb1c22b38b30759" type="motivation">
     <element xsi:type="archimate:Principle" name="Least Privilege" id="id-89d6fcff3f7443cfad966cffa1d8d862"/>
@@ -1057,17 +1068,12 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
       <documentation>Use specific users according to the technology used, but keep the secrets in the keyvault</documentation>
     </element>
   </folder>
-  <folder name="Other" id="id-c4bc1b32ed2046adb6f3734e12f7e989" type="other">
-    <element xsi:type="archimate:Grouping" name="Fulfillment - Security Related Long Term Stack" id="id-d48e23ee6d1f454f9eb19549fa7cd7e4">
-      <property key="stability" value="medium-long term"/>
-    </element>
-  </folder>
+  <folder name="Other" id="id-c4bc1b32ed2046adb6f3734e12f7e989" type="other"/>
   <folder name="Relations" id="id-934a0ed1368b44cba3f05914635bb933" type="relations">
     <element xsi:type="archimate:RealizationRelationship" id="id-b5c6d7e8f9a04b1c2d3e4f5a6b7c8d9e" source="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d" target="id-36f2bd3e10224074b745a791efbdbce9"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-keyvault-00000000001" source="id-tech-keyvault-000000000001" target="id-app-sd-keyvault-000000000001"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-storage-000000000002" source="id-tech-storage-000000000002" target="id-app-sd-storage-000000000002"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-vmss-0000000000003" source="id-tech-vmss-0000000000003" target="id-app-sd-vmss-0000000000003"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-azdo-0000000000004" source="id-tech-azdo-0000000000004" target="id-app-sd-azdo-0000000000004"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sd-network-00000000005" source="id-tech-vnet-0000000000005" target="id-app-sd-network-00000000005"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-aks-000000000006" source="id-tech-aks-00000000000006" target="id-app-sf-aks-000000000006"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-appgw-00000000007" source="id-tech-appgw-0000000000007" target="id-app-sf-appgw-00000000007"/>
@@ -1078,7 +1084,6 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-storage-00000012" source="id-tech-storage-000000000002" target="id-app-sf-storage-00000012"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-network-0000000013" source="id-tech-vnet-0000000000005" target="id-app-sf-network-0000000013"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-identity-000000014" source="id-tech-identity-000000011" target="id-app-sf-identity-000000014"/>
-    <element xsi:type="archimate:RealizationRelationship" id="id-rel-sf-privatelink-00015" source="id-tech-privatelink-000012" target="id-app-sf-privatelink-00015"/>
     <element xsi:type="archimate:AggregationRelationship" id="id-78a206e583004516b070010db4265988" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-bc0790da23d04777984ad36f7e417853"/>
     <element xsi:type="archimate:AggregationRelationship" id="id-b0d438ff50854e58b5772bbd11c23d53" source="id-b5dc9474f15d4021b917341430ef5be4" target="id-911694e1c3fa412fb9d8acba67e06bc8"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-81ac2d39b2534aca9fce728751e2027d" source="id-2c584ec2481a4b39882308f2adad6996" target="id-7ebd87384e8e4817b2dd84553cb46a4b"/>
@@ -1087,10 +1092,6 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:InfluenceRelationship" id="id-7ebd87384e8e4817b2dd84553cb46a4b" source="id-911694e1c3fa412fb9d8acba67e06bc8" target="id-72aff90e280748aa97a74116f29b3c3e"/>
     <element xsi:type="archimate:InfluenceRelationship" id="id-67e77531be83492b915b9f75626a31d0" source="id-72aff90e280748aa97a74116f29b3c3e" target="id-e679d79780994dd1b09f1f2e1d3ef3a0"/>
     <element xsi:type="archimate:AssociationRelationship" id="id-69b26ab90283457dad59587fcd6eecae" source="id-7531efe3881f4bb3bedb8bb59dcb72f6" target="id-67e77531be83492b915b9f75626a31d0"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-95ac8347af0c4b628eeaf9e5679491a9" source="id-d48e23ee6d1f454f9eb19549fa7cd7e4" target="id-app-sf-keyvault-000000009"/>
-    <element xsi:type="archimate:CompositionRelationship" id="id-f010a1769d2c404782ca701aee3485af" source="id-d48e23ee6d1f454f9eb19549fa7cd7e4" target="id-05a5637827ba41c6bafc569808cd0174"/>
-    <element xsi:type="archimate:AccessRelationship" id="id-e4b07a1594af4e71b0ab170cb32c577a" source="id-app-sf-keyvault-000000009" target="id-05a5637827ba41c6bafc569808cd0174"/>
-    <element xsi:type="archimate:AssociationRelationship" id="id-3f6ee55a4e694d9cac9fbc2137d2b559" source="id-05a5637827ba41c6bafc569808cd0174" target="id-app-sf-keyvault-000000009"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-rg-fulfillment-uami" source="id-tech-rg-fulfillment-000002" target="id-tech-uami-mftidentity-00005"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-rel-sA-app-contains-sp" source="id-tech-app-infraapp-000004" target="id-tech-sp-infrasp-0000003"/>
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-to-sp" source="id-tech-rbac-delivery-000006" target="id-tech-sp-infrasp-0000003"/>
@@ -1123,10 +1124,10 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
     <element xsi:type="archimate:AccessRelationship" id="id-rel-sA-sp-access-rg-kv" source="id-tech-sp-infrasp-0000003" target="id-tech-rg-keyvault-000012"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-del-uaa" source="id-app-secstageA-tf-000001" target="id-tech-rbac-delivery-uaa-00067"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-ful-uaa" source="id-app-secstageA-tf-000001" target="id-tech-rbac-fulfillmt-uaa-00068"/>
-    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-uaa-to-sp" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-uaa-to-sp" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-sp-infrasp-0000003"/>
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-del-uaa-to-rg" source="id-tech-rbac-delivery-uaa-00067" target="id-tech-rg-delivery-00000001"/>
     <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-uaa-to-sp" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-sp-infrasp-0000003"/>
-    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-uaa-to-rg" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-app-infraapp-000004"/>
+    <element xsi:type="archimate:AssignmentRelationship" id="id-rel-sA-rbac-ful-uaa-to-rg" source="id-tech-rbac-fulfillmt-uaa-00068" target="id-tech-rg-fulfillment-000002"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-roledef-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-custom-roledef-00069"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-del-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-delivery-custom-00070"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-rel-sA-tf-to-rbac-ful-custom" source="id-app-secstageA-custom-role-00001" target="id-tech-rbac-fulfillmt-custom-00071"/>
@@ -1231,13 +1232,6 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
           <child xsi:type="archimate:DiagramObject" id="id-8ba22f9b450f41a0bd8e584e036011f1" targetConnections="id-1079b6e1c1284c6f86da6fa31e1a9e09" textPosition="1" archimateElement="id-app-sd-vmss-0000000000003">
             <bounds x="372" y="12" width="169" height="55"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-41d605e620f848ce9be06c70b31949f6" textPosition="1" archimateElement="id-tech-azdo-0000000000004">
-            <bounds x="192" y="96" width="169" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-7c5c338ab27e47c29a7f3a1f8c9e3c5d" source="id-41d605e620f848ce9be06c70b31949f6" target="id-17063f9263ab4c07a55aaf583b0fff9c" archimateRelationship="id-rel-sd-azdo-0000000000004"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-17063f9263ab4c07a55aaf583b0fff9c" targetConnections="id-7c5c338ab27e47c29a7f3a1f8c9e3c5d" textPosition="1" archimateElement="id-app-sd-azdo-0000000000004">
-            <bounds x="192" y="12" width="169" height="55"/>
-          </child>
           <child xsi:type="archimate:DiagramObject" id="id-f91c9bd198f1442bab4ffbaefee1979d" textPosition="1" archimateElement="id-tech-vnet-0000000000005">
             <bounds x="912" y="96" width="169" height="55"/>
             <sourceConnection xsi:type="archimate:Connection" id="id-2527bd154c444358b8c85d9f5f0d1e0b" source="id-f91c9bd198f1442bab4ffbaefee1979d" target="id-2d2cb510a24740d1800737acc6ebcd06" archimateRelationship="id-rel-sd-network-00000000005"/>
@@ -1312,28 +1306,8 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
           <child xsi:type="archimate:DiagramObject" id="id-a3af35bb0d3942f9bb699b50b1ddb9e0" targetConnections="id-0f90692f6a33428f8af39d80e90e1476" archimateElement="id-app-sf-identity-000000014">
             <bounds x="660" y="348" width="187" height="55"/>
           </child>
-          <child xsi:type="archimate:DiagramObject" id="id-1303b76aae0b43afbf111944c92b36e8" archimateElement="id-tech-privatelink-000012">
-            <bounds x="228" y="348" width="187" height="55"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-fdb0db04bae5441984ce2bf045e8198f" source="id-1303b76aae0b43afbf111944c92b36e8" target="id-1296a16ff8d84716bb0fba178d778811" archimateRelationship="id-rel-sf-privatelink-00015"/>
-          </child>
-          <child xsi:type="archimate:DiagramObject" id="id-1296a16ff8d84716bb0fba178d778811" targetConnections="id-fdb0db04bae5441984ce2bf045e8198f" archimateElement="id-app-sf-privatelink-00015">
-            <bounds x="228" y="264" width="187" height="55"/>
-          </child>
         </element>
-        <element xsi:type="archimate:ArchimateDiagramModel" name="Stacks" id="id-51c9b66872b54333a3c92fbab135015b">
-          <child xsi:type="archimate:DiagramObject" id="id-2692c954f75349c2986d46a2da464d71" textAlignment="1" archimateElement="id-d48e23ee6d1f454f9eb19549fa7cd7e4">
-            <bounds x="12" y="288" width="541" height="157"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-b4e6d3b1d62b4ea7b1192e9b6e4295cb" source="id-2692c954f75349c2986d46a2da464d71" target="id-60614ffcadc046a6aed024a7a9e86163" archimateRelationship="id-95ac8347af0c4b628eeaf9e5679491a9"/>
-            <sourceConnection xsi:type="archimate:Connection" id="id-5c04bcfbf64145c7aca499e2ade59f03" source="id-2692c954f75349c2986d46a2da464d71" target="id-cf165e42be2a48079c6e83ca8e340373" archimateRelationship="id-f010a1769d2c404782ca701aee3485af"/>
-            <child xsi:type="archimate:DiagramObject" id="id-60614ffcadc046a6aed024a7a9e86163" targetConnections="id-b4e6d3b1d62b4ea7b1192e9b6e4295cb id-58bbfcd564a842b198267a4cbd167e37" archimateElement="id-app-sf-keyvault-000000009">
-              <bounds x="24" y="30" width="120" height="55"/>
-            </child>
-            <child xsi:type="archimate:DiagramObject" id="id-cf165e42be2a48079c6e83ca8e340373" targetConnections="id-5c04bcfbf64145c7aca499e2ade59f03" archimateElement="id-05a5637827ba41c6bafc569808cd0174">
-              <bounds x="192" y="72" width="120" height="55"/>
-              <sourceConnection xsi:type="archimate:Connection" id="id-58bbfcd564a842b198267a4cbd167e37" source="id-cf165e42be2a48079c6e83ca8e340373" target="id-60614ffcadc046a6aed024a7a9e86163" archimateRelationship="id-3f6ee55a4e694d9cac9fbc2137d2b559"/>
-            </child>
-          </child>
-        </element>
+        <element xsi:type="archimate:ArchimateDiagramModel" name="Stacks" id="id-51c9b66872b54333a3c92fbab135015b"/>
       </folder>
     </folder>
     <folder name="Stacks" id="id-ea64ada5fc814b709d2715829e80d66e">
@@ -1489,6 +1463,15 @@ Provides private network connectivity to PaaS services (Key Vault, Storage) with
           </child>
         </child>
       </element>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="03-infra-stage-B (Service Delivery Resources)" id="id-e061883898214505870287201f14e629">
+        <child xsi:type="archimate:DiagramObject" id="id-80029f4a342c4c26bc122752f33ccb3f" archimateElement="id-tech-sB-sd-vmss-00017">
+          <bounds x="328" y="171" width="120" height="55"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-1f37c83007de419ea90d7784603d77be" archimateElement="id-a1b2c3d4e5f64a7b8c9d0e1f2a3b4c5d">
+          <bounds x="516" y="171" width="120" height="55"/>
+        </child>
+      </element>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="test" id="id-192fba6349724c79a849c56bce2d4354"/>
     </folder>
     <element xsi:type="archimate:ArchimateDiagramModel" name="Requirements" id="id-a0e642f5c59f4ee2b11f3833267838a7">
       <child xsi:type="archimate:DiagramObject" id="id-164db30f7e75407f92e203e3fbdd046b" archimateElement="id-89d6fcff3f7443cfad966cffa1d8d862">
