@@ -496,24 +496,42 @@ Note: External to Stage A, referenced for RBAC assignment.
     <folder name="Detailed" id="id-44671c3d79f84fb188e63b35508b04f4">
       <folder name="ServiceFulfillment" id="id-07334ed58a564d71a9c38541906ca77e"/>
     </folder>
-    <folder name="HL" id="id-2e9b9d393dbf4685a36f3a22593fbb7b">
+    <folder name="High Level Design" id="id-2e9b9d393dbf4685a36f3a22593fbb7b">
       <folder name="ServiceFulfillment" id="id-4e529912134c402890b1639c6424a35b">
         <element xsi:type="archimate:ApplicationCollaboration" name="Vega Gateway" id="id-27e5c93932e745cbaef4ce12bdc2a5fc">
           <documentation>Application arrangement of Active transfer Gateways to serve inbound connectivity
 </documentation>
         </element>
         <element xsi:type="archimate:ApplicationService" name="Gateway Load Balancer" id="id-a7d89493848a44a081473be51902e4db"/>
-        <element xsi:type="archimate:ApplicationService" name="Aegis Identity Provider" id="id-b2e708cb7fc94f209b6b7bc95cbf7973"/>
-        <element xsi:type="archimate:ApplicationService" name="Aegis Vault" id="id-90ed4e3691e64da1a40c02c8d028af51"/>
         <element xsi:type="archimate:ApplicationService" name="Vega wm Archive DB Instance" id="id-dd92023c98514dd082fb94fb88c218f3"/>
         <element xsi:type="archimate:ApplicationService" name="Vega wm Online DB Instance" id="id-c5c4e59751c9450480062a459fdbddd3"/>
-        <element xsi:type="archimate:ApplicationService" name="Administration Azure Inbound Connectivity" id="id-a9f806a97ad2469aa7ca835c7c6b05d3"/>
+        <element xsi:type="archimate:ApplicationService" name="Orpheus Azure Inbound Connectivity" id="id-a9f806a97ad2469aa7ca835c7c6b05d3"/>
         <element xsi:type="archimate:ApplicationService" name="Administration Ingress" id="id-4d45d78dae294b9fae4e4a6effb5cc81"/>
         <element xsi:type="archimate:ApplicationComponent" name="Identities Resolver" id="id-5d36921af70f413c87d2019853d560f1"/>
+        <element xsi:type="archimate:ApplicationComponent" name="Grants Resolver" id="id-fcf9e4c9cde444a0a9031261c1f2cbfb"/>
+      </folder>
+      <folder name="OrgLevel" id="id-43c39ae8efbb4cd6b5195f30efcf4bcb">
+        <element xsi:type="archimate:ApplicationService" name="Aegis Grants Provider" id="id-49a6304ea5ad4987990ba41aab912389"/>
+        <element xsi:type="archimate:ApplicationService" name="Aegis Vault" id="id-90ed4e3691e64da1a40c02c8d028af51"/>
+        <element xsi:type="archimate:ApplicationService" name="Aegis Identity Provider" id="id-b2e708cb7fc94f209b6b7bc95cbf7973"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Identity Management" id="id-6fa6cb0687884063a0bf6891dedd03e3"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Permissions Management" id="id-4d888af2d12b4e67b40a12285474ec8a"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Organization's Identity and Access Management" id="id-40572ba7e44047619b23fe287bf37f6d"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Secrets Management" id="id-f99418fe889e43c586e64d3f552ce7bb"/>
+      </folder>
+      <folder name="ServiceDelivery" id="id-7f4fd747c418436f91c832b372cb8389">
+        <element xsi:type="archimate:ApplicationProcess" name="Orphaeus Libraries Ingestion" id="id-721fb74261744c98b46ae3939230771e"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Orphaeus Software Ingestion" id="id-fff9c83ccec14f0eae132dcb97e5c616"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Orphaeus Technology Container Images Ingestion" id="id-6fda8973a992452e8f4f6e8af04592d4"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Vega Application Images" id="id-f054d07b3e954cc7a30b8246c75f012f"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Vega Container Images Management" id="id-2e3719db0f5f47c3aca232296fd244d0"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Vega Core Service Management" id="id-0cbeb5b01b5a4e9c9d3311d8fc1ddf26"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Vega DB DDL Management" id="id-7071e60de69d43c1813dae2d70414457"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Vega Gateway Service Management" id="id-5fb36a6a33fc4ee7be44fc8d1bb49b93"/>
+        <element xsi:type="archimate:ApplicationFunction" name="Vega GitOps" id="id-d87bd9df97e54fa7920b3c2f78d96a4d"/>
+        <element xsi:type="archimate:ApplicationProcess" name="Vega Technology Images Enhancement" id="id-d044fdc83d324d0a89c716e053644007"/>
       </folder>
     </folder>
-    <element xsi:type="archimate:ApplicationService" name="Aegis Grants Provider" id="id-49a6304ea5ad4987990ba41aab912389"/>
-    <element xsi:type="archimate:ApplicationComponent" name="Grants Resolver" id="id-fcf9e4c9cde444a0a9031261c1f2cbfb"/>
   </folder>
   <folder name="Technology &amp; Physical" id="id-cdf36429f3104aa2866ab552e5bf52bc" type="technology">
     <folder name="OwnedBySecurity" id="id-6592f07ff9424d3f9677568a27d5e912">
@@ -1298,6 +1316,24 @@ Created By: Infrastructure Team (Stage B)
     <element xsi:type="archimate:AssignmentRelationship" id="id-679b82dc820a432b9e5bbdd73e884e47" source="id-f6a52bc87fb843cc9633619998119bed" target="id-49a6304ea5ad4987990ba41aab912389"/>
     <element xsi:type="archimate:FlowRelationship" id="id-306b88306acd4aeda554828e1869d456" source="id-49a6304ea5ad4987990ba41aab912389" target="id-fcf9e4c9cde444a0a9031261c1f2cbfb"/>
     <element xsi:type="archimate:FlowRelationship" id="id-301548293d13459ca4cc48f7123002c9" source="id-fcf9e4c9cde444a0a9031261c1f2cbfb" target="id-3524f67957de469ebce4b8ced2a3187f"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-1b9ae800576d4a2b9e2aa4ce85471447" source="id-biz-actor-secteam-00001" target="id-40572ba7e44047619b23fe287bf37f6d"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-2cc94c51f9a34ec0957f21caca8770b2" source="id-40572ba7e44047619b23fe287bf37f6d" target="id-f99418fe889e43c586e64d3f552ce7bb"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-7bd53b66dd2d4c2dbf39e8b6d9306aba" source="id-40572ba7e44047619b23fe287bf37f6d" target="id-6fa6cb0687884063a0bf6891dedd03e3"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-ce178c1ee0364a079df356693d6887de" source="id-40572ba7e44047619b23fe287bf37f6d" target="id-4d888af2d12b4e67b40a12285474ec8a"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-af9796770412487f98c90086d29e5d86" source="id-fff9c83ccec14f0eae132dcb97e5c616" target="id-721fb74261744c98b46ae3939230771e"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-03dcf67d47994caf99e5317b1faddcd2" source="id-fff9c83ccec14f0eae132dcb97e5c616" target="id-6fda8973a992452e8f4f6e8af04592d4"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-aa9dc9d877e342ce8129ea8545aee376" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-fff9c83ccec14f0eae132dcb97e5c616"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-2d48351c072e4494babba80388c959dc" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-fff9c83ccec14f0eae132dcb97e5c616"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-23cd048c5b1c4445bd9e94394713c52c" source="id-biz-actor-secteam-00001" target="id-40572ba7e44047619b23fe287bf37f6d"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-a1e1c0cae8b149e3bdda8151de3db41c" source="id-2e3719db0f5f47c3aca232296fd244d0" target="id-d044fdc83d324d0a89c716e053644007"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-be250db6de7544998a43ba9ac5837869" source="id-2e3719db0f5f47c3aca232296fd244d0" target="id-f054d07b3e954cc7a30b8246c75f012f"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-320c05c0fe3c41adb17e97dedb5edeb7" source="id-d87bd9df97e54fa7920b3c2f78d96a4d" target="id-7071e60de69d43c1813dae2d70414457"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-80433f615ad04e3bbac617084f266d1b" source="id-d87bd9df97e54fa7920b3c2f78d96a4d" target="id-0cbeb5b01b5a4e9c9d3311d8fc1ddf26"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-552509841b6b41e480f5c2cb1371d943" source="id-d87bd9df97e54fa7920b3c2f78d96a4d" target="id-5fb36a6a33fc4ee7be44fc8d1bb49b93"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-abce8fe4d1da458ebc65c4b3f87d817e" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-2e3719db0f5f47c3aca232296fd244d0"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-eee960b1bcb74d1eaa54b5a649180005" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-d87bd9df97e54fa7920b3c2f78d96a4d"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-7858a3a52c4846cca560fbaccb837e59" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-d87bd9df97e54fa7920b3c2f78d96a4d"/>
+    <element xsi:type="archimate:AssociationRelationship" id="id-3f32a90e617c4e33912a941fda0eccd6" source="id-d0df111d0fd247c99a2c4230ab9fecbc" target="id-2e3719db0f5f47c3aca232296fd244d0"/>
   </folder>
   <folder name="Views" id="id-19561e1f56014212b6d67baac1be1dcb" type="diagrams">
     <folder name="Detailed" id="id-8ac1dbb55615450eaaa916767dc1c936">
@@ -2063,6 +2099,117 @@ Created By: Infrastructure Team (Stage B)
         <child xsi:type="archimate:DiagramObject" id="id-1ecbe00b310c442bb096db78487035af" targetConnections="id-b337d5bc6a76437ba74bda6fc02c46d7" archimateElement="id-d0df111d0fd247c99a2c4230ab9fecbc">
           <bounds x="612" y="24" width="169" height="25"/>
           <sourceConnection xsi:type="archimate:Connection" id="id-9a920b71defd4cf7a6d915343028d648" source="id-1ecbe00b310c442bb096db78487035af" target="id-281840e328d84794949c8bcd452af948" archimateRelationship="id-ec1b3247ab9f4ea58416b9496e28ae42"/>
+        </child>
+      </element>
+      <element xsi:type="archimate:ArchimateDiagramModel" name="Delivery" id="id-93c1c1865d6a4b3c8c8a6bc97b87ce44">
+        <child xsi:type="archimate:DiagramObject" id="id-a21eb22452224d20b6f4e90fc61d38a5" archimateElement="id-biz-actor-secteam-00001">
+          <bounds x="12" y="12" width="205" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-e56ba1310ee641598141855915d7d7a4" source="id-a21eb22452224d20b6f4e90fc61d38a5" target="id-8ecb03d8ab9348bba97da45522066052" archimateRelationship="id-1b9ae800576d4a2b9e2aa4ce85471447">
+            <bendpoint startX="-30" startY="45" endX="-36" endY="-107"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-5a4f2155ab6945d7834996243df613c1" source="id-a21eb22452224d20b6f4e90fc61d38a5" target="id-8ecb03d8ab9348bba97da45522066052" archimateRelationship="id-23cd048c5b1c4445bd9e94394713c52c"/>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-caab556d51794b679600bc8d6e55a600" archimateElement="id-d0df111d0fd247c99a2c4230ab9fecbc">
+          <bounds x="252" y="12" width="721" height="55"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-9af576ae872d43ccb11757de3fdd18a4" source="id-caab556d51794b679600bc8d6e55a600" target="id-2d579eb44c9b4293a8132d4665a7620c" archimateRelationship="id-aa9dc9d877e342ce8129ea8545aee376">
+            <bendpoint startX="-252" startY="57" endX="11" endY="-95"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-8a3ac3c0299744a997340827472afc8b" source="id-caab556d51794b679600bc8d6e55a600" target="id-2d579eb44c9b4293a8132d4665a7620c" archimateRelationship="id-2d48351c072e4494babba80388c959dc"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-b3b54c22e11d47fbae1cbd93be62517d" source="id-caab556d51794b679600bc8d6e55a600" target="id-9cce6c14084543a197a2b2794c366e37" archimateRelationship="id-abce8fe4d1da458ebc65c4b3f87d817e">
+            <bendpoint startX="-60" startY="45" endX="-12" endY="-107"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-55d06ee42ee84c5abea1db9c0c5e5c26" source="id-caab556d51794b679600bc8d6e55a600" target="id-a3df93a51c6e4154a00cfa700697afee" archimateRelationship="id-eee960b1bcb74d1eaa54b5a649180005">
+            <bendpoint startX="204" startY="57" endX="-12" endY="-95"/>
+          </sourceConnection>
+          <sourceConnection xsi:type="archimate:Connection" id="id-96e2f8c542af4d0cb0538a182634b130" source="id-caab556d51794b679600bc8d6e55a600" target="id-a3df93a51c6e4154a00cfa700697afee" archimateRelationship="id-7858a3a52c4846cca560fbaccb837e59"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-ea0efb1fcb3f41f9bd26c189796775b3" source="id-caab556d51794b679600bc8d6e55a600" target="id-9cce6c14084543a197a2b2794c366e37" archimateRelationship="id-3f32a90e617c4e33912a941fda0eccd6"/>
+        </child>
+        <child xsi:type="archimate:Note" id="id-cbb6340207a04911824cd01a118f2470" textAlignment="1">
+          <bounds x="12" y="312" width="205" height="73"/>
+          <sourceConnection id="id-d4833e6731ae4ed58ab842495873026b" source="id-cbb6340207a04911824cd01a118f2470" target="id-8ecb03d8ab9348bba97da45522066052"/>
+          <content>Lifecycle: Long Lived / Longer than Vega Service
+
+Organization Level</content>
+        </child>
+        <child xsi:type="archimate:Note" id="id-8a51d330b6024c5281c44efbe6b4624c" textAlignment="1">
+          <bounds x="252" y="312" width="194" height="193"/>
+          <sourceConnection id="id-96adc6a2931445388d87509d817b1a3f" source="id-8a51d330b6024c5281c44efbe6b4624c" target="id-2d579eb44c9b4293a8132d4665a7620c"/>
+          <content>Lifecycle: Long Lived, possibly longer than Vega Service
+
+Guidelines:
+1. Manage at organization level, if not possible manage at application team level
+2. Apply at this point software supply chain security policies
+</content>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-8ecb03d8ab9348bba97da45522066052" targetConnections="id-d4833e6731ae4ed58ab842495873026b id-e56ba1310ee641598141855915d7d7a4 id-5a4f2155ab6945d7834996243df613c1" archimateElement="id-40572ba7e44047619b23fe287bf37f6d">
+          <bounds x="12" y="108" width="217" height="167"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-a7d752d78db740beb5e9eba9f4d499f2" source="id-8ecb03d8ab9348bba97da45522066052" target="id-28c5f31c5e1843eb90288729560727a3" archimateRelationship="id-2cc94c51f9a34ec0957f21caca8770b2"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-4e04bf4b31cb413cab68fd95e6bb23af" source="id-8ecb03d8ab9348bba97da45522066052" target="id-33208f05bbcb439bbff74154e221f8aa" archimateRelationship="id-7bd53b66dd2d4c2dbf39e8b6d9306aba"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-40f0ffdcb15f4ed38ee7c83c8151f988" source="id-8ecb03d8ab9348bba97da45522066052" target="id-f239ef915c1f48e09d5168327623bde8" archimateRelationship="id-ce178c1ee0364a079df356693d6887de"/>
+          <child xsi:type="archimate:DiagramObject" id="id-28c5f31c5e1843eb90288729560727a3" targetConnections="id-a7d752d78db740beb5e9eba9f4d499f2" archimateElement="id-f99418fe889e43c586e64d3f552ce7bb">
+            <bounds x="12" y="48" width="193" height="25"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-33208f05bbcb439bbff74154e221f8aa" targetConnections="id-4e04bf4b31cb413cab68fd95e6bb23af" archimateElement="id-6fa6cb0687884063a0bf6891dedd03e3">
+            <bounds x="12" y="84" width="193" height="25"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-f239ef915c1f48e09d5168327623bde8" targetConnections="id-40f0ffdcb15f4ed38ee7c83c8151f988" archimateElement="id-4d888af2d12b4e67b40a12285474ec8a">
+            <bounds x="12" y="120" width="193" height="25"/>
+          </child>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-2d579eb44c9b4293a8132d4665a7620c" targetConnections="id-96adc6a2931445388d87509d817b1a3f id-9af576ae872d43ccb11757de3fdd18a4 id-8a3ac3c0299744a997340827472afc8b" archimateElement="id-fff9c83ccec14f0eae132dcb97e5c616">
+          <bounds x="252" y="108" width="194" height="167"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-d7bcd0b80c2148d885df5a1ea07d2f1c" source="id-2d579eb44c9b4293a8132d4665a7620c" target="id-7b30fbc9967245e8bcc45e9ab3d866a3" archimateRelationship="id-af9796770412487f98c90086d29e5d86"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-f1b37c223ab041dd8228361de3d0d2b8" source="id-2d579eb44c9b4293a8132d4665a7620c" target="id-15e537553e1147c9b3fee3a012b1f109" archimateRelationship="id-03dcf67d47994caf99e5317b1faddcd2"/>
+          <child xsi:type="archimate:DiagramObject" id="id-7b30fbc9967245e8bcc45e9ab3d866a3" targetConnections="id-d7bcd0b80c2148d885df5a1ea07d2f1c" archimateElement="id-721fb74261744c98b46ae3939230771e">
+            <bounds x="12" y="36" width="169" height="43"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-15e537553e1147c9b3fee3a012b1f109" targetConnections="id-f1b37c223ab041dd8228361de3d0d2b8" archimateElement="id-6fda8973a992452e8f4f6e8af04592d4">
+            <bounds x="12" y="84" width="169" height="55"/>
+          </child>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-9cce6c14084543a197a2b2794c366e37" targetConnections="id-b3b54c22e11d47fbae1cbd93be62517d id-ea0efb1fcb3f41f9bd26c189796775b3" archimateElement="id-2e3719db0f5f47c3aca232296fd244d0">
+          <bounds x="468" y="108" width="193" height="167"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-c4cfbc079cdc499da4e35ce4cf52e304" source="id-9cce6c14084543a197a2b2794c366e37" target="id-bdf4ab2588c34441b5514b1bfff5d1e7" archimateRelationship="id-a1e1c0cae8b149e3bdda8151de3db41c"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-e5cb66fec94444e8a677e33a6b34cebf" source="id-9cce6c14084543a197a2b2794c366e37" target="id-e366c6a1cc524fd3bc94e84dbefba16c" archimateRelationship="id-be250db6de7544998a43ba9ac5837869"/>
+          <sourceConnection id="id-d99685c27717447fbca0151bf31aa879" source="id-9cce6c14084543a197a2b2794c366e37" target="id-0e9d5c3a7461482791660767ab535d87"/>
+          <child xsi:type="archimate:DiagramObject" id="id-bdf4ab2588c34441b5514b1bfff5d1e7" targetConnections="id-c4cfbc079cdc499da4e35ce4cf52e304" archimateElement="id-d044fdc83d324d0a89c716e053644007">
+            <bounds x="12" y="48" width="171" height="49"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-e366c6a1cc524fd3bc94e84dbefba16c" targetConnections="id-e5cb66fec94444e8a677e33a6b34cebf" archimateElement="id-f054d07b3e954cc7a30b8246c75f012f">
+            <bounds x="13" y="108" width="169" height="43"/>
+          </child>
+        </child>
+        <child xsi:type="archimate:Note" id="id-0e9d5c3a7461482791660767ab535d87" targetConnections="id-d99685c27717447fbca0151bf31aa879" textAlignment="1">
+          <bounds x="468" y="312" width="193" height="193"/>
+          <content>Lifecycle: Living of the Extended Duration of Vega Service, from inception to retirement and for the necessary archival time
+
+Guidelines:
+1. Separate the lifecycle of this part from GitOps part. Link Git Ops to images using image tags</content>
+        </child>
+        <child xsi:type="archimate:DiagramObject" id="id-a3df93a51c6e4154a00cfa700697afee" targetConnections="id-55d06ee42ee84c5abea1db9c0c5e5c26 id-96e2f8c542af4d0cb0538a182634b130" archimateElement="id-d87bd9df97e54fa7920b3c2f78d96a4d">
+          <bounds x="684" y="108" width="289" height="167"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-57ccf8d464514cad970db5738a338bd6" source="id-a3df93a51c6e4154a00cfa700697afee" target="id-3e058adc5afa47bea8fc5cefdfa8def6" archimateRelationship="id-320c05c0fe3c41adb17e97dedb5edeb7"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-cab12ff57f4e4f0ea2d9c5a7a9f3c877" source="id-a3df93a51c6e4154a00cfa700697afee" target="id-4b9bb610e3c846e3bed30a8dcc1ff625" archimateRelationship="id-80433f615ad04e3bbac617084f266d1b"/>
+          <sourceConnection xsi:type="archimate:Connection" id="id-673f77360e99477abafe7bff4a1187bb" source="id-a3df93a51c6e4154a00cfa700697afee" target="id-11e7962c86ed40dc8bc2a3c2aed8a96c" archimateRelationship="id-552509841b6b41e480f5c2cb1371d943"/>
+          <sourceConnection id="id-5993c1636d1d44ddb996d0e073e4a71d" source="id-a3df93a51c6e4154a00cfa700697afee" target="id-eeb930aabc014cdbb98603331de7150f"/>
+          <child xsi:type="archimate:DiagramObject" id="id-3e058adc5afa47bea8fc5cefdfa8def6" targetConnections="id-57ccf8d464514cad970db5738a338bd6" archimateElement="id-7071e60de69d43c1813dae2d70414457">
+            <bounds x="12" y="48" width="265" height="25"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-4b9bb610e3c846e3bed30a8dcc1ff625" targetConnections="id-cab12ff57f4e4f0ea2d9c5a7a9f3c877" archimateElement="id-0cbeb5b01b5a4e9c9d3311d8fc1ddf26">
+            <bounds x="157" y="84" width="120" height="55"/>
+          </child>
+          <child xsi:type="archimate:DiagramObject" id="id-11e7962c86ed40dc8bc2a3c2aed8a96c" targetConnections="id-673f77360e99477abafe7bff4a1187bb" archimateElement="id-5fb36a6a33fc4ee7be44fc8d1bb49b93">
+            <bounds x="12" y="84" width="132" height="55"/>
+          </child>
+        </child>
+        <child xsi:type="archimate:Note" id="id-eeb930aabc014cdbb98603331de7150f" targetConnections="id-5993c1636d1d44ddb996d0e073e4a71d" textAlignment="1">
+          <bounds x="685" y="312" width="288" height="265"/>
+          <content>Lifecycle: GitOps for all time interval where Vega is deployed. Smaller intervals for the managed layers and objects
+
+Guidelines:
+1. Environments are folders, not branches. Avoid branching by environment.
+2. Configuration services, such as DB DDL management process must be done when needed by the software evolution, not only at initial setup time
+3. Vega services GitOps include all necessary aspects, from the IaC laying the infrastructure, passing through the product service deployment using helm, to the rules and flows delivery. Orhpeus team is responsible for all aspects</content>
         </child>
       </element>
     </folder>
